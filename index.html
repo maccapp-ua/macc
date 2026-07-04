@@ -98,7 +98,7 @@ select.form-input option{background:var(--bg3)}
     <div class="modal-body">
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Тип *</label>
-          <select class="form-input" id="cf-type" onchange="updateCfCategories()">
+          <select class="form-input" id="cf-type">
             <option value="income">📈 Дохід</option>
             <option value="expense">📉 Розхід</option>
           </select></div>
@@ -114,9 +114,11 @@ select.form-input option{background:var(--bg3)}
         <div class="form-group"><label class="form-label">Сума, грн *</label>
           <input class="form-input" type="number" id="cf-amount" placeholder="0" min="0" step="0.01"></div>
       </div>
+      <datalist id="cf-cat-list"></datalist>
+      <datalist id="cf-cp-list"></datalist>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Категорія</label>
-          <select class="form-input" id="cf-category"></select></div>
+          <input class="form-input" id="cf-category" list="cf-cat-list" placeholder="введіть або оберіть..."></div>
         <div class="form-group"><label class="form-label">Об'єкт</label>
           <select class="form-input" id="cf-site">
             <option value="">— Без об'єкта —</option>
@@ -124,7 +126,7 @@ select.form-input option{background:var(--bg3)}
       </div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Контрагент</label>
-          <input class="form-input" id="cf-counterparty" placeholder="назва компанії або ПІБ"></div>
+          <input class="form-input" id="cf-counterparty" list="cf-cp-list" placeholder="введіть або оберіть..."></div>
         <div class="form-group"><label class="form-label">Тег</label>
           <input class="form-input" id="cf-tag" placeholder="напр. податки, зарплата, матеріали..."></div>
       </div>
@@ -297,7 +299,7 @@ select.form-input option{background:var(--bg3)}
 const FB_URL='https://macc-d6e9b-default-rtdb.europe-west1.firebasedatabase.app';
 let state={sites:[],itrs:[],subs:[],cashflows:[]};
 let curPage='sites',curSiteId=null,curITRId=null,curSubId=null,curExecutorsTab='itr';
-let cfFilters={type:'',form:'',category:'',site:'',tag:'',dateFrom:'',dateTo:'',search:''};
+let cfFilters={type:'',form:'',category:'',site:'',tag:'',month:'',search:''};
 let editingSiteId=null,editingITRId=null,editingSubId=null;
 let _siteITR=[],_siteSubs=[],_afterITRSave=null,_afterSubSave=null,_saveTimer=null;
 
@@ -311,8 +313,6 @@ function esc(v){return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function daysLeft(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
 function pct(num,den){if(!den)return'—';return(num/den*100).toFixed(1)+'%';}
 
-const CF_INCOME_CATS=['Аванс від замовника','Оплата по актах від замовника','Повернення коштів','Позика отримана','Інший дохід'];
-const CF_EXPENSE_CATS=['Аванс субпіднику','Оплата по актах субпіднику','Зарплата ІТР','Матеріали','Оренда техніки','Транспорт','Проектні роботи','Дозволи та документи','Адміністративні','Податки та збори','Повернення замовнику','Інші витрати'];
 const CF_FORM_LABEL={cash:'💵 Готівка',bank:'🏦 Рахунок'};
 let editingCFId=null;
 
@@ -360,7 +360,7 @@ function load(){
   const local=localStorage.getItem('macc_state');
   if(local)try{state=JSON.parse(local);state.itrs=state.itrs||[];state.subs=state.subs||[];}catch(e){}
   fetch(FB_URL+'/state.json').then(r=>r.json()).then(d=>{
-    if(d&&d.sites){state=d;state.itrs=state.itrs||[];state.subs=state.subs||[];state.cashflows=state.cashflows||[];localStorage.setItem('macc_state',JSON.stringify(state));}
+    if(d&&d.sites){state=d;state.itrs=state.itrs||[];state.subs=state.subs||[];state.cashflows=state.cashflows||[];state.cfCategories=state.cfCategories||[];localStorage.setItem('macc_state',JSON.stringify(state));}
     render();
   }).catch(()=>render());
 }
@@ -406,11 +406,10 @@ function renderCashflow(){
   if(cfFilters.category)rows=rows.filter(r=>r.category===cfFilters.category);
   if(cfFilters.site)rows=rows.filter(r=>r.siteId===cfFilters.site);
   if(cfFilters.tag)rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
-  if(cfFilters.dateFrom)rows=rows.filter(r=>r.date>=cfFilters.dateFrom);
-  if(cfFilters.dateTo)rows=rows.filter(r=>r.date<=cfFilters.dateTo);
+  if(cfFilters.month)rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
   if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.tag||'').toLowerCase().includes(q));}
 
-  // metrics on filtered set
+  // metrics
   const totInc=rows.filter(r=>r.type==='income').reduce((a,r)=>a+(+r.amount||0),0);
   const totExp=rows.filter(r=>r.type==='expense').reduce((a,r)=>a+(+r.amount||0),0);
   const cashInc=rows.filter(r=>r.type==='income'&&r.form==='cash').reduce((a,r)=>a+(+r.amount||0),0);
@@ -421,19 +420,29 @@ function renderCashflow(){
   const cashBal=cashInc-cashExp;
   const bankBal=bankInc-bankExp;
 
-  // categories for filter dropdown
-  const usedCats=[...new Set(all.map(r=>r.category).filter(Boolean))].sort();
-  const allCats=[...new Set([...CF_INCOME_CATS,...CF_EXPENSE_CATS,...usedCats])];
-
-  // sites for filter
+  // categories from user-created list + used in transactions
+  const usedCats=[...new Set(all.map(r=>r.category).filter(Boolean))];
+  const allCats=[...new Set([...(state.cfCategories||[]),...usedCats])].sort();
   const sites=state.sites||[];
 
-  const metrics=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px">
-    <div class="metric" style="--mc:var(--green)"><div class="metric-label">📈 Доходи</div><div class="metric-value" style="font-size:15px;color:var(--green)">${fmt(totInc)}</div></div>
-    <div class="metric" style="--mc:var(--red)"><div class="metric-label">📉 Витрати</div><div class="metric-value" style="font-size:15px;color:var(--red)">${fmt(totExp)}</div></div>
-    <div class="metric" style="--mc:${balance>=0?'var(--accent)':'var(--red)'}"><div class="metric-label">⚖ Баланс</div><div class="metric-value" style="font-size:15px;color:${balance>=0?'var(--accent)':'var(--red)'}">${fmt(balance)}</div></div>
-    <div class="metric" style="--mc:#f0b429aa"><div class="metric-label">💵 Готівка</div><div class="metric-value" style="font-size:14px;color:${cashBal>=0?'var(--green)':'var(--red)'}">${fmt(cashBal)}</div></div>
-    <div class="metric" style="--mc:#38bdf8aa"><div class="metric-label">🏦 Рахунок</div><div class="metric-value" style="font-size:14px;color:${bankBal>=0?'var(--green)':'var(--red)'}">${fmt(bankBal)}</div></div>
+  const subRow=(label,val)=>`<div style="display:flex;justify-content:space-between;margin-top:5px;padding-top:4px;border-top:1px solid var(--border)"><span style="font-size:9px;color:var(--text3)">${label}</span><span style="font-size:11px;font-weight:600;color:var(--text2)">${fmtN(val)}</span></div>`;
+
+  const metrics=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+    <div class="metric" style="--mc:var(--green)">
+      <div class="metric-label">📈 Доходи</div>
+      <div class="metric-value" style="color:var(--green)">${fmtN(totInc)}</div>
+      ${subRow('🏦 Рахунок',bankInc)}${subRow('💵 Готівка',cashInc)}
+    </div>
+    <div class="metric" style="--mc:var(--red)">
+      <div class="metric-label">📉 Витрати</div>
+      <div class="metric-value" style="color:var(--red)">${fmtN(totExp)}</div>
+      ${subRow('🏦 Рахунок',bankExp)}${subRow('💵 Готівка',cashExp)}
+    </div>
+    <div class="metric" style="--mc:${balance>=0?'var(--accent)':'var(--red)'}">
+      <div class="metric-label">⚖ Баланс</div>
+      <div class="metric-value" style="color:${balance>=0?'var(--accent)':'var(--red)'}">${fmtN(balance)}</div>
+      ${subRow('🏦 Рахунок',bankBal)}${subRow('💵 Готівка',cashBal)}
+    </div>
   </div>`;
 
   const filterBar=`<div class="filter-bar">
@@ -456,21 +465,20 @@ function renderCashflow(){
       <option value="">Всі об'єкти</option>
       ${sites.map(s=>`<option value="${s.id}"${cfFilters.site===s.id?' selected':''}>${esc(s.name)}</option>`).join('')}
     </select>
-    <input placeholder="🔍 Пошук..." value="${esc(cfFilters.search)}" oninput="cfFilters.search=this.value;renderCashflow()" style="min-width:140px">
-    <input type="date" title="Дата від" value="${cfFilters.dateFrom}" onchange="cfFilters.dateFrom=this.value;renderCashflow()">
-    <input type="date" title="Дата до" value="${cfFilters.dateTo}" onchange="cfFilters.dateTo=this.value;renderCashflow()">
-    <input placeholder="Тег..." value="${esc(cfFilters.tag)}" oninput="cfFilters.tag=this.value;renderCashflow()" style="min-width:90px">
-    ${Object.values(cfFilters).some(v=>v)?`<button class="btn sm" onclick="cfFilters={type:'',form:'',category:'',site:'',tag:'',dateFrom:'',dateTo:'',search:''};renderCashflow()">✕ Скинути</button>`:''}
+    <input type="month" title="Місяць" value="${cfFilters.month}" onchange="cfFilters.month=this.value;renderCashflow()">
+    <input placeholder="🔍 Пошук..." value="${esc(cfFilters.search)}" oninput="cfFilters.search=this.value;renderCashflow()" style="min-width:130px">
+    <input placeholder="Тег..." value="${esc(cfFilters.tag)}" oninput="cfFilters.tag=this.value;renderCashflow()" style="min-width:80px">
+    ${Object.values(cfFilters).some(v=>v)?`<button class="btn sm" onclick="cfFilters={type:'',form:'',category:'',site:'',tag:'',month:'',search:''};renderCashflow()">✕ Скинути</button>`:''}
   </div>`;
 
   let tbody='';
   if(!rows.length){
-    tbody=`<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:32px;margin-bottom:10px">💸</div>${all.length?'Нічого не знайдено за фільтрами':'Транзакцій ще немає. Натисніть «+ Транзакція»'}</td></tr>`;
+    tbody=`<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:32px;margin-bottom:10px">💸</div>${all.length?'Нічого не знайдено за фільтрами':'Транзакцій ще немає. Натисніть «+ Дохід» або «+ Розхід»'}</td></tr>`;
   } else {
     rows.forEach(r=>{
       const site=sites.find(s=>s.id===r.siteId);
       const isInc=r.type==='income';
-      tbody+=`<tr>
+      tbody+=`<tr onclick="openCFModal('${r.id}')">
         <td style="color:var(--text3);white-space:nowrap">${fmtD(r.date)}</td>
         <td><span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;${isInc?'background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.3)':'background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)'}">${isInc?'📈 Дохід':'📉 Розхід'}</span></td>
         <td style="font-size:10px;color:var(--text3)">${CF_FORM_LABEL[r.form]||r.form}</td>
@@ -479,9 +487,8 @@ function renderCashflow(){
         <td style="font-size:11px">${esc(r.counterparty||'—')}</td>
         <td>${r.tag?`<span class="tag-chip">${esc(r.tag)}</span>`:'<span style="color:var(--text3);font-size:10px">—</span>'}</td>
         <td class="r mono" style="font-size:13px;font-weight:700;${isInc?'color:var(--green)':'color:var(--red)'}">${isInc?'+':'-'}${fmtN(r.amount)}</td>
-        <td style="white-space:nowrap">
-          <button class="btn sm" onclick="openCFModal('${r.id}')">✏</button>
-          <button class="btn sm" style="color:var(--red);border-color:var(--red);margin-left:4px" onclick="deleteCF('${r.id}')">×</button>
+        <td style="white-space:nowrap" onclick="event.stopPropagation()">
+          <button class="btn sm" style="color:var(--red);border-color:var(--red)" onclick="deleteCF('${r.id}')">×</button>
         </td>
       </tr>`;
       if(r.notes){
@@ -490,7 +497,7 @@ function renderCashflow(){
     });
   }
 
-  // Group by category summary (side panel concept — show below)
+  // Category summary
   const catSummary=[];
   [...new Set(rows.map(r=>r.category).filter(Boolean))].forEach(cat=>{
     const catRows=rows.filter(r=>r.category===cat);
@@ -503,6 +510,7 @@ function renderCashflow(){
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <h2 style="font-size:17px;font-weight:700;color:var(--text)">💸 Грошові потоки</h2>
       <div style="display:flex;gap:8px">
+        <button class="btn sm" onclick="manageCFCategories()" title="Керувати категоріями">⚙ Категорії</button>
         <button class="btn" onclick="openCFModal(null,'income')">+ 📈 Дохід</button>
         <button class="btn primary" onclick="openCFModal(null,'expense')">+ 📉 Розхід</button>
       </div>
@@ -520,12 +528,12 @@ function renderCashflow(){
           <tbody>${tbody}</tbody>
         </table>
       </div>
-      ${rows.length?`<div style="padding:8px 16px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)">${rows.length} записів · Доходи: <span style="color:var(--green);font-weight:700">${fmt(totInc)}</span> · Витрати: <span style="color:var(--red);font-weight:700">${fmt(totExp)}</span> · Баланс: <span style="font-weight:700;color:${balance>=0?'var(--accent)':'var(--red)'}">${fmt(balance)}</span></div>`:''}
+      ${rows.length?`<div style="padding:8px 16px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)">${rows.length} записів · Доходи: <span style="color:var(--green);font-weight:700">${fmtN(totInc)}</span> · Витрати: <span style="color:var(--red);font-weight:700">${fmtN(totExp)}</span> · Баланс: <span style="font-weight:700;color:${balance>=0?'var(--accent)':'var(--red)'}">${fmtN(balance)}</span></div>`:''}
     </div>
     ${catSummary.length?`<div class="card">
       <div class="card-head"><span class="card-title">📊 Зведення по категоріях</span></div>
       <div style="overflow-x:auto"><table class="tbl">
-        <thead><tr><th>Категорія</th><th class="r">Транзакцій</th><th class="r">Доходи</th><th class="r">Витрати</th><th class="r">Разом</th></tr></thead>
+        <thead><tr><th>Категорія</th><th class="r">Записів</th><th class="r">Доходи</th><th class="r">Витрати</th><th class="r">Баланс</th></tr></thead>
         <tbody>${catSummary.sort((a,b)=>(b.inc+b.exp)-(a.inc+a.exp)).map(c=>`<tr>
           <td style="color:var(--text);font-weight:600">${esc(c.cat)}</td>
           <td class="r" style="color:var(--text3)">${c.count}</td>
@@ -546,33 +554,38 @@ function openCFModal(id,defaultType){
   document.getElementById('cf-form').value=r?.form||'bank';
   document.getElementById('cf-date').value=r?.date||new Date().toISOString().slice(0,10);
   document.getElementById('cf-amount').value=r?.amount||'';
-  document.getElementById('cf-counterparty').value=r?.counterparty||'';
   document.getElementById('cf-tag').value=r?.tag||'';
   document.getElementById('cf-notes').value=r?.notes||'';
   // sites
   const sitesSel=document.getElementById('cf-site');
   sitesSel.innerHTML='<option value="">— Без об\'єкта —</option>'+(state.sites||[]).map(s=>`<option value="${s.id}"${r?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
-  updateCfCategories(r?.category);
+  // categories datalist
+  const cats=[...new Set([...(state.cfCategories||[]),...(state.cashflows||[]).map(x=>x.category).filter(Boolean)])].sort();
+  document.getElementById('cf-cat-list').innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
+  document.getElementById('cf-category').value=r?.category||'';
+  // counterparties datalist: subs + existing counterparties
+  const subNames=(state.subs||[]).map(s=>s.name).filter(Boolean);
+  const usedCP=[...new Set((state.cashflows||[]).map(x=>x.counterparty).filter(Boolean))];
+  const allCP=[...new Set([...subNames,...usedCP])].sort();
+  document.getElementById('cf-cp-list').innerHTML=allCP.map(c=>`<option value="${esc(c)}">`).join('');
+  document.getElementById('cf-counterparty').value=r?.counterparty||'';
   document.getElementById('modal-cf').classList.add('open');
-}
-function updateCfCategories(selected){
-  const t=document.getElementById('cf-type').value;
-  const cats=t==='income'?CF_INCOME_CATS:CF_EXPENSE_CATS;
-  const el=document.getElementById('cf-category');
-  el.innerHTML=cats.map(c=>`<option value="${esc(c)}"${selected===c?' selected':''}>${esc(c)}</option>`).join('');
 }
 function saveCF(){
   if(!state.cashflows)state.cashflows=[];
+  if(!state.cfCategories)state.cfCategories=[];
   const amount=+document.getElementById('cf-amount').value||0;
   const date=document.getElementById('cf-date').value;
+  const category=document.getElementById('cf-category').value.trim();
   if(!date){alert('Введіть дату');return;}
   if(!amount){alert('Введіть суму');return;}
+  // save new category
+  if(category&&!state.cfCategories.includes(category))state.cfCategories.push(category);
   const data={
     id:editingCFId||uid(),
     type:document.getElementById('cf-type').value,
     form:document.getElementById('cf-form').value,
-    date,amount,
-    category:document.getElementById('cf-category').value,
+    date,amount,category,
     siteId:document.getElementById('cf-site').value,
     counterparty:document.getElementById('cf-counterparty').value.trim(),
     tag:document.getElementById('cf-tag').value.trim(),
@@ -585,6 +598,37 @@ function saveCF(){
 function deleteCF(id){
   if(!confirm('Видалити цю транзакцію?'))return;
   state.cashflows=state.cashflows.filter(x=>x.id!==id);save();renderCashflow();
+}
+function manageCFCategories(){
+  const cats=(state.cfCategories||[]).slice().sort();
+  const list=cats.map((c,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${esc(c)}</span><button class="btn sm" style="color:var(--red);border-color:var(--red)" onclick="deleteCFCat('${esc(c)}',this.closest('.cat-mgr'))">×</button></div>`).join('');
+  const html=`<div class="cat-mgr" style="padding:16px;min-width:320px">
+    <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em">⚙ Категорії грошових потоків</div>
+    <div style="margin-bottom:12px">${list||'<div style="font-size:11px;color:var(--text3);padding:10px 0">Категорій ще немає</div>'}</div>
+    <div style="display:flex;gap:8px">
+      <input class="form-input" id="new-cat-input" placeholder="Нова категорія..." style="flex:1">
+      <button class="btn primary sm" onclick="addCFCat()">+ Додати</button>
+    </div>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn sm" onclick="this.closest('.modal-overlay').classList.remove('open');renderCashflow()">Закрити</button></div>
+  </div>`;
+  // reuse modal-cf temporarily? No — use a simple inline dialog via alert replacement
+  // Build a quick inline overlay
+  let ov=document.getElementById('cat-mgr-overlay');
+  if(!ov){ov=document.createElement('div');ov.id='cat-mgr-overlay';ov.className='modal-overlay';ov.style.zIndex=300;ov.innerHTML=`<div class="modal" style="width:400px"></div>`;document.body.appendChild(ov);}
+  ov.querySelector('.modal').innerHTML=html;
+  ov.classList.add('open');
+}
+function addCFCat(){
+  const inp=document.getElementById('new-cat-input');
+  const v=inp.value.trim();
+  if(!v)return;
+  if(!state.cfCategories)state.cfCategories=[];
+  if(!state.cfCategories.includes(v))state.cfCategories.push(v);
+  inp.value='';save();manageCFCategories();
+}
+function deleteCFCat(cat){
+  state.cfCategories=(state.cfCategories||[]).filter(c=>c!==cat);
+  save();manageCFCategories();
 }
 
 // ── SITES LIST ────────────────────────────────────────────────────────────
