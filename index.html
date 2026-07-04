@@ -221,6 +221,15 @@ select.form-input option{background:var(--bg3)}
         </div>
       </div>
       <div class="form-group">
+        <label class="form-label">Умови відносин</label>
+        <select class="form-input" id="i-contract-type" onchange="toggleITRContract()">
+          <option value="salary">💰 Заробітна плата</option>
+          <option value="brigade">👥 Бригадир з бригадою</option>
+          <option value="profit">📊 % у прибутку</option>
+        </select>
+      </div>
+      <div id="i-contract-detail" style="margin-bottom:14px"></div>
+      <div class="form-group">
         <label class="form-label">Об'єкти та ролі</label>
         <div id="i-sites-list"></div>
         <button class="btn sm" style="margin-top:8px" onclick="addITRSiteRow()">+ Додати об'єкт</button>
@@ -520,17 +529,17 @@ function renderSiteDetail(){
     <div class="card">
       <div class="card-head"><span class="card-title">🏢 Субпідрядники (${assignedSubs.length})</span></div>
       ${assignedSubs.length?`<div style="overflow-x:auto"><table class="tbl">
-        <thead><tr><th>Компанія</th><th>Вид робіт</th><th>Контакт</th><th>Сума з ПДВ</th><th>Аванс</th><th>Оплачено</th><th>Залишок</th><th>Дедлайн</th></tr></thead>
+        <thead><tr><th>Компанія</th><th>Вид робіт</th><th>Контакт</th><th>Сума з ПДВ</th><th>Аванс</th><th>Закрито актами</th><th>Залишок</th><th>Дедлайн</th></tr></thead>
         <tbody>${assignedSubs.map(b=>{
           const c=(b.contracts||[]).find(x=>x.siteId===s.id)||{};
-          const bal=(+c.amountGross||0)-(+c.paid||0);
+          const bal=(+c.amountGross||0)-(+c.advance||0)-(+c.closedByActs||0);
           return`<tr onclick="navigate('sub-detail','${b.id}')">
             <td style="color:var(--text);font-weight:600">${esc(b.name)}</td>
             <td style="font-size:11px;color:var(--text3)">${esc(c.workDesc||b.worktype||'—')}</td>
             <td style="font-size:11px">${b.contact?esc(b.contact):'—'}${b.phone?`<div style="color:var(--blue)">${esc(b.phone)}</div>`:''}</td>
             <td class="mono">${c.amountGross?fmtN(c.amountGross):'—'}</td>
             <td class="mono" style="color:var(--amber)">${c.advance?fmtN(c.advance):'—'}</td>
-            <td class="mono" style="color:var(--green)">${c.paid?fmtN(c.paid):'—'}</td>
+            <td class="mono" style="color:var(--green)">${c.closedByActs?fmtN(c.closedByActs):'—'}</td>
             <td class="mono" style="color:${bal>0?'var(--red)':'var(--green)'};font-weight:700">${c.amountGross?(bal>0?fmtN(bal):'✓ Закрито'):'—'}</td>
             <td style="font-size:11px;color:var(--text3)">${fmtD(c.deadline)}</td>
           </tr>`;
@@ -589,8 +598,9 @@ function renderExecutors(){
       list.forEach(b=>{
         const contracts=b.contracts||[];
         const totG=contracts.reduce((a,c)=>a+(+c.amountGross||0),0);
-        const totP=contracts.reduce((a,c)=>a+(+c.paid||0),0);
-        const bal=totG-totP;
+        const totAdv2=contracts.reduce((a,c)=>a+(+c.advance||0),0);
+        const totP=contracts.reduce((a,c)=>a+(+c.closedByActs||0),0);
+        const bal=totG-totAdv2-totP;
         cards+=`<div class="person-card" onclick="navigate('sub-detail','${b.id}')" style="border-top:2px solid var(--blue)">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
             <div>
@@ -648,6 +658,13 @@ function renderITRDetail(){
           ${row('Посада',ITR_ROLE[p.role]||p.role||'—')}
           ${row('Телефон',p.phone?`<a href="tel:${esc(p.phone)}" style="color:var(--blue)">${esc(p.phone)}</a>`:'—')}
           ${row('Email',p.email?`<a href="mailto:${esc(p.email)}" style="color:var(--blue)">${esc(p.email)}</a>`:'—')}
+          ${(()=>{
+            const ct=p.contractType;
+            if(ct==='salary')return row('Умови відносин',`💰 Заробітна плата${p.salaryAmount?': <b>'+fmtN(p.salaryAmount)+' ₴/міс</b>':''}`);
+            if(ct==='brigade')return row('Умови відносин','👥 Бригадир з бригадою');
+            if(ct==='profit')return row('Умови відносин',`📊 % у прибутку${p.profitPercent?': <b>'+p.profitPercent+'%</b>':''}`);
+            return '';
+          })()}
           ${p.notes?row('Примітки',esc(p.notes)):''}
         </div>
       </div>
@@ -678,8 +695,8 @@ function renderSubDetail(){
   });
   const totG=contracts.reduce((a,c)=>a+(+c.amountGross||0),0);
   const totAdv=contracts.reduce((a,c)=>a+(+c.advance||0),0);
-  const totP=contracts.reduce((a,c)=>a+(+c.paid||0),0);
-  const bal=totG-totP;
+  const totP=contracts.reduce((a,c)=>a+(+c.closedByActs||0),0);
+  const bal=totG-totAdv-totP;
 
   el.innerHTML=`
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
@@ -696,7 +713,7 @@ function renderSubDetail(){
     <div class="metrics" style="margin-bottom:16px">
       <div class="metric" style="--mc:var(--violet)"><div class="metric-label">Договір з ПДВ</div><div class="metric-value" style="font-size:16px">${fmt(totG)}</div></div>
       <div class="metric" style="--mc:var(--amber)"><div class="metric-label">Аванс</div><div class="metric-value" style="font-size:16px">${fmt(totAdv)}</div></div>
-      <div class="metric" style="--mc:var(--green)"><div class="metric-label">Оплачено</div><div class="metric-value" style="font-size:16px">${fmt(totP)}</div></div>
+      <div class="metric" style="--mc:var(--green)"><div class="metric-label">Закрито актами</div><div class="metric-value" style="font-size:16px">${fmt(totP)}</div></div>
       <div class="metric" style="--mc:${bal>0?'var(--red)':'var(--green)'}"><div class="metric-label">Залишок</div><div class="metric-value" style="font-size:16px;color:${bal>0?'var(--red)':'var(--green)'}">${fmt(bal)}</div></div>
     </div>
 
@@ -715,15 +732,15 @@ function renderSubDetail(){
       <div class="card" style="margin-bottom:0">
         <div class="card-head"><span class="card-title">📋 Договори по об'єктах (${contracts.length})</span></div>
         ${contracts.length?`<div style="overflow-x:auto"><table class="tbl">
-          <thead><tr><th>Об'єкт</th><th>Вид робіт</th><th>Сума з ПДВ</th><th>Аванс</th><th>Оплачено</th><th>Залишок</th><th>Дедлайн</th></tr></thead>
+          <thead><tr><th>Об'єкт</th><th>Вид робіт</th><th>Сума з ПДВ</th><th>Аванс</th><th>Закрито актами</th><th>Залишок</th><th>Дедлайн</th></tr></thead>
           <tbody>${contracts.map(c=>{
-            const b2=(+c.amountGross||0)-(+c.paid||0);
+            const b2=(+c.amountGross||0)-(+c.advance||0)-(+c.closedByActs||0);
             return`<tr${c.siteId?` onclick="navigate('site-detail','${c.siteId}')"`:''}>
               <td style="color:var(--text);font-weight:600">${esc(c.siteName)}</td>
               <td style="font-size:11px;color:var(--text3)">${esc(c.workDesc||'—')}</td>
               <td class="mono">${c.amountGross?fmtN(c.amountGross):'—'}</td>
               <td class="mono" style="color:var(--amber)">${c.advance?fmtN(c.advance):'—'}</td>
-              <td class="mono" style="color:var(--green)">${c.paid?fmtN(c.paid):'—'}</td>
+              <td class="mono" style="color:var(--green)">${c.closedByActs?fmtN(c.closedByActs):'—'}</td>
               <td class="mono" style="font-weight:700;color:${b2>0?'var(--red)':'var(--green)'}">${c.amountGross?(b2>0?fmtN(b2):'✓'):'—'}</td>
               <td style="font-size:11px;color:var(--text3)">${fmtD(c.deadline)}</td>
             </tr>`;
@@ -800,6 +817,10 @@ function openITRModal(id){
   document.getElementById('i-phone').value=p?.phone||'';
   document.getElementById('i-email').value=p?.email||'';
   document.getElementById('i-notes').value=p?.notes||'';
+  document.getElementById('i-contract-type').value=p?.contractType||'salary';
+  toggleITRContract();
+  if(p?.contractType==='salary')document.getElementById('i-salary').value=p?.salaryAmount||'';
+  if(p?.contractType==='profit')document.getElementById('i-profit-pct').value=p?.profitPercent||'';
   _itrSites=JSON.parse(JSON.stringify(p?.sites||[]));
   renderITRSitesList();
   document.getElementById('modal-itr').classList.add('open');
@@ -821,6 +842,13 @@ function renderITRSitesList(){
     </div>`).join('');
 }
 function addITRSiteRow(){_itrSites.push({siteId:'',roleOnSite:''});renderITRSitesList();}
+function toggleITRContract(){
+  const t=document.getElementById('i-contract-type').value;
+  const el=document.getElementById('i-contract-detail');
+  if(t==='salary')el.innerHTML=`<div class="form-group"><label class="form-label">Розмір зарплати, грн/міс</label><input class="form-input" type="number" id="i-salary" placeholder="0"></div>`;
+  else if(t==='profit')el.innerHTML=`<div class="form-group"><label class="form-label">% у прибутку</label><input class="form-input" type="number" id="i-profit-pct" placeholder="0" min="0" max="100" step="0.1"></div>`;
+  else el.innerHTML='';
+}
 function saveITR(){
   if(!state.itrs)state.itrs=[];
   const name=document.getElementById('i-name').value.trim();
@@ -832,6 +860,9 @@ function saveITR(){
     email:document.getElementById('i-email').value.trim(),
     notes:document.getElementById('i-notes').value.trim(),
     sites:_itrSites.filter(a=>a.siteId),
+    contractType:document.getElementById('i-contract-type').value,
+    salaryAmount:document.getElementById('i-salary')?+document.getElementById('i-salary').value||0:0,
+    profitPercent:document.getElementById('i-profit-pct')?+document.getElementById('i-profit-pct').value||0:0,
   };
   if(editingITRId){const i=state.itrs.findIndex(x=>x.id===editingITRId);if(i>=0)state.itrs[i]={...state.itrs[i],...data};}
   else state.itrs.push(data);
@@ -886,8 +917,8 @@ function renderSubContractsList(){
           <input class="form-input" type="number" style="font-size:12px" placeholder="0" value="${c.amountGross||''}" oninput="_subContracts[${i}].amountGross=+this.value"></div>
         <div><label class="form-label">Аванс, грн</label>
           <input class="form-input" type="number" style="font-size:12px" placeholder="0" value="${c.advance||''}" oninput="_subContracts[${i}].advance=+this.value"></div>
-        <div><label class="form-label">Оплачено, грн</label>
-          <input class="form-input" type="number" style="font-size:12px" placeholder="0" value="${c.paid||''}" oninput="_subContracts[${i}].paid=+this.value"></div>
+        <div><label class="form-label">Закрито актами, грн</label>
+          <input class="form-input" type="number" style="font-size:12px" placeholder="0" value="${c.closedByActs||''}" oninput="_subContracts[${i}].closedByActs=+this.value"></div>
       </div>
     </div>`).join('');
 }
