@@ -99,6 +99,7 @@ select.form-input option{background:var(--bg3)}
 <!-- TOP NAV -->
 <nav class="topbar">
   <div class="logo">MACC<span>Management Accounting · Construction</span></div>
+  <button class="nav-item" onclick="navigate('dashboard')" id="nav-dashboard">Дашборд</button>
   <button class="nav-item active" onclick="navigate('sites')" id="nav-sites">Майданчики</button>
   <button class="nav-item" onclick="navigate('executors')" id="nav-executors">Виконавці</button>
   <button class="nav-item" onclick="navigate('economics')" id="nav-economics">Економіка</button>
@@ -279,7 +280,7 @@ function render(){
 
 // ── COMING SOON ────────────────────────────────────────────────────────────
 function renderComingSoon(page){
-  const labels={executors:'Виконавці',economics:'Економіка',cashflow:'Грошові потоки',reports:'Звіти'};
+  const labels={dashboard:'Дашборд',executors:'Виконавці',economics:'Економіка',cashflow:'Грошові потоки',reports:'Звіти'};
   document.getElementById('main-content').innerHTML=`
     <div class="empty-state" style="margin-top:60px">
       <div style="font-size:48px;margin-bottom:16px">🚧</div>
