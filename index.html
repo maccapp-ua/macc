@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MACC — Management Accounting in a Construction Company</title>
+<style>
+:root{
+  --bg:#0f1621;--bg2:#151d2b;--bg3:#1a2336;--card:#1e2a3a;--card2:#243044;
+  --border:#2a3a52;--border2:#334d6e;
+  --text:#e8edf5;--text2:#a0afc0;--text3:#5a7090;
+  --accent:#f0b429;--as:#f0b42922;
+  --green:#4ade80;--red:#f87171;--amber:#fbbf24;
+  --blue:#38bdf8;--violet:#a974e6;
+  --radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+
+/* NAV */
+.topbar{display:flex;align-items:center;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;gap:0;position:sticky;top:0;z-index:100}
+.logo{font-size:18px;font-weight:800;letter-spacing:.08em;color:var(--accent);margin-right:32px;white-space:nowrap}
+.logo span{font-size:10px;font-weight:400;color:var(--text3);display:block;letter-spacing:.05em;margin-top:-2px}
+.nav-item{padding:0 14px;height:52px;display:flex;align-items:center;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:.15s}
+.nav-item:hover{color:var(--text)}
+.nav-item.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* MAIN */
+.main{padding:24px 20px;max-width:1400px;margin:0 auto}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:16px}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.card-title{font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
+.card-body{padding:16px}
+
+/* METRICS */
+.metrics{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.metric{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;min-width:160px;flex:1;border-top:2px solid var(--mc,var(--accent))}
+.metric-label{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.metric-value{font-size:22px;font-weight:700;color:var(--text)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);transition:.15s}
+.btn:hover{color:var(--text);border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:#0f1621;border-color:var(--accent)}
+.btn.primary:hover{opacity:.9}
+.btn.sm{padding:4px 10px;font-size:11px}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.04em}
+.status-badge{padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;letter-spacing:.04em}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.tbl td{padding:10px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--bg3);color:var(--text);cursor:pointer}
+.tbl .mono{font-family:monospace;font-size:12px}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border2);border-radius:12px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--border)}
+.modal-title{font-size:14px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
+.modal-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:20px;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:20px}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+
+/* FORM */
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.form-input{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-size:13px;outline:none}
+.form-input:focus{border-color:var(--accent)}
+.form-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+select.form-input option{background:var(--bg3)}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-state h3{font-size:16px;color:var(--text2);margin-bottom:8px}
+.empty-state p{font-size:13px;margin-bottom:20px}
+
+/* STATUS COLORS */
+.s-active{background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.25)}
+.s-pause{background:rgba(107,114,128,.12);color:#9ca3af;border:1px solid rgba(107,114,128,.25)}
+.s-done{background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.25)}
+.s-archive{background:rgba(90,112,144,.10);color:#5a7090;border:1px solid rgba(90,112,144,.2)}
+
+/* CONTRACT TYPE */
+.ct-badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:.04em}
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topbar">
+  <div class="logo">MACC<span>Management Accounting · Construction</span></div>
+  <button class="nav-item active" onclick="navigate('sites')" id="nav-sites">Майданчики</button>
+  <button class="nav-item" onclick="navigate('executors')" id="nav-executors">Виконавці</button>
+  <button class="nav-item" onclick="navigate('economics')" id="nav-economics">Економіка</button>
+  <button class="nav-item" onclick="navigate('cashflow')" id="nav-cashflow">Грошові потоки</button>
+  <button class="nav-item" onclick="navigate('reports')" id="nav-reports">Звіти</button>
+</nav>
+
+<!-- MAIN CONTENT -->
+<div class="main" id="main-content"></div>
+
+<!-- MODAL: Новий / Редагувати майданчик -->
+<div class="modal-overlay" id="modal-site">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-site-title">Новий майданчик</span>
+      <button class="modal-close" onclick="closeModal('site')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Назва об'єкта *</label>
+        <input class="form-input" id="s-name" placeholder="напр. ЖК Сонячний, корпус А">
+      </div>
+      <div class="form-row2">
+        <div class="form-group">
+          <label class="form-label">Замовник</label>
+          <input class="form-input" id="s-client" placeholder="назва компанії або ПІБ">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Адреса об'єкта</label>
+          <input class="form-input" id="s-address" placeholder="вул., місто">
+        </div>
+      </div>
+      <div class="form-row3">
+        <div class="form-group">
+          <label class="form-label">Тип договору</label>
+          <select class="form-input" id="s-contract-type">
+            <option value="general">Генпідряд</option>
+            <option value="sub">Субпідряд</option>
+            <option value="own">Власне будівництво</option>
+            <option value="design-build">Проект + Будівництво</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Статус</label>
+          <select class="form-input" id="s-status">
+            <option value="active">🟢 В роботі</option>
+            <option value="pause">🟡 Пауза</option>
+            <option value="done">🔵 Завершено</option>
+            <option value="archive">⚫ Архів</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Стадія</label>
+          <select class="form-input" id="s-stage">
+            <option value="prep">Підготовка</option>
+            <option value="found">Фундамент</option>
+            <option value="structure">Каркас/Монтаж</option>
+            <option value="envelope">Огороджувальні</option>
+            <option value="interior">Оздоблення</option>
+            <option value="finish">Здача</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row3">
+        <div class="form-group">
+          <label class="form-label">Дата договору</label>
+          <input class="form-input" type="date" id="s-contract-date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Початок робіт</label>
+          <input class="form-input" type="date" id="s-start-date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Дедлайн здачі</label>
+          <input class="form-input" type="date" id="s-deadline">
+        </div>
+      </div>
+      <div class="form-row3">
+        <div class="form-group">
+          <label class="form-label">Сума договору без ПДВ, грн</label>
+          <input class="form-input" type="number" id="s-amount-net" placeholder="0" oninput="calcVat()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ПДВ 20%, грн</label>
+          <input class="form-input" type="number" id="s-vat" placeholder="0" readonly style="opacity:.6">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Сума з ПДВ, грн</label>
+          <input class="form-input" type="number" id="s-amount-gross" placeholder="0" readonly style="opacity:.6">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Примітки</label>
+        <textarea class="form-input" id="s-notes" rows="2" placeholder="додаткова інформація..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('site')">Скасувати</button>
+      <button class="btn primary" onclick="saveSite()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+const FB_URL='https://macc-d6e9b-default-rtdb.europe-west1.firebasedatabase.app';
+let state={sites:[],executors:[]};
+let curSiteId=null;
+let curPage='sites';
+let editingSiteId=null;
+let _saveTimer=null;
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function fmt(n){return new Intl.NumberFormat('uk-UA').format(Math.round(+n||0))+' ₴';}
+function fmtN(n){return new Intl.NumberFormat('uk-UA').format(Math.round(+n||0));}
+function fmtD(d){if(!d)return'—';try{return new Date(d).toLocaleDateString('uk-UA');}catch(e){return d;}}
+function esc(v){return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function daysLeft(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
+
+const CONTRACT_TYPE={general:'Генпідряд',sub:'Субпідряд',own:'Власне будівництво','design-build':'Проект+Буд'};
+const CONTRACT_COLOR={general:'#f0b429',sub:'#38bdf8',own:'#4ade80','design-build':'#a974e6'};
+const STAGE_LABEL={prep:'Підготовка',found:'Фундамент',structure:'Каркас',envelope:'Огороджувальні',interior:'Оздоблення',finish:'Здача'};
+const STATUS_LABEL={active:'В роботі',pause:'Пауза',done:'Завершено',archive:'Архів'};
+const STATUS_CLASS={active:'s-active',pause:'s-pause',done:'s-done',archive:'s-archive'};
+
+function contractBadge(t){
+  const c=CONTRACT_COLOR[t]||'#9aa3b2';
+  return`<span class="ct-badge" style="color:${c};background:${c}18;border:1px solid ${c}44">${CONTRACT_TYPE[t]||t}</span>`;
+}
+function statusBadge(s){
+  return`<span class="status-badge ${STATUS_CLASS[s]||'s-active'}">${STATUS_LABEL[s]||s}</span>`;
+}
+function deadlineBadge(d,status){
+  if(!d||status==='done'||status==='archive')return'';
+  const dl=daysLeft(d);
+  if(dl<0)return`<span style="color:#f87171;font-size:10px;font-weight:700">❗ прострочено ${Math.abs(dl)}д</span>`;
+  if(dl<=30)return`<span style="color:#fbbf24;font-size:10px;font-weight:700">⚠ ${dl}д</span>`;
+  return`<span style="color:var(--text3);font-size:10px">${dl}д</span>`;
+}
+
+// ── STORAGE ────────────────────────────────────────────────────────────────
+function save(){
+  localStorage.setItem('macc_state',JSON.stringify(state));
+  if(FB_URL==='PLACEHOLDER_FIREBASE_URL')return;
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>{
+    fetch(FB_URL+'/state.json',{method:'PUT',body:JSON.stringify(state)}).catch(()=>{});
+  },800);
+}
+function load(){
+  const local=localStorage.getItem('macc_state');
+  if(local)try{state=JSON.parse(local);}catch(e){}
+  if(FB_URL==='PLACEHOLDER_FIREBASE_URL'){render();return;}
+  fetch(FB_URL+'/state.json').then(r=>r.json()).then(d=>{
+    if(d&&d.sites){state=d;localStorage.setItem('macc_state',JSON.stringify(state));}
+    render();
+  }).catch(()=>render());
+}
+
+// ── NAVIGATION ─────────────────────────────────────────────────────────────
+function navigate(page,id){
+  curPage=page;
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  const nb=document.getElementById('nav-'+page);
+  if(nb)nb.classList.add('active');
+  if(id)curSiteId=id;
+  render();
+}
+function render(){
+  if(curPage==='sites')renderSites();
+  else if(curPage==='site-detail')renderSiteDetail();
+  else renderComingSoon(curPage);
+}
+
+// ── COMING SOON ────────────────────────────────────────────────────────────
+function renderComingSoon(page){
+  const labels={executors:'Виконавці',economics:'Економіка',cashflow:'Грошові потоки',reports:'Звіти'};
+  document.getElementById('main-content').innerHTML=`
+    <div class="empty-state" style="margin-top:60px">
+      <div style="font-size:48px;margin-bottom:16px">🚧</div>
+      <h3>${labels[page]||page}</h3>
+      <p>Розділ у розробці — буде додано на наступному кроці</p>
+    </div>`;
+}
+
+// ── SITES LIST ─────────────────────────────────────────────────────────────
+function renderSites(){
+  const el=document.getElementById('main-content');
+  const sites=state.sites||[];
+
+  // Metrics
+  const total=sites.length;
+  const active=sites.filter(s=>s.status==='active').length;
+  const totalNet=sites.reduce((a,s)=>a+(+s.amountNet||0),0);
+  const totalGross=sites.reduce((a,s)=>a+(+s.amountGross||0),0);
+  const overdue=sites.filter(s=>s.deadline&&s.status==='active'&&daysLeft(s.deadline)<0).length;
+
+  const metrics=`<div class="metrics">
+    <div class="metric" style="--mc:var(--accent)">
+      <div class="metric-label">Всього об'єктів</div>
+      <div class="metric-value">${total}</div>
+    </div>
+    <div class="metric" style="--mc:var(--green)">
+      <div class="metric-label">В роботі</div>
+      <div class="metric-value">${active}</div>
+    </div>
+    <div class="metric" style="--mc:var(--blue)">
+      <div class="metric-label">Загальна сума договорів (без ПДВ)</div>
+      <div class="metric-value" style="font-size:16px">${fmt(totalNet)}</div>
+    </div>
+    <div class="metric" style="--mc:var(--violet)">
+      <div class="metric-label">Загальна сума з ПДВ</div>
+      <div class="metric-value" style="font-size:16px">${fmt(totalGross)}</div>
+    </div>
+    ${overdue?`<div class="metric" style="--mc:var(--red)">
+      <div class="metric-label">Прострочено дедлайн</div>
+      <div class="metric-value" style="color:var(--red)">${overdue}</div>
+    </div>`:''}
+  </div>`;
+
+  let tableBody='';
+  if(!sites.length){
+    tableBody=`<tr><td colspan="9" style="text-align:center;padding:60px;color:var(--text3)">
+      <div style="font-size:32px;margin-bottom:12px">🏗</div>
+      <div style="font-size:14px;color:var(--text2);margin-bottom:8px">Майданчиків ще немає</div>
+      <div style="font-size:12px">Натисніть «+ Новий майданчик» щоб додати перший об'єкт</div>
+    </td></tr>`;
+  } else {
+    const sorted=[...sites].sort((a,b)=>{
+      const order={active:0,pause:1,done:2,archive:3};
+      return (order[a.status]||0)-(order[b.status]||0);
+    });
+    sorted.forEach(s=>{
+      const dl=deadlineBadge(s.deadline,s.status);
+      tableBody+=`<tr onclick="navigate('site-detail','${s.id}')">
+        <td><b style="color:var(--text)">${esc(s.name)}</b>${s.address?`<div style="font-size:10px;color:var(--text3);margin-top:2px">${esc(s.address)}</div>`:''}</td>
+        <td>${s.client?esc(s.client):'—'}</td>
+        <td>${contractBadge(s.contractType)}</td>
+        <td>${statusBadge(s.status)}</td>
+        <td style="color:var(--text3);font-size:11px">${STAGE_LABEL[s.stage]||'—'}</td>
+        <td class="mono">${s.amountNet?fmtN(s.amountNet):'—'}</td>
+        <td class="mono" style="color:var(--text3)">${s.amountGross?fmtN(s.amountGross):'—'}</td>
+        <td style="font-size:11px;color:var(--text3)">${fmtD(s.startDate)}<br>${fmtD(s.deadline)}</td>
+        <td>${dl}</td>
+      </tr>`;
+    });
+  }
+
+  el.innerHTML=`
+    ${metrics}
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">🏗 Будівельні майданчики</span>
+        <button class="btn primary" onclick="openSiteModal()">+ Новий майданчик</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr>
+            <th>Об'єкт</th>
+            <th>Замовник</th>
+            <th>Тип договору</th>
+            <th>Статус</th>
+            <th>Стадія</th>
+            <th>Сума без ПДВ, грн</th>
+            <th>Сума з ПДВ, грн</th>
+            <th>Старт / Дедлайн</th>
+            <th>Залишок</th>
+          </tr></thead>
+          <tbody>${tableBody}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ── SITE DETAIL ────────────────────────────────────────────────────────────
+function renderSiteDetail(){
+  const el=document.getElementById('main-content');
+  const s=state.sites.find(x=>x.id===curSiteId);
+  if(!s){navigate('sites');return;}
+  const dl=daysLeft(s.deadline);
+  const dlColor=!s.deadline||s.status==='done'?'var(--text3)':dl<0?'#f87171':dl<=30?'#fbbf24':'#4ade80';
+
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <button class="btn sm" onclick="navigate('sites')">← Назад</button>
+      <h2 style="font-size:18px;font-weight:700;color:var(--text)">${esc(s.name)}</h2>
+      ${contractBadge(s.contractType)}
+      ${statusBadge(s.status)}
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn sm" onclick="openSiteModal('${s.id}')">✏ Редагувати</button>
+        <button class="btn sm" style="color:var(--red);border-color:var(--red)" onclick="deleteSite('${s.id}')">Видалити</button>
+      </div>
+    </div>
+
+    <div class="metrics" style="margin-bottom:16px">
+      <div class="metric" style="--mc:var(--blue)">
+        <div class="metric-label">Сума без ПДВ</div>
+        <div class="metric-value" style="font-size:18px">${fmt(s.amountNet)}</div>
+      </div>
+      <div class="metric" style="--mc:var(--accent)">
+        <div class="metric-label">ПДВ 20%</div>
+        <div class="metric-value" style="font-size:18px">${fmt(s.vat)}</div>
+      </div>
+      <div class="metric" style="--mc:var(--violet)">
+        <div class="metric-label">Сума з ПДВ</div>
+        <div class="metric-value" style="font-size:18px">${fmt(s.amountGross)}</div>
+      </div>
+      <div class="metric" style="--mc:${dlColor}">
+        <div class="metric-label">До дедлайну</div>
+        <div class="metric-value" style="font-size:18px;color:${dlColor}">${s.deadline?(dl<0?`❗ ${Math.abs(dl)}д прострочено`:(dl===0?'Сьогодні':dl+'д')):('—')}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">📋 Інформація про договір</span></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+          ${row('Замовник',s.client||'—')}
+          ${row('Адреса',s.address||'—')}
+          ${row('Тип договору',CONTRACT_TYPE[s.contractType]||'—')}
+          ${row('Стадія',STAGE_LABEL[s.stage]||'—')}
+          ${row('Дата договору',fmtD(s.contractDate))}
+          ${row('Початок робіт',fmtD(s.startDate))}
+          ${row('Дедлайн здачі',fmtD(s.deadline))}
+          ${s.notes?row('Примітки',s.notes):''}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">💰 Фінанси — скоро</span>
+        <span style="font-size:11px;color:var(--text3)">Аванси, акти КБ-2, витрати — наступний крок</span>
+      </div>
+      <div class="card-body" style="color:var(--text3);font-size:13px;padding:30px;text-align:center">🚧 Буде додано</div>
+    </div>`;
+}
+function row(label,value){
+  return`<div><div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:4px">${label}</div><div style="font-size:13px;color:var(--text)">${value}</div></div>`;
+}
+
+// ── MODAL ──────────────────────────────────────────────────────────────────
+function openSiteModal(id){
+  editingSiteId=id||null;
+  document.getElementById('modal-site-title').textContent=id?'Редагувати майданчик':'Новий майданчик';
+  const s=id?state.sites.find(x=>x.id===id):null;
+  document.getElementById('s-name').value=s?.name||'';
+  document.getElementById('s-client').value=s?.client||'';
+  document.getElementById('s-address').value=s?.address||'';
+  document.getElementById('s-contract-type').value=s?.contractType||'general';
+  document.getElementById('s-status').value=s?.status||'active';
+  document.getElementById('s-stage').value=s?.stage||'prep';
+  document.getElementById('s-contract-date').value=s?.contractDate||'';
+  document.getElementById('s-start-date').value=s?.startDate||'';
+  document.getElementById('s-deadline').value=s?.deadline||'';
+  document.getElementById('s-amount-net').value=s?.amountNet||'';
+  document.getElementById('s-vat').value=s?.vat||'';
+  document.getElementById('s-amount-gross').value=s?.amountGross||'';
+  document.getElementById('s-notes').value=s?.notes||'';
+  document.getElementById('modal-site').classList.add('open');
+}
+function closeModal(name){
+  document.getElementById('modal-'+name).classList.remove('open');
+}
+function calcVat(){
+  const net=+document.getElementById('s-amount-net').value||0;
+  const vat=Math.round(net*0.2);
+  document.getElementById('s-vat').value=vat||'';
+  document.getElementById('s-amount-gross').value=(net+vat)||'';
+}
+function saveSite(){
+  const name=document.getElementById('s-name').value.trim();
+  if(!name){alert('Введіть назву об\'єкта');return;}
+  const amountNet=+document.getElementById('s-amount-net').value||0;
+  const vat=Math.round(amountNet*0.2);
+  const data={
+    id:editingSiteId||uid(),
+    name,
+    client:document.getElementById('s-client').value.trim(),
+    address:document.getElementById('s-address').value.trim(),
+    contractType:document.getElementById('s-contract-type').value,
+    status:document.getElementById('s-status').value,
+    stage:document.getElementById('s-stage').value,
+    contractDate:document.getElementById('s-contract-date').value,
+    startDate:document.getElementById('s-start-date').value,
+    deadline:document.getElementById('s-deadline').value,
+    amountNet,vat,
+    amountGross:amountNet+vat,
+    notes:document.getElementById('s-notes').value.trim(),
+  };
+  if(editingSiteId){
+    const i=state.sites.findIndex(x=>x.id===editingSiteId);
+    if(i>=0)state.sites[i]={...state.sites[i],...data};
+  } else {
+    if(!state.sites)state.sites=[];
+    state.sites.push(data);
+  }
+  save();
+  closeModal('site');
+  if(editingSiteId&&curPage==='site-detail')renderSiteDetail();
+  else renderSites();
+}
+function deleteSite(id){
+  if(!confirm('Видалити цей майданчик?'))return;
+  state.sites=state.sites.filter(s=>s.id!==id);
+  save();
+  navigate('sites');
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+load();
+</script>
+</body>
+</html>
