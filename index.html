@@ -153,6 +153,8 @@ select.form-input option{background:var(--bg3)}
         <div class="form-group">
           <label class="form-label">Стадія</label>
           <select class="form-input" id="s-stage">
+            <option value="budget">Погодження бюджету</option>
+            <option value="signing">Підписання Угоди</option>
             <option value="prep">Підготовка</option>
             <option value="found">Фундамент</option>
             <option value="structure">Каркас/Монтаж</option>
@@ -172,22 +174,22 @@ select.form-input option{background:var(--bg3)}
           <input class="form-input" type="date" id="s-start-date">
         </div>
         <div class="form-group">
-          <label class="form-label">Дедлайн здачі</label>
+          <label class="form-label">Термін виконання робіт</label>
           <input class="form-input" type="date" id="s-deadline">
         </div>
       </div>
       <div class="form-row3">
         <div class="form-group">
-          <label class="form-label">Сума договору без ПДВ, грн</label>
-          <input class="form-input" type="number" id="s-amount-net" placeholder="0" oninput="calcVat()">
+          <label class="form-label">Сума з ПДВ, грн</label>
+          <input class="form-input" type="number" id="s-amount-gross" placeholder="0" oninput="calcVat()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Сума без ПДВ, грн</label>
+          <input class="form-input" type="number" id="s-amount-net" placeholder="0" readonly style="opacity:.6">
         </div>
         <div class="form-group">
           <label class="form-label">ПДВ 20%, грн</label>
           <input class="form-input" type="number" id="s-vat" placeholder="0" readonly style="opacity:.6">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Сума з ПДВ, грн</label>
-          <input class="form-input" type="number" id="s-amount-gross" placeholder="0" readonly style="opacity:.6">
         </div>
       </div>
       <div class="form-group">
@@ -213,15 +215,16 @@ let _saveTimer=null;
 
 // ── UTILS ──────────────────────────────────────────────────────────────────
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
-function fmt(n){return new Intl.NumberFormat('uk-UA').format(Math.round(+n||0))+' ₴';}
-function fmtN(n){return new Intl.NumberFormat('uk-UA').format(Math.round(+n||0));}
+const _fmtUA=new Intl.NumberFormat('uk-UA',{minimumFractionDigits:2,maximumFractionDigits:2});
+function fmt(n){return _fmtUA.format(+n||0)+' ₴';}
+function fmtN(n){return _fmtUA.format(+n||0);}
 function fmtD(d){if(!d)return'—';try{return new Date(d).toLocaleDateString('uk-UA');}catch(e){return d;}}
 function esc(v){return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function daysLeft(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
 
 const CONTRACT_TYPE={general:'Генпідряд',sub:'Субпідряд',own:'Власне будівництво','design-build':'Проект+Буд'};
 const CONTRACT_COLOR={general:'#f0b429',sub:'#38bdf8',own:'#4ade80','design-build':'#a974e6'};
-const STAGE_LABEL={prep:'Підготовка',found:'Фундамент',structure:'Каркас',envelope:'Огороджувальні',interior:'Оздоблення',finish:'Здача'};
+const STAGE_LABEL={budget:'Погодження бюджету',signing:'Підписання Угоди',prep:'Підготовка',found:'Фундамент',structure:'Каркас',envelope:'Огороджувальні',interior:'Оздоблення',finish:'Здача'};
 const STATUS_LABEL={active:'В роботі',pause:'Пауза',done:'Завершено',archive:'Архів'};
 const STATUS_CLASS={active:'s-active',pause:'s-pause',done:'s-done',archive:'s-archive'};
 
@@ -306,10 +309,6 @@ function renderSites(){
       <div class="metric-label">В роботі</div>
       <div class="metric-value">${active}</div>
     </div>
-    <div class="metric" style="--mc:var(--blue)">
-      <div class="metric-label">Загальна сума договорів (без ПДВ)</div>
-      <div class="metric-value" style="font-size:16px">${fmt(totalNet)}</div>
-    </div>
     <div class="metric" style="--mc:var(--violet)">
       <div class="metric-label">Загальна сума з ПДВ</div>
       <div class="metric-value" style="font-size:16px">${fmt(totalGross)}</div>
@@ -340,8 +339,7 @@ function renderSites(){
         <td>${contractBadge(s.contractType)}</td>
         <td>${statusBadge(s.status)}</td>
         <td style="color:var(--text3);font-size:11px">${STAGE_LABEL[s.stage]||'—'}</td>
-        <td class="mono">${s.amountNet?fmtN(s.amountNet):'—'}</td>
-        <td class="mono" style="color:var(--text3)">${s.amountGross?fmtN(s.amountGross):'—'}</td>
+        <td class="mono">${s.amountGross?fmtN(s.amountGross):'—'}</td>
         <td style="font-size:11px;color:var(--text3)">${fmtD(s.startDate)}<br>${fmtD(s.deadline)}</td>
         <td>${dl}</td>
       </tr>`;
@@ -363,7 +361,6 @@ function renderSites(){
             <th>Тип договору</th>
             <th>Статус</th>
             <th>Стадія</th>
-            <th>Сума без ПДВ, грн</th>
             <th>Сума з ПДВ, грн</th>
             <th>Старт / Дедлайн</th>
             <th>Залишок</th>
@@ -423,7 +420,7 @@ function renderSiteDetail(){
           ${row('Стадія',STAGE_LABEL[s.stage]||'—')}
           ${row('Дата договору',fmtD(s.contractDate))}
           ${row('Початок робіт',fmtD(s.startDate))}
-          ${row('Дедлайн здачі',fmtD(s.deadline))}
+          ${row('Термін виконання робіт',fmtD(s.deadline))}
           ${s.notes?row('Примітки',s.notes):''}
         </div>
       </div>
@@ -455,9 +452,9 @@ function openSiteModal(id){
   document.getElementById('s-contract-date').value=s?.contractDate||'';
   document.getElementById('s-start-date').value=s?.startDate||'';
   document.getElementById('s-deadline').value=s?.deadline||'';
+  document.getElementById('s-amount-gross').value=s?.amountGross||'';
   document.getElementById('s-amount-net').value=s?.amountNet||'';
   document.getElementById('s-vat').value=s?.vat||'';
-  document.getElementById('s-amount-gross').value=s?.amountGross||'';
   document.getElementById('s-notes').value=s?.notes||'';
   document.getElementById('modal-site').classList.add('open');
 }
@@ -465,16 +462,18 @@ function closeModal(name){
   document.getElementById('modal-'+name).classList.remove('open');
 }
 function calcVat(){
-  const net=+document.getElementById('s-amount-net').value||0;
-  const vat=Math.round(net*0.2);
+  const gross=+document.getElementById('s-amount-gross').value||0;
+  const net=Math.round(gross/1.2*100)/100;
+  const vat=Math.round((gross-net)*100)/100;
+  document.getElementById('s-amount-net').value=net||'';
   document.getElementById('s-vat').value=vat||'';
-  document.getElementById('s-amount-gross').value=(net+vat)||'';
 }
 function saveSite(){
   const name=document.getElementById('s-name').value.trim();
   if(!name){alert('Введіть назву об\'єкта');return;}
-  const amountNet=+document.getElementById('s-amount-net').value||0;
-  const vat=Math.round(amountNet*0.2);
+  const amountGross=+document.getElementById('s-amount-gross').value||0;
+  const amountNet=Math.round(amountGross/1.2*100)/100;
+  const vat=Math.round((amountGross-amountNet)*100)/100;
   const data={
     id:editingSiteId||uid(),
     name,
@@ -486,8 +485,7 @@ function saveSite(){
     contractDate:document.getElementById('s-contract-date').value,
     startDate:document.getElementById('s-start-date').value,
     deadline:document.getElementById('s-deadline').value,
-    amountNet,vat,
-    amountGross:amountNet+vat,
+    amountNet,vat,amountGross,
     notes:document.getElementById('s-notes').value.trim(),
   };
   if(editingSiteId){
