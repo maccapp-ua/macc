@@ -64,6 +64,13 @@ select.form-input option{background:var(--bg3)}
 .subtab{padding:8px 16px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text3);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:.15s}
 .subtab:hover{color:var(--text)}.subtab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .section-divider{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:10px 0 7px;border-top:1px solid var(--border);margin-top:4px}
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center}
+.filter-bar select,.filter-bar input{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:11px;padding:5px 9px;outline:none;height:30px}
+.filter-bar select:focus,.filter-bar input:focus{border-color:var(--accent);color:var(--text)}
+.filter-bar .filter-label{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.cf-income{color:var(--green);font-weight:700}
+.cf-expense{color:var(--red);font-weight:700}
+.tag-chip{display:inline-flex;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(169,116,230,.15);color:var(--violet);border:1px solid rgba(169,116,230,.25)}
 </style>
 </head>
 <body>
@@ -80,6 +87,56 @@ select.form-input option{background:var(--bg3)}
 </nav>
 
 <div class="main" id="main-content"></div>
+
+<!-- ═══ MODAL: ТРАНЗАКЦІЯ ═══ -->
+<div class="modal-overlay" id="modal-cf">
+  <div class="modal" style="width:580px">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-cf-title">Нова транзакція</span>
+      <button class="modal-close" onclick="closeModal('cf')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">Тип *</label>
+          <select class="form-input" id="cf-type" onchange="updateCfCategories()">
+            <option value="income">📈 Дохід</option>
+            <option value="expense">📉 Розхід</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">Форма оплати *</label>
+          <select class="form-input" id="cf-form">
+            <option value="cash">💵 Готівка</option>
+            <option value="bank">🏦 Рахунок (банк)</option>
+          </select></div>
+      </div>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">Дата *</label>
+          <input class="form-input" type="date" id="cf-date"></div>
+        <div class="form-group"><label class="form-label">Сума, грн *</label>
+          <input class="form-input" type="number" id="cf-amount" placeholder="0" min="0" step="0.01"></div>
+      </div>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">Категорія</label>
+          <select class="form-input" id="cf-category"></select></div>
+        <div class="form-group"><label class="form-label">Об'єкт</label>
+          <select class="form-input" id="cf-site">
+            <option value="">— Без об'єкта —</option>
+          </select></div>
+      </div>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">Контрагент</label>
+          <input class="form-input" id="cf-counterparty" placeholder="назва компанії або ПІБ"></div>
+        <div class="form-group"><label class="form-label">Тег</label>
+          <input class="form-input" id="cf-tag" placeholder="напр. податки, зарплата, матеріали..."></div>
+      </div>
+      <div class="form-group"><label class="form-label">Примітки</label>
+        <textarea class="form-input" id="cf-notes" rows="2" placeholder="додаткова інформація..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('cf')">Скасувати</button>
+      <button class="btn primary" onclick="saveCF()">Зберегти</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ MODAL: МАЙДАНЧИК ═══ -->
 <div class="modal-overlay" id="modal-site">
@@ -238,8 +295,9 @@ select.form-input option{background:var(--bg3)}
 <script>
 // ── STATE ─────────────────────────────────────────────────────────────────
 const FB_URL='https://macc-d6e9b-default-rtdb.europe-west1.firebasedatabase.app';
-let state={sites:[],itrs:[],subs:[]};
+let state={sites:[],itrs:[],subs:[],cashflows:[]};
 let curPage='sites',curSiteId=null,curITRId=null,curSubId=null,curExecutorsTab='itr';
+let cfFilters={type:'',form:'',category:'',site:'',tag:'',dateFrom:'',dateTo:'',search:''};
 let editingSiteId=null,editingITRId=null,editingSubId=null;
 let _siteITR=[],_siteSubs=[],_afterITRSave=null,_afterSubSave=null,_saveTimer=null;
 
@@ -252,6 +310,11 @@ function fmtD(d){if(!d)return'—';try{return new Date(d).toLocaleDateString('uk
 function esc(v){return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function daysLeft(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
 function pct(num,den){if(!den)return'—';return(num/den*100).toFixed(1)+'%';}
+
+const CF_INCOME_CATS=['Аванс від замовника','Оплата по актах від замовника','Повернення коштів','Позика отримана','Інший дохід'];
+const CF_EXPENSE_CATS=['Аванс субпіднику','Оплата по актах субпіднику','Зарплата ІТР','Матеріали','Оренда техніки','Транспорт','Проектні роботи','Дозволи та документи','Адміністративні','Податки та збори','Повернення замовнику','Інші витрати'];
+const CF_FORM_LABEL={cash:'💵 Готівка',bank:'🏦 Рахунок'};
+let editingCFId=null;
 
 const CONTRACT_TYPE={general:'Генпідряд',sub:'Субпідряд',own:'Власне будівництво','design-build':'Проект+Буд'};
 const CONTRACT_COLOR={general:'#f0b429',sub:'#38bdf8',own:'#4ade80','design-build':'#a974e6'};
@@ -297,7 +360,7 @@ function load(){
   const local=localStorage.getItem('macc_state');
   if(local)try{state=JSON.parse(local);state.itrs=state.itrs||[];state.subs=state.subs||[];}catch(e){}
   fetch(FB_URL+'/state.json').then(r=>r.json()).then(d=>{
-    if(d&&d.sites){state=d;state.itrs=state.itrs||[];state.subs=state.subs||[];localStorage.setItem('macc_state',JSON.stringify(state));}
+    if(d&&d.sites){state=d;state.itrs=state.itrs||[];state.subs=state.subs||[];state.cashflows=state.cashflows||[];localStorage.setItem('macc_state',JSON.stringify(state));}
     render();
   }).catch(()=>render());
 }
@@ -323,11 +386,205 @@ function render(){
   else if(p==='executors')renderExecutors();
   else if(p==='itr-detail')renderITRDetail();
   else if(p==='sub-detail')renderSubDetail();
+  else if(p==='cashflow')renderCashflow();
   else renderComingSoon(p);
 }
 function renderComingSoon(page){
-  const labels={dashboard:'Дашборд',economics:'Економіка',cashflow:'Грошові потоки',reports:'Звіти'};
+  const labels={dashboard:'Дашборд',economics:'Економіка',reports:'Звіти'};
   document.getElementById('main-content').innerHTML=`<div class="empty-state" style="margin-top:60px"><div style="font-size:48px;margin-bottom:16px">🚧</div><h3>${labels[page]||page}</h3><p>Розділ у розробці</p></div>`;
+}
+
+// ── CASHFLOW ──────────────────────────────────────────────────────────────
+function renderCashflow(){
+  const el=document.getElementById('main-content');
+  const all=(state.cashflows||[]);
+
+  // apply filters
+  let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
+  if(cfFilters.type)rows=rows.filter(r=>r.type===cfFilters.type);
+  if(cfFilters.form)rows=rows.filter(r=>r.form===cfFilters.form);
+  if(cfFilters.category)rows=rows.filter(r=>r.category===cfFilters.category);
+  if(cfFilters.site)rows=rows.filter(r=>r.siteId===cfFilters.site);
+  if(cfFilters.tag)rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
+  if(cfFilters.dateFrom)rows=rows.filter(r=>r.date>=cfFilters.dateFrom);
+  if(cfFilters.dateTo)rows=rows.filter(r=>r.date<=cfFilters.dateTo);
+  if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.tag||'').toLowerCase().includes(q));}
+
+  // metrics on filtered set
+  const totInc=rows.filter(r=>r.type==='income').reduce((a,r)=>a+(+r.amount||0),0);
+  const totExp=rows.filter(r=>r.type==='expense').reduce((a,r)=>a+(+r.amount||0),0);
+  const cashInc=rows.filter(r=>r.type==='income'&&r.form==='cash').reduce((a,r)=>a+(+r.amount||0),0);
+  const cashExp=rows.filter(r=>r.type==='expense'&&r.form==='cash').reduce((a,r)=>a+(+r.amount||0),0);
+  const bankInc=rows.filter(r=>r.type==='income'&&r.form==='bank').reduce((a,r)=>a+(+r.amount||0),0);
+  const bankExp=rows.filter(r=>r.type==='expense'&&r.form==='bank').reduce((a,r)=>a+(+r.amount||0),0);
+  const balance=totInc-totExp;
+  const cashBal=cashInc-cashExp;
+  const bankBal=bankInc-bankExp;
+
+  // categories for filter dropdown
+  const usedCats=[...new Set(all.map(r=>r.category).filter(Boolean))].sort();
+  const allCats=[...new Set([...CF_INCOME_CATS,...CF_EXPENSE_CATS,...usedCats])];
+
+  // sites for filter
+  const sites=state.sites||[];
+
+  const metrics=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px">
+    <div class="metric" style="--mc:var(--green)"><div class="metric-label">📈 Доходи</div><div class="metric-value" style="font-size:15px;color:var(--green)">${fmt(totInc)}</div></div>
+    <div class="metric" style="--mc:var(--red)"><div class="metric-label">📉 Витрати</div><div class="metric-value" style="font-size:15px;color:var(--red)">${fmt(totExp)}</div></div>
+    <div class="metric" style="--mc:${balance>=0?'var(--accent)':'var(--red)'}"><div class="metric-label">⚖ Баланс</div><div class="metric-value" style="font-size:15px;color:${balance>=0?'var(--accent)':'var(--red)'}">${fmt(balance)}</div></div>
+    <div class="metric" style="--mc:#f0b429aa"><div class="metric-label">💵 Готівка</div><div class="metric-value" style="font-size:14px;color:${cashBal>=0?'var(--green)':'var(--red)'}">${fmt(cashBal)}</div></div>
+    <div class="metric" style="--mc:#38bdf8aa"><div class="metric-label">🏦 Рахунок</div><div class="metric-value" style="font-size:14px;color:${bankBal>=0?'var(--green)':'var(--red)'}">${fmt(bankBal)}</div></div>
+  </div>`;
+
+  const filterBar=`<div class="filter-bar">
+    <span class="filter-label">Фільтри:</span>
+    <select onchange="cfFilters.type=this.value;renderCashflow()">
+      <option value="">Всі типи</option>
+      <option value="income" ${cfFilters.type==='income'?'selected':''}>📈 Доходи</option>
+      <option value="expense" ${cfFilters.type==='expense'?'selected':''}>📉 Витрати</option>
+    </select>
+    <select onchange="cfFilters.form=this.value;renderCashflow()">
+      <option value="">Всі форми</option>
+      <option value="cash" ${cfFilters.form==='cash'?'selected':''}>💵 Готівка</option>
+      <option value="bank" ${cfFilters.form==='bank'?'selected':''}>🏦 Рахунок</option>
+    </select>
+    <select onchange="cfFilters.category=this.value;renderCashflow()" style="min-width:160px">
+      <option value="">Всі категорії</option>
+      ${allCats.map(c=>`<option value="${esc(c)}"${cfFilters.category===c?' selected':''}>${esc(c)}</option>`).join('')}
+    </select>
+    <select onchange="cfFilters.site=this.value;renderCashflow()" style="min-width:140px">
+      <option value="">Всі об'єкти</option>
+      ${sites.map(s=>`<option value="${s.id}"${cfFilters.site===s.id?' selected':''}>${esc(s.name)}</option>`).join('')}
+    </select>
+    <input placeholder="🔍 Пошук..." value="${esc(cfFilters.search)}" oninput="cfFilters.search=this.value;renderCashflow()" style="min-width:140px">
+    <input type="date" title="Дата від" value="${cfFilters.dateFrom}" onchange="cfFilters.dateFrom=this.value;renderCashflow()">
+    <input type="date" title="Дата до" value="${cfFilters.dateTo}" onchange="cfFilters.dateTo=this.value;renderCashflow()">
+    <input placeholder="Тег..." value="${esc(cfFilters.tag)}" oninput="cfFilters.tag=this.value;renderCashflow()" style="min-width:90px">
+    ${Object.values(cfFilters).some(v=>v)?`<button class="btn sm" onclick="cfFilters={type:'',form:'',category:'',site:'',tag:'',dateFrom:'',dateTo:'',search:''};renderCashflow()">✕ Скинути</button>`:''}
+  </div>`;
+
+  let tbody='';
+  if(!rows.length){
+    tbody=`<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:32px;margin-bottom:10px">💸</div>${all.length?'Нічого не знайдено за фільтрами':'Транзакцій ще немає. Натисніть «+ Транзакція»'}</td></tr>`;
+  } else {
+    rows.forEach(r=>{
+      const site=sites.find(s=>s.id===r.siteId);
+      const isInc=r.type==='income';
+      tbody+=`<tr>
+        <td style="color:var(--text3);white-space:nowrap">${fmtD(r.date)}</td>
+        <td><span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;${isInc?'background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.3)':'background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)'}">${isInc?'📈 Дохід':'📉 Розхід'}</span></td>
+        <td style="font-size:10px;color:var(--text3)">${CF_FORM_LABEL[r.form]||r.form}</td>
+        <td style="font-size:11px;color:var(--text2)">${esc(r.category||'—')}</td>
+        <td>${site?`<span style="font-size:10px;color:var(--accent);font-weight:600">${esc(site.name)}</span>`:'<span style="color:var(--text3);font-size:10px">—</span>'}</td>
+        <td style="font-size:11px">${esc(r.counterparty||'—')}</td>
+        <td>${r.tag?`<span class="tag-chip">${esc(r.tag)}</span>`:'<span style="color:var(--text3);font-size:10px">—</span>'}</td>
+        <td class="r mono" style="font-size:13px;font-weight:700;${isInc?'color:var(--green)':'color:var(--red)'}">${isInc?'+':'-'}${fmtN(r.amount)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn sm" onclick="openCFModal('${r.id}')">✏</button>
+          <button class="btn sm" style="color:var(--red);border-color:var(--red);margin-left:4px" onclick="deleteCF('${r.id}')">×</button>
+        </td>
+      </tr>`;
+      if(r.notes){
+        tbody+=`<tr style="background:none"><td colspan="9" style="padding:2px 8px 8px 8px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border)">💬 ${esc(r.notes)}</td></tr>`;
+      }
+    });
+  }
+
+  // Group by category summary (side panel concept — show below)
+  const catSummary=[];
+  [...new Set(rows.map(r=>r.category).filter(Boolean))].forEach(cat=>{
+    const catRows=rows.filter(r=>r.category===cat);
+    const inc=catRows.filter(r=>r.type==='income').reduce((a,r)=>a+(+r.amount||0),0);
+    const exp=catRows.filter(r=>r.type==='expense').reduce((a,r)=>a+(+r.amount||0),0);
+    catSummary.push({cat,inc,exp,count:catRows.length});
+  });
+
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <h2 style="font-size:17px;font-weight:700;color:var(--text)">💸 Грошові потоки</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="openCFModal(null,'income')">+ 📈 Дохід</button>
+        <button class="btn primary" onclick="openCFModal(null,'expense')">+ 📉 Розхід</button>
+      </div>
+    </div>
+    ${metrics}
+    <div class="card" style="margin-bottom:14px;overflow:visible">
+      ${filterBar}
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr>
+            <th>Дата</th><th>Тип</th><th>Форма</th><th>Категорія</th>
+            <th>Об'єкт</th><th>Контрагент</th><th>Тег</th>
+            <th class="r">Сума</th><th></th>
+          </tr></thead>
+          <tbody>${tbody}</tbody>
+        </table>
+      </div>
+      ${rows.length?`<div style="padding:8px 16px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)">${rows.length} записів · Доходи: <span style="color:var(--green);font-weight:700">${fmt(totInc)}</span> · Витрати: <span style="color:var(--red);font-weight:700">${fmt(totExp)}</span> · Баланс: <span style="font-weight:700;color:${balance>=0?'var(--accent)':'var(--red)'}">${fmt(balance)}</span></div>`:''}
+    </div>
+    ${catSummary.length?`<div class="card">
+      <div class="card-head"><span class="card-title">📊 Зведення по категоріях</span></div>
+      <div style="overflow-x:auto"><table class="tbl">
+        <thead><tr><th>Категорія</th><th class="r">Транзакцій</th><th class="r">Доходи</th><th class="r">Витрати</th><th class="r">Разом</th></tr></thead>
+        <tbody>${catSummary.sort((a,b)=>(b.inc+b.exp)-(a.inc+a.exp)).map(c=>`<tr>
+          <td style="color:var(--text);font-weight:600">${esc(c.cat)}</td>
+          <td class="r" style="color:var(--text3)">${c.count}</td>
+          <td class="r" style="color:var(--green)">${c.inc?fmtN(c.inc):'—'}</td>
+          <td class="r" style="color:var(--red)">${c.exp?fmtN(c.exp):'—'}</td>
+          <td class="r mono" style="font-weight:700;color:${c.inc-c.exp>=0?'var(--green)':'var(--red)'}">${fmtN(c.inc-c.exp)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`:''}`;
+}
+
+// ── CF MODAL ──────────────────────────────────────────────────────────────
+function openCFModal(id,defaultType){
+  editingCFId=id||null;
+  const r=id?(state.cashflows||[]).find(x=>x.id===id):null;
+  document.getElementById('modal-cf-title').textContent=id?'Редагувати транзакцію':'Нова транзакція';
+  document.getElementById('cf-type').value=r?.type||defaultType||'income';
+  document.getElementById('cf-form').value=r?.form||'bank';
+  document.getElementById('cf-date').value=r?.date||new Date().toISOString().slice(0,10);
+  document.getElementById('cf-amount').value=r?.amount||'';
+  document.getElementById('cf-counterparty').value=r?.counterparty||'';
+  document.getElementById('cf-tag').value=r?.tag||'';
+  document.getElementById('cf-notes').value=r?.notes||'';
+  // sites
+  const sitesSel=document.getElementById('cf-site');
+  sitesSel.innerHTML='<option value="">— Без об\'єкта —</option>'+(state.sites||[]).map(s=>`<option value="${s.id}"${r?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+  updateCfCategories(r?.category);
+  document.getElementById('modal-cf').classList.add('open');
+}
+function updateCfCategories(selected){
+  const t=document.getElementById('cf-type').value;
+  const cats=t==='income'?CF_INCOME_CATS:CF_EXPENSE_CATS;
+  const el=document.getElementById('cf-category');
+  el.innerHTML=cats.map(c=>`<option value="${esc(c)}"${selected===c?' selected':''}>${esc(c)}</option>`).join('');
+}
+function saveCF(){
+  if(!state.cashflows)state.cashflows=[];
+  const amount=+document.getElementById('cf-amount').value||0;
+  const date=document.getElementById('cf-date').value;
+  if(!date){alert('Введіть дату');return;}
+  if(!amount){alert('Введіть суму');return;}
+  const data={
+    id:editingCFId||uid(),
+    type:document.getElementById('cf-type').value,
+    form:document.getElementById('cf-form').value,
+    date,amount,
+    category:document.getElementById('cf-category').value,
+    siteId:document.getElementById('cf-site').value,
+    counterparty:document.getElementById('cf-counterparty').value.trim(),
+    tag:document.getElementById('cf-tag').value.trim(),
+    notes:document.getElementById('cf-notes').value.trim(),
+  };
+  if(editingCFId){const i=state.cashflows.findIndex(x=>x.id===editingCFId);if(i>=0)state.cashflows[i]=data;}
+  else state.cashflows.push(data);
+  save();closeModal('cf');renderCashflow();
+}
+function deleteCF(id){
+  if(!confirm('Видалити цю транзакцію?'))return;
+  state.cashflows=state.cashflows.filter(x=>x.id!==id);save();renderCashflow();
 }
 
 // ── SITES LIST ────────────────────────────────────────────────────────────
