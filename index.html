@@ -193,13 +193,6 @@ select.form-input option{background:var(--bg3)}
       </div>
       <div class="form-group"><label class="form-label">Примітки</label>
         <textarea class="form-input" id="s-notes" rows="2" placeholder="додаткова інформація..."></textarea></div>
-      <div class="section-divider">💰 Фінанси від замовника</div>
-      <div class="form-row2">
-        <div class="form-group"><label class="form-label">Отримано аванс, грн</label>
-          <input class="form-input" type="number" id="s-client-advance" placeholder="0"></div>
-        <div class="form-group"><label class="form-label">Отримано по актах, грн</label>
-          <input class="form-input" type="number" id="s-client-acts" placeholder="0"></div>
-      </div>
       <div class="section-divider">👷 ІТР на об'єкті</div>
       <div id="s-itr-list"></div>
       <button class="btn sm" style="margin-top:6px" onclick="addSiteITRRow()">+ Призначити ІТР</button>
@@ -335,19 +328,21 @@ function deadlineBadge(d,status){
 }
 function row(label,value){return`<div><div style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:3px">${label}</div><div style="font-size:12px;color:var(--text)">${value}</div></div>`;}
 
-// helper: compute site financials
+// helper: compute site financials — actual money from cashflow, plan from subContracts
 function siteCalc(s){
-  const cliAdv=+s.clientAdvance||0, cliActs=+s.clientActs||0;
-  const received=cliAdv+cliActs;
+  const cfs=state.cashflows||[];
+  const siteCFs=cfs.filter(c=>c.siteId===s.id);
+  const received=siteCFs.filter(c=>c.type==='income').reduce((a,c)=>a+(+c.amount||0),0);
+  const spent=siteCFs.filter(c=>c.type==='expense').reduce((a,c)=>a+(+c.amount||0),0);
   const subs=s.subContracts||[];
   const subContractTotal=subs.reduce((a,c)=>a+(+c.amountGross||0),0);
-  const subAdv=subs.reduce((a,c)=>a+(+c.advance||0),0);
-  const subActs=subs.reduce((a,c)=>a+(+c.closedByActs||0),0);
-  const spent=subAdv+subActs;
   const gross=+s.amountGross||0;
   const balance=received-spent;
-  const margin=gross?((gross-subContractTotal)/gross*100):0;
-  return{cliAdv,cliActs,received,subContractTotal,subAdv,subActs,spent,gross,balance,margin};
+  const margin=gross?((received-spent)/gross*100):0;
+  // keep per-sub detail for sub breakdown in site detail
+  const subAdv=subs.reduce((a,c)=>a+(+c.advance||0),0);
+  const subActs=subs.reduce((a,c)=>a+(+c.closedByActs||0),0);
+  return{received,spent,subContractTotal,subAdv,subActs,gross,balance,margin};
 }
 
 // ── STORAGE ───────────────────────────────────────────────────────────────
@@ -666,13 +661,12 @@ function renderSites(){
   const sites=state.sites||[];
 
   // Aggregate metrics
-  let totGross=0,totCliAdv=0,totCliActs=0,totSubContract=0,totSpent=0;
+  let totGross=0,totReceived=0,totSubContract=0,totSpent=0;
   sites.forEach(s=>{
     const f=siteCalc(s);
-    totGross+=f.gross; totCliAdv+=f.cliAdv; totCliActs+=f.cliActs;
+    totGross+=f.gross; totReceived+=f.received;
     totSubContract+=f.subContractTotal; totSpent+=f.spent;
   });
-  const totReceived=totCliAdv+totCliActs;
   const totCliRemain=totGross-totReceived;
   const totSubRemain=totSubContract-totSpent;
   const active=sites.filter(s=>s.status==='active').length;
@@ -683,8 +677,7 @@ function renderSites(){
       <div>
         <div class="metric-group-label">📥 Надходження від замовників</div>
         <div class="metrics" style="margin-bottom:0">
-          <div class="metric" style="--mc:var(--green)"><div class="metric-label">Аванси</div><div class="metric-value" style="font-size:14px">${fmt(totCliAdv)}</div></div>
-          <div class="metric" style="--mc:var(--blue)"><div class="metric-label">По актах</div><div class="metric-value" style="font-size:14px">${fmt(totCliActs)}</div></div>
+          <div class="metric" style="--mc:var(--green)"><div class="metric-label">Отримано</div><div class="metric-value" style="font-size:14px">${fmt(totReceived)}</div></div>
           <div class="metric" style="--mc:var(--amber)"><div class="metric-label">Залишок</div><div class="metric-value" style="font-size:14px;color:${totCliRemain>0?'var(--amber)':'var(--green)'}">${fmt(totCliRemain)}</div></div>
         </div>
       </div>
@@ -793,8 +786,7 @@ function renderSiteDetail(){
       <div>
         <div class="metric-group-label">📥 Надходження від замовника</div>
         <div class="metrics" style="margin-bottom:0;gap:8px">
-          <div class="metric" style="--mc:var(--green);min-width:0"><div class="metric-label">Аванс</div><div class="metric-value" style="font-size:14px">${fmt(f.cliAdv)}</div></div>
-          <div class="metric" style="--mc:var(--blue);min-width:0"><div class="metric-label">По актах</div><div class="metric-value" style="font-size:14px">${fmt(f.cliActs)}</div></div>
+          <div class="metric" style="--mc:var(--green);min-width:0"><div class="metric-label">Отримано</div><div class="metric-value" style="font-size:14px">${fmt(f.received)}</div></div>
           <div class="metric" style="--mc:${cliRemain>0?'var(--amber)':'var(--green)'};min-width:0"><div class="metric-label">Залишок</div><div class="metric-value" style="font-size:14px;color:${cliRemain>0?'var(--amber)':'var(--green)'}">${fmt(cliRemain)}</div></div>
         </div>
       </div>
@@ -920,9 +912,7 @@ function renderSiteBudget(){
       <div class="card-head"><span class="card-title">💰 Зведення по замовнику</span></div>
       <div class="card-body"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
         ${row('Сума договору з ПДВ',fmt(f.gross))}
-        ${row('Отримано аванс',fmt(f.cliAdv))}
-        ${row('Отримано по актах',fmt(f.cliActs))}
-        ${row('Всього отримано',`<b style="color:var(--green)">${fmt(f.received)}</b>`)}
+        ${row('Всього отримано від замовника',`<b style="color:var(--green)">${fmt(f.received)}</b>`)}
         ${row('Залишок від замовника',`<b style="color:${f.gross-f.received>0?'var(--amber)':'var(--green)'}">${fmt(f.gross-f.received)}</b>`)}
         ${row('Термін виконання',fmtD(s.deadline))}
       </div></div>
@@ -1229,8 +1219,6 @@ function openSiteModal(id){
   document.getElementById('s-amount-net').value=s?.amountNet||'';
   document.getElementById('s-vat').value=s?.vat||'';
   document.getElementById('s-notes').value=s?.notes||'';
-  document.getElementById('s-client-advance').value=s?.clientAdvance||'';
-  document.getElementById('s-client-acts').value=s?.clientActs||'';
   _siteITR=JSON.parse(JSON.stringify(s?.itrAssignments||[]));
   _siteSubs=JSON.parse(JSON.stringify(s?.subContracts||[]));
   renderSiteITRList();renderSiteSubList();
@@ -1315,8 +1303,6 @@ function saveSite(){
     deadline:document.getElementById('s-deadline').value,
     amountNet,vat,amountGross,
     notes:document.getElementById('s-notes').value.trim(),
-    clientAdvance:+document.getElementById('s-client-advance').value||0,
-    clientActs:+document.getElementById('s-client-acts').value||0,
     itrAssignments:_siteITR.filter(a=>a.itrId&&a.itrId!=='__new__'),
     subContracts:_siteSubs.filter(c=>c.subId&&c.subId!=='__new__'),
   };
