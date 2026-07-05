@@ -360,7 +360,7 @@ function load(){
   const local=localStorage.getItem('macc_state');
   if(local)try{state=JSON.parse(local);state.itrs=state.itrs||[];state.subs=state.subs||[];}catch(e){}
   fetch(FB_URL+'/state.json').then(r=>r.json()).then(d=>{
-    if(d&&d.sites){state=d;state.itrs=state.itrs||[];state.subs=state.subs||[];state.cashflows=state.cashflows||[];state.cfCategories=state.cfCategories||[];localStorage.setItem('macc_state',JSON.stringify(state));}
+    if(d&&d.sites){state=d;state.itrs=state.itrs||[];state.subs=state.subs||[];state.cashflows=state.cashflows||[];state.cfCategories=state.cfCategories||[];state.cfCounterparties=state.cfCounterparties||[];localStorage.setItem('macc_state',JSON.stringify(state));}
     render();
   }).catch(()=>render());
 }
@@ -428,6 +428,11 @@ function renderCashflow(){
   const subRow=(label,val)=>`<div style="display:flex;justify-content:space-between;margin-top:5px;padding-top:4px;border-top:1px solid var(--border)"><span style="font-size:9px;color:var(--text3)">${label}</span><span style="font-size:11px;font-weight:600;color:var(--text2)">${fmtN(val)}</span></div>`;
 
   const metrics=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+    <div class="metric" style="--mc:${balance>=0?'var(--accent)':'var(--red)'}">
+      <div class="metric-label">⚖ Баланс</div>
+      <div class="metric-value" style="color:${balance>=0?'var(--accent)':'var(--red)'}">${fmtN(balance)}</div>
+      ${subRow('🏦 Рахунок',bankBal)}${subRow('💵 Готівка',cashBal)}
+    </div>
     <div class="metric" style="--mc:var(--green)">
       <div class="metric-label">📈 Доходи</div>
       <div class="metric-value" style="color:var(--green)">${fmtN(totInc)}</div>
@@ -437,11 +442,6 @@ function renderCashflow(){
       <div class="metric-label">📉 Витрати</div>
       <div class="metric-value" style="color:var(--red)">${fmtN(totExp)}</div>
       ${subRow('🏦 Рахунок',bankExp)}${subRow('💵 Готівка',cashExp)}
-    </div>
-    <div class="metric" style="--mc:${balance>=0?'var(--accent)':'var(--red)'}">
-      <div class="metric-label">⚖ Баланс</div>
-      <div class="metric-value" style="color:${balance>=0?'var(--accent)':'var(--red)'}">${fmtN(balance)}</div>
-      ${subRow('🏦 Рахунок',bankBal)}${subRow('💵 Готівка',cashBal)}
     </div>
   </div>`;
 
@@ -511,6 +511,7 @@ function renderCashflow(){
       <h2 style="font-size:17px;font-weight:700;color:var(--text)">💸 Грошові потоки</h2>
       <div style="display:flex;gap:8px">
         <button class="btn sm" onclick="manageCFCategories()" title="Керувати категоріями">⚙ Категорії</button>
+        <button class="btn sm" onclick="manageCFCounterparties()" title="Керувати контрагентами">⚙ Контрагенти</button>
         <button class="btn" onclick="openCFModal(null,'income')">+ 📈 Дохід</button>
         <button class="btn primary" onclick="openCFModal(null,'expense')">+ 📉 Розхід</button>
       </div>
@@ -566,7 +567,7 @@ function openCFModal(id,defaultType){
   // counterparties datalist: subs + existing counterparties
   const subNames=(state.subs||[]).map(s=>s.name).filter(Boolean);
   const usedCP=[...new Set((state.cashflows||[]).map(x=>x.counterparty).filter(Boolean))];
-  const allCP=[...new Set([...subNames,...usedCP])].sort();
+  const allCP=[...new Set([...(state.cfCounterparties||[]),...subNames,...usedCP])].sort();
   document.getElementById('cf-cp-list').innerHTML=allCP.map(c=>`<option value="${esc(c)}">`).join('');
   document.getElementById('cf-counterparty').value=r?.counterparty||'';
   document.getElementById('modal-cf').classList.add('open');
@@ -629,6 +630,34 @@ function addCFCat(){
 function deleteCFCat(cat){
   state.cfCategories=(state.cfCategories||[]).filter(c=>c!==cat);
   save();manageCFCategories();
+}
+function manageCFCounterparties(){
+  const list=(state.cfCounterparties||[]).slice().sort();
+  const html=`<div style="padding:16px;min-width:320px">
+    <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em">⚙ Контрагенти</div>
+    <div style="margin-bottom:12px">${list.length?list.map(c=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${esc(c)}</span><button class="btn sm" style="color:var(--red);border-color:var(--red)" onclick="deleteCFCP('${esc(c)}')">×</button></div>`).join(''):'<div style="font-size:11px;color:var(--text3);padding:10px 0">Контрагентів ще немає</div>'}</div>
+    <div style="display:flex;gap:8px">
+      <input class="form-input" id="new-cp-input" placeholder="Назва контрагента..." style="flex:1">
+      <button class="btn primary sm" onclick="addCFCP()">+ Додати</button>
+    </div>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn sm" onclick="this.closest('.modal-overlay').classList.remove('open')">Закрити</button></div>
+  </div>`;
+  let ov=document.getElementById('cp-mgr-overlay');
+  if(!ov){ov=document.createElement('div');ov.id='cp-mgr-overlay';ov.className='modal-overlay';ov.style.zIndex=300;ov.innerHTML=`<div class="modal" style="width:400px"></div>`;document.body.appendChild(ov);}
+  ov.querySelector('.modal').innerHTML=html;
+  ov.classList.add('open');
+}
+function addCFCP(){
+  const inp=document.getElementById('new-cp-input');
+  const v=inp.value.trim();
+  if(!v)return;
+  if(!state.cfCounterparties)state.cfCounterparties=[];
+  if(!state.cfCounterparties.includes(v))state.cfCounterparties.push(v);
+  inp.value='';save();manageCFCounterparties();
+}
+function deleteCFCP(cp){
+  state.cfCounterparties=(state.cfCounterparties||[]).filter(c=>c!==cp);
+  save();manageCFCounterparties();
 }
 
 // ── SITES LIST ────────────────────────────────────────────────────────────
