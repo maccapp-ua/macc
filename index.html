@@ -264,10 +264,13 @@ select.form-input option{background:var(--bg3)}
         <div class="form-group"><label class="form-label">Категорія</label>
           <input class="form-input" id="cf-category" list="cf-cat-list" placeholder="введіть або оберіть..."></div>
         <div class="form-group"><label class="form-label">Об'єкт</label>
-          <select class="form-input" id="cf-site">
+          <select class="form-input" id="cf-site" onchange="updateCFWorkTypes()">
             <option value="">— Без об'єкта —</option>
           </select></div>
       </div>
+      <datalist id="cf-wt-list"></datalist>
+      <div class="form-group"><label class="form-label">Вид робіт <span style="font-size:9px;color:var(--text3)">(прив'язка до бюджету)</span></label>
+        <input class="form-input" id="cf-worktype" list="cf-wt-list" placeholder="оберіть зі списку або введіть вручну..."></div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Контрагент</label>
           <input class="form-input" id="cf-counterparty" list="cf-cp-list" placeholder="введіть або оберіть..."></div>
@@ -300,18 +303,14 @@ select.form-input option{background:var(--bg3)}
         <div class="form-group"><label class="form-label">Ціна витрат (план), грн</label>
           <input class="form-input" type="number" id="br-plan-cost" placeholder="0" oninput="calcBudgetRow()"></div>
       </div>
-      <div class="form-group"><label class="form-label">Ціна витрат (факт), грн</label>
-        <input class="form-input" type="number" id="br-fact-cost" placeholder="0" oninput="calcBudgetRow()"></div>
       <!-- preview -->
       <div id="br-preview" style="margin-top:14px;padding:12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);display:none">
-        <div style="font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Розрахунок</div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Розрахунок (план)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px">
           <div><span style="font-size:9px;color:var(--text3)">Дохід план, грн</span><br><span id="br-p-inc" style="font-size:14px;font-weight:700;color:var(--accent)">—</span></div>
           <div><span style="font-size:9px;color:var(--text3)">Дохід план, %</span><br><span id="br-p-pct" style="font-size:14px;font-weight:700;color:var(--accent)">—</span></div>
-          <div><span style="font-size:9px;color:var(--text3)">Дохід факт, грн</span><br><span id="br-f-inc" style="font-size:14px;font-weight:700;color:var(--green)">—</span></div>
-          <div><span style="font-size:9px;color:var(--text3)">Дохід факт, %</span><br><span id="br-f-pct" style="font-size:14px;font-weight:700;color:var(--green)">—</span></div>
-          <div><span style="font-size:9px;color:var(--text3)">Різниця (факт − план)</span><br><span id="br-diff" style="font-size:14px;font-weight:700">—</span></div>
         </div>
+        <div style="margin-top:8px;font-size:10px;color:var(--text3)">💡 Фактичні витрати підтягуються автоматично з «Грошових потоків» по виду робіт</div>
       </div>
     </div>
     <div class="modal-footer">
@@ -597,7 +596,10 @@ function renderBudgetDetail(){
 
   // totals
   let totDC=0,totPC=0,totFC=0;
-  rows.forEach(r=>{totDC+=(+r.dcPrice||0);totPC+=(+r.planCost||0);totFC+=(+r.factCost||0);});
+  rows.forEach(r=>{
+    totDC+=(+r.dcPrice||0);totPC+=(+r.planCost||0);
+    totFC+=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
+  });
   const totPI=totDC-totPC, totFI=totDC-totFC;
   const totPIPct=totDC?totPI/totDC*100:0;
   const totFIPct=totDC?totFI/totDC*100:0;
@@ -611,7 +613,8 @@ function renderBudgetDetail(){
     tbody=`<tr><td colspan="10"><div class="empty" style="padding:30px"><div class="empty-icon">📋</div><h3>Бюджет порожній</h3><p>Натисніть «+ Додати рядок»</p></div></td></tr>`;
   } else {
     rows.forEach((r,i)=>{
-      const dc=+r.dcPrice||0, pc=+r.planCost||0, fc=+r.factCost||0;
+      const dc=+r.dcPrice||0, pc=+r.planCost||0;
+      const fc=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
       const pi=dc-pc, fi=dc-fc, diff=fi-pi;
       tbody+=`<tr onclick="openBudgetRowModal('${s.id}','${r.id}')">
         <td style="color:var(--text3);text-align:center">${i+1}</td>
@@ -683,7 +686,6 @@ function openBudgetRowModal(siteId,rowId){
   document.getElementById('br-work').value=r?.workType||'';
   document.getElementById('br-dc').value=r?.dcPrice||'';
   document.getElementById('br-plan-cost').value=r?.planCost||'';
-  document.getElementById('br-fact-cost').value=r?.factCost||'';
   calcBudgetRow();
   document.getElementById('modal-brow').classList.add('open');
 }
@@ -691,23 +693,16 @@ function openBudgetRowModal(siteId,rowId){
 function calcBudgetRow(){
   const dc=+document.getElementById('br-dc').value||0;
   const pc=+document.getElementById('br-plan-cost').value||0;
-  const fc=+document.getElementById('br-fact-cost').value||0;
   const prev=document.getElementById('br-preview');
   if(!dc){prev.style.display='none';return;}
   prev.style.display='block';
-  const pi=dc-pc, fi=dc-fc, diff=fi-pi;
+  const pi=dc-pc;
   const pct=(n,d)=>d?((n/d)*100).toFixed(1)+'%':'—';
   const col=(v)=>v>=0?'var(--green)':'var(--red)';
   document.getElementById('br-p-inc').textContent=fmtN(pi);
   document.getElementById('br-p-inc').style.color=col(pi);
   document.getElementById('br-p-pct').textContent=pct(pi,dc);
   document.getElementById('br-p-pct').style.color=col(pi);
-  document.getElementById('br-f-inc').textContent=fc?fmtN(fi):'—';
-  document.getElementById('br-f-inc').style.color=col(fi);
-  document.getElementById('br-f-pct').textContent=fc?pct(fi,dc):'—';
-  document.getElementById('br-f-pct').style.color=col(fi);
-  document.getElementById('br-diff').textContent=fc?fmtN(diff):'—';
-  document.getElementById('br-diff').style.color=fc?col(diff):'var(--text3)';
 }
 
 function saveBudgetRow(){
@@ -721,7 +716,6 @@ function saveBudgetRow(){
     workType,
     dcPrice:+document.getElementById('br-dc').value||0,
     planCost:+document.getElementById('br-plan-cost').value||0,
-    factCost:+document.getElementById('br-fact-cost').value||0,
   };
   if(editingBudgetRowId){const i=rows.findIndex(x=>x.id===editingBudgetRowId);if(i>=0)rows[i]=data;}
   else rows.push(data);
@@ -1020,6 +1014,8 @@ function openCFModal(id,defaultType){
   document.getElementById('cf-notes').value=r?.notes||'';
   const siteSel=document.getElementById('cf-site');
   siteSel.innerHTML='<option value="">— Без об\'єкта —</option>'+(state.sites||[]).map(s=>`<option value="${s.id}"${r?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+  document.getElementById('cf-worktype').value=r?.workType||'';
+  updateCFWorkTypes(r?.siteId);
   const cats=[...new Set([...(state.cfCategories||[]),...(state.cashflows||[]).map(x=>x.category).filter(Boolean)])].sort();
   document.getElementById('cf-cat-list').innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
   document.getElementById('cf-category').value=r?.category||'';
@@ -1029,6 +1025,13 @@ function openCFModal(id,defaultType){
   document.getElementById('cf-cp-list').innerHTML=allCP.map(c=>`<option value="${esc(c)}">`).join('');
   document.getElementById('cf-counterparty').value=r?.counterparty||'';
   document.getElementById('modal-cf').classList.add('open');
+}
+function updateCFWorkTypes(siteId){
+  const id=siteId||document.getElementById('cf-site').value;
+  const rows=id?(state.budgets[id]||{rows:[]}).rows||[]:[];
+  const usedWT=[...new Set((state.cashflows||[]).filter(c=>c.workType).map(c=>c.workType))];
+  const all=[...new Set([...rows.map(r=>r.workType).filter(Boolean),...usedWT])].sort();
+  document.getElementById('cf-wt-list').innerHTML=all.map(w=>`<option value="${esc(w)}">`).join('');
 }
 function saveCF(){
   if(!state.cashflows)state.cashflows=[];
@@ -1047,6 +1050,7 @@ function saveCF(){
     counterparty:document.getElementById('cf-counterparty').value.trim(),
     tag:document.getElementById('cf-tag').value.trim(),
     notes:document.getElementById('cf-notes').value.trim(),
+    workType:document.getElementById('cf-worktype').value.trim(),
   };
   if(editingCFId){const i=state.cashflows.findIndex(x=>x.id===editingCFId);if(i>=0)state.cashflows[i]=data;}
   else state.cashflows.push(data);
