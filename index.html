@@ -1226,12 +1226,12 @@ function renderCashflow(){
     <div class="page-header">
       <h1 class="page-title">💸 Грошові потоки</h1>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn sm" onclick="manageCFCategories()" style="background:#f97316;color:#fff;border-color:#f97316">⚙ Категорії</button>
-        <button class="btn sm" onclick="manageCFCounterparties()" style="background:#f97316;color:#fff;border-color:#f97316">⚙ Контрагенти</button>
+        <button class="btn" onclick="openCFModal(null,'income')" style="background:#22c55e;color:#fff;border-color:#22c55e">+ 📈 Дохід</button>
+        <button class="btn" onclick="openCFModal(null,'expense')" style="background:#ef4444;color:#fff;border-color:#ef4444">+ 📉 Розхід</button>
+        <button class="btn sm" onclick="manageCFCategories()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9">⚙ Категорії</button>
+        <button class="btn sm" onclick="manageCFCounterparties()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9">⚙ Контрагенти</button>
         <button class="btn sm" onclick="exportCashflowExcel()" title="Excel">📥 Excel</button>
         <button class="btn sm" onclick="exportCashflowPDF()" title="PDF">🖨 PDF</button>
-        <button class="btn" onclick="openCFModal(null,'income')" style="background:#22c55e;color:#fff;border-color:#22c55e">+ 📈 Дохід</button>
-        <button class="btn primary" onclick="openCFModal(null,'expense')">+ 📉 Розхід</button>
       </div>
     </div>
     ${metrics}
