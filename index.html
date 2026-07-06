@@ -626,7 +626,7 @@ function renderBudgetDetail(){
         <td class="r mono" style="color:var(--amber)">${fc?fmtN(fc):'—'}</td>
         <td class="r mono" ${colored(fi)}>${dc?fmtN(fi):'—'}</td>
         <td class="r" style="color:${fi>=0?'var(--green)':'var(--red)'}">${dc&&fc?pct(fi,dc):'—'}</td>
-        <td class="r mono" ${colored(diff,'var(--accent)','var(--red)')}>${dc&&fc?fmtN(diff):'—'}</td>
+        <td class="r mono" ${colored(diff,'var(--green)','var(--red)')}>${pc?fmtN(diff):'—'}</td>
         <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="deleteBudgetRow('${s.id}','${r.id}')">×</button></td>
       </tr>`;
     });
@@ -640,7 +640,7 @@ function renderBudgetDetail(){
       <td class="r mono" style="color:var(--amber);font-weight:700">${totFC?fmtN(totFC):'—'}</td>
       <td class="r mono" style="color:${totFI>=0?'var(--green)':'var(--red)'};font-weight:700">${totDC&&totFC?fmtN(totFI):'—'}</td>
       <td class="r" style="color:${totFI>=0?'var(--green)':'var(--red)'};font-weight:700">${totDC&&totFC?totFIPct.toFixed(1)+'%':'—'}</td>
-      <td class="r mono" style="color:${totDiff>=0?'var(--accent)':'var(--red)'};font-weight:700">${totDC&&totFC?fmtN(totDiff):'—'}</td>
+      <td class="r mono" style="color:${totDiff>=0?'var(--green)':'var(--red)'};font-weight:700">${totPC?fmtN(totDiff):'—'}</td>
       <td></td>
     </tr>`;
   }
