@@ -1236,11 +1236,14 @@ function renderCashflow(){
       ${rows.length?`<div style="padding:8px 14px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)">${rows.length} записів · Доходи: <span style="color:var(--green);font-weight:700">${fmtN(totInc)}</span> · Витрати: <span style="color:var(--red);font-weight:700">${fmtN(totExp)}</span> · Баланс: <span style="font-weight:700;color:${balance>=0?'var(--accent)':'var(--red)'}">${fmtN(balance)}</span></div>`:''}
     </div>
     ${catSummary.length?`<div class="card">
-      <div class="card-head"><span class="card-title">📊 Зведення по категоріях</span></div>
+      <div class="card-head">
+        <span class="card-title">📊 Зведення по категоріях</span>
+        <span style="font-size:10px;color:var(--text3)">Натисніть на категорію щоб побачити деталі</span>
+      </div>
       <div style="overflow-x:auto"><table class="tbl">
         <thead><tr><th>Категорія</th><th class="r">Записів</th><th class="r">Доходи</th><th class="r">Витрати</th><th class="r">Баланс</th></tr></thead>
-        <tbody>${catSummary.sort((a,b)=>(b.inc+b.exp)-(a.inc+a.exp)).map(c=>`<tr>
-          <td style="font-weight:600;color:var(--text)">${esc(c.cat)}</td>
+        <tbody>${catSummary.sort((a,b)=>(b.inc+b.exp)-(a.inc+a.exp)).map(c=>`<tr onclick="cfFilters.category='${esc(c.cat)}';renderCashflow();window.scrollTo({top:0,behavior:'smooth'})" style="cursor:pointer" title="Показати всі транзакції: ${esc(c.cat)}">
+          <td style="font-weight:600;color:var(--accent)">${esc(c.cat)} <span style="font-size:9px;color:var(--text3)">→</span></td>
           <td class="r" style="color:var(--text3)">${c.count}</td>
           <td class="r" style="color:var(--green)">${c.inc?fmtN(c.inc):'—'}</td>
           <td class="r" style="color:var(--red)">${c.exp?fmtN(c.exp):'—'}</td>
