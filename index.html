@@ -320,6 +320,52 @@ select.form-input option{background:var(--bg3)}
   </div>
 </div>
 
+<!-- Субпідрядник на об'єкті -->
+<div class="modal-overlay" id="modal-site-sub">
+  <div class="modal" style="width:500px">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-site-sub-title">Додати субпідрядника</span>
+      <button class="modal-close" onclick="closeModal('site-sub')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Субпідрядник *</label>
+        <select class="form-input" id="ss-contractor">
+          <option value="">— Оберіть підрядника —</option>
+        </select></div>
+      <div class="form-group"><label class="form-label">Вид робіт</label>
+        <input class="form-input" id="ss-worktype" placeholder="напр. Фундаментні роботи..."></div>
+      <div class="form-group"><label class="form-label">Сума договору, грн</label>
+        <input class="form-input" type="number" id="ss-amount" placeholder="0" min="0" step="0.01"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('site-sub')">Скасувати</button>
+      <button class="btn primary" onclick="saveSiteSub()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- ІТР на об'єкті -->
+<div class="modal-overlay" id="modal-site-itr">
+  <div class="modal" style="width:500px">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-site-itr-title">Додати ІТР</span>
+      <button class="modal-close" onclick="closeModal('site-itr')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Виконавець *</label>
+        <select class="form-input" id="si-executor">
+          <option value="">— Оберіть виконавця —</option>
+        </select></div>
+      <div class="form-group"><label class="form-label">Роль на об'єкті</label>
+        <input class="form-input" id="si-role" placeholder="напр. Керівник проекту, Виконроб..."></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('site-itr')">Скасувати</button>
+      <button class="btn primary" onclick="saveSiteITR()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════════
 //  CONSTANTS
@@ -353,8 +399,9 @@ let state={
 };
 let curPage='sites';
 let editingSiteId=null, editingContractorId=null, editingExecutorId=null, editingCFId=null, editingBudgetRowId=null;
+let editingSiteSubId=null, editingSiteITRId=null;
 let execTab='contractors';
-let curBudgetSiteId=null;
+let curBudgetSiteId=null, curSiteDetailId=null;
 let cfFilters={type:'',form:'',category:'',site:'',tag:'',month:'',search:''};
 
 // ══════════════════════════════════════════════════════════════
@@ -417,7 +464,7 @@ function navigate(page){
   render();
 }
 function render(){
-  if(curPage==='sites')       renderSites();
+  if(curPage==='sites')       {if(curSiteDetailId)renderSiteDetail();else renderSites();}
   else if(curPage==='budgets')     renderBudgets();
   else if(curPage==='executors')   renderExecutors();
   else if(curPage==='cashflow')    renderCashflow();
@@ -450,7 +497,7 @@ function renderSites(){
       const bal=inc-exp;
       const dl=daysLeft(s.deadline);
       const dlColor=!s.deadline||s.status==='done'?'var(--text3)':dl<0?'var(--red)':dl<=30?'var(--amber)':'var(--green)';
-      tbody+=`<tr onclick="openSiteModal('${s.id}')">
+      tbody+=`<tr onclick="openSiteDetail('${s.id}')">
         <td style="color:var(--text);font-weight:600">${esc(s.name)}</td>
         <td>${contractBadge(s.contractType)}</td>
         <td>${esc(s.client||'—')}</td>
@@ -519,14 +566,215 @@ function saveSite(){
     deadline:document.getElementById('s-deadline').value,
     notes:document.getElementById('s-notes').value.trim(),
   };
-  if(editingSiteId){const i=state.sites.findIndex(x=>x.id===editingSiteId);if(i>=0)state.sites[i]=data;}
+  if(editingSiteId){const i=state.sites.findIndex(x=>x.id===editingSiteId);if(i>=0)state.sites[i]={...state.sites[i],...data};}
   else state.sites.push(data);
-  save();closeModal('site');renderSites();
+  save();closeModal('site');
+  if(curSiteDetailId===editingSiteId)renderSiteDetail();else{curSiteDetailId=null;renderSites();}
 }
 function deleteSite(id){
   if(!confirm('Видалити об\'єкт?'))return;
   state.sites=state.sites.filter(x=>x.id!==id);
-  save();renderSites();
+  save();curSiteDetailId=null;renderSites();
+}
+
+// ── SITE DETAIL ───────────────────────────────────────────────
+function openSiteDetail(id){
+  curSiteDetailId=id;
+  renderSiteDetail();
+}
+
+function renderSiteDetail(){
+  const el=document.getElementById('main-content');
+  const s=(state.sites||[]).find(x=>x.id===curSiteDetailId);
+  if(!s){curSiteDetailId=null;renderSites();return;}
+
+  // ensure arrays exist
+  if(!s.subContracts)s.subContracts=[];
+  if(!s.itrAssignments)s.itrAssignments=[];
+
+  const dl=daysLeft(s.deadline);
+  const dlColor=!s.deadline||s.status==='done'?'var(--text3)':dl<0?'var(--red)':dl<=30?'var(--amber)':'var(--green)';
+  const inc=siteIncome(s.id), exp=siteExpense(s.id);
+
+  // info rows helper
+  const infoRow=(label,val)=>`<div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--text3);min-width:180px">${label}</span><span style="font-size:12px;color:var(--text);font-weight:500">${val}</span></div>`;
+
+  // subcontractors table
+  const subs=s.subContracts||[];
+  let subBody='';
+  if(!subs.length){
+    subBody=`<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3);font-size:11px">Субпідрядників не додано</td></tr>`;
+  } else {
+    const totAmt=subs.reduce((a,c)=>a+(+c.amount||0),0);
+    subs.forEach(c=>{
+      const contr=(state.contractors||[]).find(x=>x.id===c.contractorId);
+      subBody+=`<tr>
+        <td style="color:var(--text);font-weight:600">${esc(contr?.name||c.contractorName||'—')}</td>
+        <td style="font-size:11px">${esc(c.workType||'—')}</td>
+        <td class="r mono">${c.amount?fmtN(c.amount):'—'}</td>
+        <td style="font-size:10px;color:var(--text3)">${contr?.phone||'—'}</td>
+        <td onclick="event.stopPropagation()" style="white-space:nowrap">
+          <button class="btn sm" onclick="openSiteSubModal('${s.id}','${c.id}')">✏</button>
+          <button class="btn sm danger" onclick="deleteSiteSub('${s.id}','${c.id}')" style="margin-left:4px">×</button>
+        </td>
+      </tr>`;
+    });
+    subBody+=`<tr style="background:var(--bg2)"><td colspan="2" style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase">Разом</td><td class="r mono" style="font-weight:700;color:var(--accent)">${fmtN(totAmt)}</td><td colspan="2"></td></tr>`;
+  }
+
+  // ITR table
+  const itrs=s.itrAssignments||[];
+  let itrBody='';
+  if(!itrs.length){
+    itrBody=`<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3);font-size:11px">ІТР не призначено</td></tr>`;
+  } else {
+    itrs.forEach(a=>{
+      const exec=(state.executors||[]).find(x=>x.id===a.executorId);
+      itrBody+=`<tr>
+        <td style="color:var(--text);font-weight:600">${esc(exec?.name||'—')}</td>
+        <td style="color:var(--text2)">${esc(a.role||exec?.position||'—')}</td>
+        <td style="font-size:11px;color:var(--text3)">${esc(exec?.phone||'—')}</td>
+        <td style="font-size:11px;color:var(--text3)">${esc(exec?.email||'—')}</td>
+        <td onclick="event.stopPropagation()" style="white-space:nowrap">
+          <button class="btn sm" onclick="openSiteITRModal('${s.id}','${a.id}')">✏</button>
+          <button class="btn sm danger" onclick="deleteSiteITR('${s.id}','${a.id}')" style="margin-left:4px">×</button>
+        </td>
+      </tr>`;
+    });
+  }
+
+  el.innerHTML=`
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="btn sm" onclick="curSiteDetailId=null;renderSites()">← Назад</button>
+        <h1 class="page-title">${esc(s.name)}</h1>
+        ${contractBadge(s.contractType)} ${statusBadge(s.status)}
+      </div>
+      <button class="btn sm" onclick="openSiteModal('${s.id}')">✏ Редагувати</button>
+    </div>
+
+    <!-- Загальна інформація -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-head"><span class="card-title">📋 Загальна інформація</span></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px">
+          <div>
+            ${infoRow('Замовник', esc(s.client||'—'))}
+            ${infoRow('Адреса', esc(s.address||'—'))}
+            ${infoRow('Сума договору', `<b style="color:var(--accent)">${fmtN(s.amountGross)}</b> грн`)}
+          </div>
+          <div>
+            ${infoRow('Дата підписання', fmtD(s.signDate))}
+            ${infoRow('Дата виконання', `<span style="color:${dlColor};font-weight:600">${fmtD(s.deadline)}</span>`)}
+            ${infoRow('Отримано / Витрачено', `<span style="color:var(--green)">${fmtN(inc)}</span> / <span style="color:var(--red)">${fmtN(exp)}</span>`)}
+          </div>
+        </div>
+        ${s.notes?`<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--text2)">${esc(s.notes)}</div>`:''}
+      </div>
+    </div>
+
+    <!-- Субпідрядники -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-head">
+        <span class="card-title">🏢 Субпідрядники на об'єкті</span>
+        <button class="btn sm primary" onclick="openSiteSubModal('${s.id}',null)">+ Додати</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr>
+            <th>Субпідрядник</th><th>Вид робіт</th><th class="r">Сума договору</th><th>Телефон</th><th></th>
+          </tr></thead>
+          <tbody>${subBody}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ІТР -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">👷 ІТР на об'єкті</span>
+        <button class="btn sm primary" onclick="openSiteITRModal('${s.id}',null)">+ Додати</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr>
+            <th>Ім'я</th><th>Роль на об'єкті</th><th>Телефон</th><th>Email</th><th></th>
+          </tr></thead>
+          <tbody>${itrBody}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ── Site Subcontractor CRUD ───────────────────────────────────
+function openSiteSubModal(siteId, subId){
+  curSiteDetailId=siteId;
+  editingSiteSubId=subId||null;
+  const s=(state.sites||[]).find(x=>x.id===siteId);
+  const c=subId?(s?.subContracts||[]).find(x=>x.id===subId):null;
+  document.getElementById('modal-site-sub-title').textContent=subId?'Редагувати субпідрядника':'Додати субпідрядника';
+  // populate contractors dropdown
+  const sel=document.getElementById('ss-contractor');
+  sel.innerHTML='<option value="">— Оберіть підрядника —</option>'+(state.contractors||[]).map(x=>`<option value="${x.id}"${c?.contractorId===x.id?' selected':''}>${esc(x.name)}</option>`).join('');
+  document.getElementById('ss-worktype').value=c?.workType||'';
+  document.getElementById('ss-amount').value=c?.amount||'';
+  document.getElementById('modal-site-sub').classList.add('open');
+}
+function saveSiteSub(){
+  const contractorId=document.getElementById('ss-contractor').value;
+  if(!contractorId){alert('Оберіть підрядника');return;}
+  const s=(state.sites||[]).find(x=>x.id===curSiteDetailId);
+  if(!s)return;
+  if(!s.subContracts)s.subContracts=[];
+  const data={
+    id:editingSiteSubId||uid(),
+    contractorId,
+    workType:document.getElementById('ss-worktype').value.trim(),
+    amount:+document.getElementById('ss-amount').value||0,
+  };
+  if(editingSiteSubId){const i=s.subContracts.findIndex(x=>x.id===editingSiteSubId);if(i>=0)s.subContracts[i]=data;}
+  else s.subContracts.push(data);
+  save();closeModal('site-sub');renderSiteDetail();
+}
+function deleteSiteSub(siteId, subId){
+  if(!confirm('Видалити субпідрядника з об\'єкту?'))return;
+  const s=(state.sites||[]).find(x=>x.id===siteId);
+  if(s)s.subContracts=(s.subContracts||[]).filter(x=>x.id!==subId);
+  save();renderSiteDetail();
+}
+
+// ── Site ITR CRUD ─────────────────────────────────────────────
+function openSiteITRModal(siteId, asgId){
+  curSiteDetailId=siteId;
+  editingSiteITRId=asgId||null;
+  const s=(state.sites||[]).find(x=>x.id===siteId);
+  const a=asgId?(s?.itrAssignments||[]).find(x=>x.id===asgId):null;
+  document.getElementById('modal-site-itr-title').textContent=asgId?'Редагувати ІТР':'Додати ІТР';
+  const sel=document.getElementById('si-executor');
+  sel.innerHTML='<option value="">— Оберіть виконавця —</option>'+(state.executors||[]).map(x=>`<option value="${x.id}"${a?.executorId===x.id?' selected':''}>${esc(x.name)}${x.position?' — '+x.position:''}</option>`).join('');
+  document.getElementById('si-role').value=a?.role||'';
+  document.getElementById('modal-site-itr').classList.add('open');
+}
+function saveSiteITR(){
+  const executorId=document.getElementById('si-executor').value;
+  if(!executorId){alert('Оберіть виконавця');return;}
+  const s=(state.sites||[]).find(x=>x.id===curSiteDetailId);
+  if(!s)return;
+  if(!s.itrAssignments)s.itrAssignments=[];
+  const data={
+    id:editingSiteITRId||uid(),
+    executorId,
+    role:document.getElementById('si-role').value.trim(),
+  };
+  if(editingSiteITRId){const i=s.itrAssignments.findIndex(x=>x.id===editingSiteITRId);if(i>=0)s.itrAssignments[i]=data;}
+  else s.itrAssignments.push(data);
+  save();closeModal('site-itr');renderSiteDetail();
+}
+function deleteSiteITR(siteId, asgId){
+  if(!confirm('Видалити ІТР з об\'єкту?'))return;
+  const s=(state.sites||[]).find(x=>x.id===siteId);
+  if(s)s.itrAssignments=(s.itrAssignments||[]).filter(x=>x.id!==asgId);
+  save();renderSiteDetail();
 }
 
 // ══════════════════════════════════════════════════════════════
