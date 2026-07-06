@@ -109,6 +109,7 @@ select.form-input option{background:var(--bg3)}
   <button class="nav-item"        id="nav-budgets"     onclick="navigate('budgets')">Бюджети об'єктів</button>
   <button class="nav-item"        id="nav-executors"   onclick="navigate('executors')">Виконавці та підрядники</button>
   <button class="nav-item"        id="nav-cashflow"    onclick="navigate('cashflow')">Грошові потоки</button>
+  <button class="nav-item"        id="nav-meetings"    onclick="navigate('meetings')">Наради</button>
   <button class="nav-item"        id="nav-dashboard"   onclick="navigate('dashboard')">Дашборд</button>
 </nav>
 
@@ -368,6 +369,51 @@ select.form-input option{background:var(--bg3)}
   </div>
 </div>
 
+<!-- Нарада -->
+<div class="modal-overlay" id="modal-meeting">
+  <div class="modal" style="width:680px">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-meeting-title">Нова нарада</span>
+      <button class="modal-close" onclick="closeModal('meeting')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="grid-column:1/-1"><label class="form-label">Назва наради *</label>
+          <input class="form-input" id="mtg-name" placeholder="напр. Оперативна нарада по об'єкту, Погодження бюджету..."></div>
+        <div class="form-group"><label class="form-label">Дата та час *</label>
+          <input class="form-input" type="datetime-local" id="mtg-datetime"></div>
+        <div class="form-group"><label class="form-label">Статус</label>
+          <select class="form-input" id="mtg-status">
+            <option value="planned">📅 Запланована</option>
+            <option value="done">✅ Проведена</option>
+            <option value="cancelled">❌ Скасована</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">Об'єкт</label>
+          <select class="form-input" id="mtg-site">
+            <option value="">— Не прив'язано —</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">Місце проведення</label>
+          <input class="form-input" id="mtg-location" placeholder="напр. Офіс, Об'єкт, Zoom..."></div>
+        <div class="form-group" style="grid-column:1/-1"><label class="form-label">Учасники</label>
+          <div id="mtg-attendees-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:36px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;margin-bottom:6px"></div>
+          <select class="form-input" id="mtg-attendee-add" onchange="addMtgAttendee(this.value);this.value=''">
+            <option value="">+ Додати учасника...</option>
+          </select></div>
+        <div class="form-group" style="grid-column:1/-1"><label class="form-label">Порядок денний</label>
+          <textarea class="form-input" id="mtg-agenda" rows="3" placeholder="Перелік питань, що будуть розглядатись..." style="resize:vertical"></textarea></div>
+        <div class="form-group" style="grid-column:1/-1"><label class="form-label">Прийняті рішення / Протокол</label>
+          <textarea class="form-input" id="mtg-decisions" rows="4" placeholder="Рішення, доручення, відповідальні..." style="resize:vertical"></textarea></div>
+        <div class="form-group" style="grid-column:1/-1"><label class="form-label">Примітки</label>
+          <input class="form-input" id="mtg-notes" placeholder="Додаткова інформація..."></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('meeting')">Скасувати</button>
+      <button class="btn primary" onclick="saveMeeting()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════════
 //  CONSTANTS
@@ -397,7 +443,8 @@ let state={
   cashflows:[],
   cfCategories:[],
   cfCounterparties:[],
-  budgets:{}
+  budgets:{},
+  meetings:[]
 };
 let curPage='sites';
 let editingSiteId=null, editingContractorId=null, editingExecutorId=null, editingCFId=null, editingBudgetRowId=null;
@@ -405,6 +452,10 @@ let editingSiteSubId=null, editingSiteITRId=null;
 let execTab='contractors';
 let curBudgetSiteId=null, curSiteDetailId=null;
 let curContractorDetailId=null, curExecutorDetailId=null;
+let editingMeetingId=null, curMeetingDetailId=null;
+let meetingFilter={status:'',site:'',month:'',search:''};
+const MTG_STATUS={planned:'📅 Запланована',done:'✅ Проведена',cancelled:'❌ Скасована'};
+const MTG_STATUS_BADGE={planned:'blue',done:'green',cancelled:'gray'};
 let cfFilters={type:'',form:'',category:'',site:'',tag:'',month:'',search:''};
 
 // ══════════════════════════════════════════════════════════════
@@ -454,6 +505,7 @@ function applyState(d){
   state.cfCategories=d.cfCategories||[];
   state.cfCounterparties=d.cfCounterparties||[];
   state.budgets=d.budgets||{};
+  state.meetings=d.meetings||[];
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -475,6 +527,7 @@ function render(){
   else if(curPage==='budgets')     renderBudgets();
   else if(curPage==='executors')   renderExecutors();
   else if(curPage==='cashflow')    renderCashflow();
+  else if(curPage==='meetings')    renderMeetings();
   else if(curPage==='dashboard')   renderDashboard();
 }
 function closeModal(name){document.getElementById('modal-'+name).classList.remove('open')}
@@ -1509,6 +1562,313 @@ function renderDashboard(){
       <div class="metric" style="--mc:${totInc-totExp>=0?'var(--amber)':'var(--red)'}"><div class="metric-label">Загальний баланс</div><div class="metric-value" style="font-size:15px;color:${totInc-totExp>=0?'var(--accent)':'var(--red)'}">${fmtN(totInc-totExp)}</div></div>
     </div>
     <div class="empty" style="margin-top:30px"><div class="empty-icon">🚧</div><h3>Дашборд в розробці</h3><p>Тут будуть аналітичні графіки та зведені показники</p></div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MEETINGS
+// ══════════════════════════════════════════════════════════════
+
+let _mtgAttendees=[];
+
+function renderMeetings(){
+  if(curMeetingDetailId){renderMeetingDetail();return;}
+  const el=document.getElementById('main-content');
+  const all=state.meetings||[];
+  const sites=state.sites||[];
+
+  // apply filters
+  let rows=[...all].sort((a,b)=>b.datetime.localeCompare(a.datetime));
+  if(meetingFilter.status) rows=rows.filter(r=>r.status===meetingFilter.status);
+  if(meetingFilter.site)   rows=rows.filter(r=>r.siteId===meetingFilter.site);
+  if(meetingFilter.month)  rows=rows.filter(r=>(r.datetime||'').slice(0,7)===meetingFilter.month);
+  if(meetingFilter.search){const q=meetingFilter.search.toLowerCase();rows=rows.filter(r=>(r.name||'').toLowerCase().includes(q)||(r.location||'').toLowerCase().includes(q)||(r.decisions||'').toLowerCase().includes(q));}
+
+  const totPlanned=all.filter(m=>m.status==='planned').length;
+  const totDone=all.filter(m=>m.status==='done').length;
+  const totCancelled=all.filter(m=>m.status==='cancelled').length;
+
+  const anyFilter=Object.values(meetingFilter).some(v=>v);
+
+  const filterBar=`<div class="filter-bar">
+    <span class="filter-label">Фільтри:</span>
+    <select onchange="meetingFilter.status=this.value;renderMeetings()">
+      <option value="">Всі статуси</option>
+      <option value="planned"  ${meetingFilter.status==='planned'  ?'selected':''}>📅 Заплановані</option>
+      <option value="done"     ${meetingFilter.status==='done'     ?'selected':''}>✅ Проведені</option>
+      <option value="cancelled"${meetingFilter.status==='cancelled'?'selected':''}>❌ Скасовані</option>
+    </select>
+    <select onchange="meetingFilter.site=this.value;renderMeetings()" style="min-width:160px">
+      <option value="">Всі об'єкти</option>
+      ${sites.map(s=>`<option value="${s.id}"${meetingFilter.site===s.id?' selected':''}>${esc(s.name)}</option>`).join('')}
+    </select>
+    <input type="month" value="${meetingFilter.month}" onchange="meetingFilter.month=this.value;renderMeetings()" title="Місяць">
+    <input placeholder="🔍 Пошук..." value="${esc(meetingFilter.search)}" oninput="meetingFilter.search=this.value;renderMeetings()" style="min-width:140px">
+    <button class="btn sm" onclick="meetingFilter={status:'',site:'',month:'',search:''};renderMeetings()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9;opacity:${anyFilter?1:0.45};pointer-events:${anyFilter?'auto':'none'}">✕ Очистити фільтр</button>
+  </div>`;
+
+  let tbody='';
+  if(!rows.length){
+    tbody=`<tr><td colspan="7"><div class="empty"><div class="empty-icon">📋</div><h3>${all.length?'Нічого не знайдено':'Нарад ще немає'}</h3><p>${all.length?'Спробуйте інші фільтри':'Натисніть «+ Нова нарада»'}</p></div></td></tr>`;
+  } else {
+    tbody=rows.map(m=>{
+      const site=sites.find(s=>s.id===m.siteId);
+      const dt=m.datetime?new Date(m.datetime):null;
+      const dateStr=dt?dt.toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric'}):'—';
+      const timeStr=dt?dt.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'}):'';
+      const attNames=(m.attendees||[]).map(id=>{
+        const e=(state.executors||[]).find(x=>x.id===id);
+        const c=(state.contractors||[]).find(x=>x.id===id);
+        return e?.name||c?.name||'?';
+      });
+      const badge=MTG_STATUS_BADGE[m.status]||'gray';
+      const statusLabel=MTG_STATUS[m.status]||m.status;
+      return`<tr onclick="curMeetingDetailId='${m.id}';renderMeetings()" style="cursor:pointer">
+        <td>
+          <div style="font-weight:600;color:var(--text)">${esc(m.name)}</div>
+          ${m.agenda?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(m.agenda.slice(0,60))}${m.agenda.length>60?'...':''}</div>`:''}
+        </td>
+        <td style="white-space:nowrap">
+          <div style="font-weight:600">${dateStr}</div>
+          <div style="font-size:11px;color:var(--text3)">${timeStr}</div>
+        </td>
+        <td>${site?`<span style="font-size:12px">${esc(site.name)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
+        <td style="font-size:12px">${esc(m.location||'—')}</td>
+        <td style="font-size:12px">${attNames.length?attNames.slice(0,3).join(', ')+(attNames.length>3?` +${attNames.length-3}`:''):'<span style="color:var(--text3)">—</span>'}</td>
+        <td><span class="badge ${badge}">${statusLabel}</span></td>
+        <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="deleteMeeting('${m.id}')">×</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  el.innerHTML=`
+    <div class="page-header">
+      <h1 class="page-title">📋 Наради</h1>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" onclick="exportMeetingsPDF()" title="PDF">🖨 PDF</button>
+        <button class="btn primary" onclick="openMeetingModal(null)">+ Нова нарада</button>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="metric" style="--mc:#0ea5e9"><div class="metric-label">Заплановано</div><div class="metric-value">${totPlanned}</div></div>
+      <div class="metric" style="--mc:var(--green)"><div class="metric-label">Проведено</div><div class="metric-value">${totDone}</div></div>
+      <div class="metric" style="--mc:var(--text3)"><div class="metric-label">Скасовано</div><div class="metric-value">${totCancelled}</div></div>
+      <div class="metric" style="--mc:var(--accent)"><div class="metric-label">Всього</div><div class="metric-value">${all.length}</div></div>
+    </div>
+    ${filterBar}
+    <div class="card" style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr>
+          <th>Назва наради</th><th>Дата / Час</th><th>Об'єкт</th>
+          <th>Місце</th><th>Учасники</th><th>Статус</th><th></th>
+        </tr></thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderMeetingDetail(){
+  const el=document.getElementById('main-content');
+  const m=(state.meetings||[]).find(x=>x.id===curMeetingDetailId);
+  if(!m){curMeetingDetailId=null;renderMeetings();return;}
+  const site=(state.sites||[]).find(s=>s.id===m.siteId);
+  const dt=m.datetime?new Date(m.datetime):null;
+  const dateStr=dt?dt.toLocaleDateString('uk-UA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'—';
+  const timeStr=dt?dt.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'}):'';
+  const badge=MTG_STATUS_BADGE[m.status]||'gray';
+  const attList=(m.attendees||[]).map(id=>{
+    const e=(state.executors||[]).find(x=>x.id===id);
+    const c=(state.contractors||[]).find(x=>x.id===id);
+    const person=e||c;
+    if(!person)return'';
+    const role=e?.position||c?.worktype||'';
+    return`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:14px">${e?'👤':'🏢'}</div>
+      <div><div style="font-weight:600;font-size:13px">${esc(person.name)}</div>${role?`<div style="font-size:11px;color:var(--text3)">${esc(role)}</div>`:''}</div>
+    </div>`;
+  }).join('');
+  const agendaItems=(m.agenda||'').split('\n').filter(Boolean).map((line,i)=>`<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)"><span style="min-width:20px;font-weight:700;color:var(--accent)">${i+1}.</span><span>${esc(line)}</span></div>`).join('');
+  const decisionsItems=(m.decisions||'').split('\n').filter(Boolean).map(line=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);display:flex;gap:8px"><span style="color:var(--green)">✓</span><span>${esc(line)}</span></div>`).join('');
+
+  el.innerHTML=`
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="btn sm" onclick="curMeetingDetailId=null;renderMeetings()">← Назад</button>
+        <h1 class="page-title">📋 ${esc(m.name)}</h1>
+        <span class="badge ${badge}">${MTG_STATUS[m.status]||m.status}</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="printMeetingPDF('${m.id}')">🖨 PDF</button>
+        <button class="btn" onclick="openMeetingModal('${m.id}')">✏ Редагувати</button>
+        <button class="btn danger" onclick="deleteMeeting('${m.id}')">🗑 Видалити</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:12px">Інформація</div>
+          ${[
+            ['📅 Дата', `${dateStr}${timeStr?' о '+timeStr:''}`],
+            ['📍 Місце', m.location||'—'],
+            ['🏗 Об\'єкт', site?site.name:'—'],
+            ['📝 Примітки', m.notes||'—'],
+          ].map(([k,v])=>`<div style="display:flex;gap:12px;margin-bottom:10px;font-size:13px">
+            <span style="min-width:120px;color:var(--text3);white-space:nowrap">${k}</span>
+            <span style="color:var(--text);font-weight:500">${esc(String(v))}</span>
+          </div>`).join('')}
+        </div>
+
+        ${m.agenda?`<div class="card">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:12px">Порядок денний</div>
+          ${agendaItems||`<span style="color:var(--text3)">${esc(m.agenda)}</span>`}
+        </div>`:''}
+
+        ${m.decisions?`<div class="card">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--green);margin-bottom:12px">✅ Прийняті рішення</div>
+          ${decisionsItems||`<span style="color:var(--text2)">${esc(m.decisions)}</span>`}
+        </div>`:''}
+      </div>
+
+      <div class="card" style="align-self:start">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:12px">👥 Учасники (${(m.attendees||[]).length})</div>
+        ${attList||'<div style="color:var(--text3);font-size:13px">Учасників не додано</div>'}
+      </div>
+    </div>`;
+}
+
+function openMeetingModal(id){
+  editingMeetingId=id||null;
+  const m=id?(state.meetings||[]).find(x=>x.id===id):null;
+  document.getElementById('modal-meeting-title').textContent=id?'Редагувати нараду':'Нова нарада';
+  document.getElementById('mtg-name').value=m?.name||'';
+  document.getElementById('mtg-datetime').value=m?.datetime||new Date().toISOString().slice(0,16);
+  document.getElementById('mtg-status').value=m?.status||'planned';
+  document.getElementById('mtg-location').value=m?.location||'';
+  document.getElementById('mtg-agenda').value=m?.agenda||'';
+  document.getElementById('mtg-decisions').value=m?.decisions||'';
+  document.getElementById('mtg-notes').value=m?.notes||'';
+  // populate site select
+  const siteSel=document.getElementById('mtg-site');
+  siteSel.innerHTML='<option value="">— Не прив\'язано —</option>'+(state.sites||[]).map(s=>`<option value="${s.id}"${m?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+  // populate attendee select (executors + contractors)
+  const addSel=document.getElementById('mtg-attendee-add');
+  const allPeople=[...(state.executors||[]).map(e=>({id:e.id,name:e.name,type:'exec'})),...(state.contractors||[]).map(c=>({id:c.id,name:c.name,type:'cont'}))];
+  addSel.innerHTML='<option value="">+ Додати учасника...</option>'+allPeople.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  // init attendees state
+  _mtgAttendees=[...(m?.attendees||[])];
+  renderMtgAttendees();
+  document.getElementById('modal-meeting').classList.add('open');
+}
+
+function renderMtgAttendees(){
+  const wrap=document.getElementById('mtg-attendees-list');
+  if(!wrap)return;
+  if(!_mtgAttendees.length){wrap.innerHTML='<span style="color:var(--text3);font-size:12px">Учасників не обрано</span>';return;}
+  wrap.innerHTML=_mtgAttendees.map(id=>{
+    const e=(state.executors||[]).find(x=>x.id===id);
+    const c=(state.contractors||[]).find(x=>x.id===id);
+    const name=e?.name||c?.name||id;
+    return`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:3px 10px;font-size:12px">
+      ${esc(name)}<button onclick="_mtgAttendees=_mtgAttendees.filter(x=>x!=='${id}');renderMtgAttendees()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 4px">×</button>
+    </span>`;
+  }).join('');
+}
+
+function addMtgAttendee(id){
+  if(!id||_mtgAttendees.includes(id))return;
+  _mtgAttendees.push(id);
+  renderMtgAttendees();
+}
+
+function saveMeeting(){
+  const name=document.getElementById('mtg-name').value.trim();
+  if(!name){alert('Введіть назву наради');return;}
+  const datetime=document.getElementById('mtg-datetime').value;
+  if(!datetime){alert('Оберіть дату та час');return;}
+  const data={
+    id:editingMeetingId||uid(),
+    name,
+    datetime,
+    status:document.getElementById('mtg-status').value,
+    siteId:document.getElementById('mtg-site').value,
+    location:document.getElementById('mtg-location').value.trim(),
+    agenda:document.getElementById('mtg-agenda').value.trim(),
+    decisions:document.getElementById('mtg-decisions').value.trim(),
+    notes:document.getElementById('mtg-notes').value.trim(),
+    attendees:[..._mtgAttendees],
+  };
+  if(editingMeetingId){const i=(state.meetings||[]).findIndex(x=>x.id===editingMeetingId);if(i>=0)state.meetings[i]=data;}
+  else{if(!state.meetings)state.meetings=[];state.meetings.push(data);}
+  save();closeModal('meeting');
+  if(editingMeetingId)curMeetingDetailId=editingMeetingId;
+  renderMeetings();
+}
+
+function deleteMeeting(id){
+  if(!confirm('Видалити нараду?'))return;
+  state.meetings=(state.meetings||[]).filter(x=>x.id!==id);
+  curMeetingDetailId=null;save();renderMeetings();
+}
+
+function exportMeetingsPDF(){
+  const all=state.meetings||[];
+  let rows=[...all].sort((a,b)=>b.datetime.localeCompare(a.datetime));
+  if(meetingFilter.status) rows=rows.filter(r=>r.status===meetingFilter.status);
+  if(meetingFilter.site)   rows=rows.filter(r=>r.siteId===meetingFilter.site);
+  if(meetingFilter.month)  rows=rows.filter(r=>(r.datetime||'').slice(0,7)===meetingFilter.month);
+  const trs=rows.map((m,i)=>{
+    const site=(state.sites||[]).find(s=>s.id===m.siteId);
+    const dt=m.datetime?new Date(m.datetime):null;
+    const attNames=(m.attendees||[]).map(id=>{
+      const e=(state.executors||[]).find(x=>x.id===id);
+      const c=(state.contractors||[]).find(x=>x.id===id);
+      return e?.name||c?.name||'?';
+    }).join(', ');
+    return`<tr>
+      <td>${i+1}</td>
+      <td><b>${esc(m.name)}</b>${m.agenda?`<br><span style="font-size:10px;color:#666">${esc(m.agenda.slice(0,80))}</span>`:''}</td>
+      <td style="white-space:nowrap">${dt?dt.toLocaleDateString('uk-UA'):''}<br><span style="font-size:10px">${dt?dt.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'}):''}</span></td>
+      <td>${esc(site?.name||'—')}</td>
+      <td style="font-size:11px">${esc(attNames||'—')}</td>
+      <td>${MTG_STATUS[m.status]||m.status}</td>
+    </tr>`;
+  }).join('');
+  printPDF('Наради — MACC',`<table><thead><tr><th>№</th><th>Назва</th><th>Дата/Час</th><th>Об'єкт</th><th>Учасники</th><th>Статус</th></tr></thead><tbody>${trs}</tbody></table>`);
+}
+
+function printMeetingPDF(id){
+  const m=(state.meetings||[]).find(x=>x.id===id);if(!m)return;
+  const site=(state.sites||[]).find(s=>s.id===m.siteId);
+  const dt=m.datetime?new Date(m.datetime):null;
+  const attNames=(m.attendees||[]).map(id=>{
+    const e=(state.executors||[]).find(x=>x.id===id);
+    const c=(state.contractors||[]).find(x=>x.id===id);
+    return e?.name||c?.name||'?';
+  }).join(', ');
+  const agendaHTML=(m.agenda||'').split('\n').filter(Boolean).map((l,i)=>`<li>${esc(l)}</li>`).join('');
+  const decisionsHTML=(m.decisions||'').split('\n').filter(Boolean).map(l=>`<li>${esc(l)}</li>`).join('');
+  const w=window.open('','_blank','width=900,height=700');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Протокол наради</title>
+  <style>body{font-family:Arial,sans-serif;font-size:13px;color:#111;margin:30px;max-width:800px}h1{font-size:20px;border-bottom:2px solid #1e2a3a;padding-bottom:8px}h2{font-size:14px;color:#1e2a3a;margin:20px 0 6px;text-transform:uppercase;letter-spacing:.04em}.info{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;margin:16px 0;padding:12px;background:#f8f8f8;border-radius:6px}.label{color:#666;font-size:12px}.section{margin:20px 0}.section-title{font-size:13px;font-weight:700;color:#1e2a3a;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #ddd;padding-bottom:4px;margin-bottom:10px}ul{margin:0;padding-left:20px}li{margin-bottom:4px}button{padding:8px 18px;background:#1e2a3a;color:#f0b429;border:none;border-radius:6px;cursor:pointer;font-size:13px;margin-bottom:20px}@media print{button{display:none}}</style></head><body>
+  <button onclick="window.print()">🖨 Друк / PDF</button>
+  <h1>ПРОТОКОЛ НАРАДИ</h1>
+  <div class="info">
+    <span class="label">Назва:</span><b>${esc(m.name)}</b>
+    <span class="label">Дата і час:</span><span>${dt?dt.toLocaleDateString('uk-UA',{day:'2-digit',month:'long',year:'numeric'})+' о '+dt.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'}):''}</span>
+    <span class="label">Місце:</span><span>${esc(m.location||'—')}</span>
+    <span class="label">Об'єкт:</span><span>${esc(site?.name||'—')}</span>
+    <span class="label">Статус:</span><span>${MTG_STATUS[m.status]||''}</span>
+    <span class="label">Учасники:</span><span>${esc(attNames||'—')}</span>
+  </div>
+  ${m.agenda?`<div class="section"><div class="section-title">Порядок денний</div><ul>${agendaHTML||`<li>${esc(m.agenda)}</li>`}</ul></div>`:''}
+  ${m.decisions?`<div class="section"><div class="section-title">Прийняті рішення</div><ul>${decisionsHTML||`<li>${esc(m.decisions)}</li>`}</ul></div>`:''}
+  ${m.notes?`<div class="section"><div class="section-title">Примітки</div><p>${esc(m.notes)}</p></div>`:''}
+  <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px">
+    <div style="border-top:1px solid #999;padding-top:6px;font-size:12px;color:#666">Підпис відповідального</div>
+    <div style="border-top:1px solid #999;padding-top:6px;font-size:12px;color:#666">Дата</div>
+  </div>
+  </body></html>`);
+  w.document.close();
 }
 
 // ══════════════════════════════════════════════════════════════
