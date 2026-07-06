@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MACC — Management Accounting</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23151d2b'/%3E%3Crect x='3' y='22' width='6' height='7' rx='1.5' fill='%23f0b429'/%3E%3Crect x='11' y='16' width='6' height='13' rx='1.5' fill='%23f0b429'/%3E%3Crect x='19' y='10' width='6' height='19' rx='1.5' fill='%23f0b429'/%3E%3Cpolyline points='6,20 14,13 22,7' stroke='%234ade80' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Ccircle cx='22' cy='7' r='2.5' fill='%234ade80'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -514,7 +515,11 @@ function renderSites(){
   el.innerHTML=`
     <div class="page-header">
       <h1 class="page-title">🏗 Об'єкти</h1>
-      <button class="btn primary" onclick="openSiteModal(null)">+ Новий об'єкт</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" onclick="exportSitesExcel()" title="Вивантажити в Excel">📥 Excel</button>
+        <button class="btn sm" onclick="exportSitesPDF()" title="Вивантажити в PDF">🖨 PDF</button>
+        <button class="btn primary" onclick="openSiteModal(null)">+ Новий об'єкт</button>
+      </div>
     </div>
     <div class="metrics">
       <div class="metric" style="--mc:var(--accent)"><div class="metric-label">Всього об'єктів</div><div class="metric-value">${sites.length}</div></div>
@@ -901,7 +906,11 @@ function renderBudgetDetail(){
         <h1 class="page-title">📊 ${esc(s.name)}</h1>
         ${contractBadge(s.contractType)}
       </div>
-      <button class="btn primary" onclick="openBudgetRowModal('${s.id}',null)">+ Додати рядок</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" onclick="exportBudgetExcel('${s.id}')" title="Excel">📥 Excel</button>
+        <button class="btn sm" onclick="exportBudgetPDF('${s.id}')" title="PDF">🖨 PDF</button>
+        <button class="btn primary" onclick="openBudgetRowModal('${s.id}',null)">+ Додати рядок</button>
+      </div>
     </div>
     <div class="card" style="overflow-x:auto">
       <table class="tbl" style="min-width:900px">
@@ -1217,6 +1226,8 @@ function renderCashflow(){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn sm" onclick="manageCFCategories()">⚙ Категорії</button>
         <button class="btn sm" onclick="manageCFCounterparties()">⚙ Контрагенти</button>
+        <button class="btn sm" onclick="exportCashflowExcel()" title="Excel">📥 Excel</button>
+        <button class="btn sm" onclick="exportCashflowPDF()" title="PDF">🖨 PDF</button>
         <button class="btn" onclick="openCFModal(null,'income')">+ 📈 Дохід</button>
         <button class="btn primary" onclick="openCFModal(null,'expense')">+ 📉 Розхід</button>
       </div>
@@ -1373,6 +1384,190 @@ function renderDashboard(){
       <div class="metric" style="--mc:${totInc-totExp>=0?'var(--amber)':'var(--red)'}"><div class="metric-label">Загальний баланс</div><div class="metric-value" style="font-size:15px;color:${totInc-totExp>=0?'var(--accent)':'var(--red)'}">${fmtN(totInc-totExp)}</div></div>
     </div>
     <div class="empty" style="margin-top:30px"><div class="empty-icon">🚧</div><h3>Дашборд в розробці</h3><p>Тут будуть аналітичні графіки та зведені показники</p></div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EXPORT
+// ══════════════════════════════════════════════════════════════
+
+// ── shared helpers ────────────────────────────────────────────
+function xlsxDownload(rows, sheetName, fileName){
+  if(typeof XLSX==='undefined'){alert('Бібліотека XLSX не завантажена (потрібен інтернет)');return;}
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  // column widths — auto from max length
+  const cols=rows[0].map((_,ci)=>({wch:Math.max(...rows.map(r=>String(r[ci]??'').length),10)}));
+  ws['!cols']=cols;
+  XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  XLSX.writeFile(wb,fileName);
+}
+
+function printPDF(title, tableHTML){
+  const w=window.open('','_blank','width=1100,height=800');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:20px}
+    h2{font-size:16px;margin-bottom:4px}
+    .subtitle{font-size:11px;color:#666;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th{background:#1e2a3a;color:#f0b429;font-size:10px;text-transform:uppercase;padding:7px 8px;text-align:left;border:1px solid #ccc}
+    td{padding:6px 8px;border:1px solid #ddd;font-size:11px;vertical-align:middle}
+    tr:nth-child(even)td{background:#f8f8f8}
+    .r{text-align:right}
+    tfoot td{font-weight:700;background:#f0f0f0;border-top:2px solid #999}
+    @media print{@page{margin:15mm} button{display:none}}
+  </style></head><body>
+  <div style="display:flex;justify-content:space-between;align-items:start">
+    <div><h2>${title}</h2><div class="subtitle">Дата формування: ${new Date().toLocaleDateString('uk-UA')}</div></div>
+    <button onclick="window.print()" style="padding:8px 18px;background:#1e2a3a;color:#f0b429;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700">🖨 Друк / PDF</button>
+  </div>
+  ${tableHTML}</body></html>`);
+  w.document.close();
+}
+
+// ── Об'єкти ───────────────────────────────────────────────────
+function exportSitesExcel(){
+  const sites=state.sites||[];
+  const header=['№','Назва','Тип договору','Замовник','Адреса','Сума договору','Статус','Дата підписання','Дата виконання','Отримано','Витрачено','Баланс'];
+  const rows=[header,...sites.map((s,i)=>[
+    i+1, s.name, CONTRACT_TYPE[s.contractType]||s.contractType||'',
+    s.client||'', s.address||'', +s.amountGross||0,
+    STATUS_LABEL[s.status]||s.status||'',
+    s.signDate?fmtD(s.signDate):'', s.deadline?fmtD(s.deadline):'',
+    siteIncome(s.id), siteExpense(s.id), siteIncome(s.id)-siteExpense(s.id)
+  ])];
+  xlsxDownload(rows,'Об\'єкти',`MACC_Обʼєкти_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function exportSitesPDF(){
+  const sites=state.sites||[];
+  const rows=sites.map((s,i)=>{
+    const inc=siteIncome(s.id),exp=siteExpense(s.id),bal=inc-exp;
+    return`<tr>
+      <td>${i+1}</td><td><b>${esc(s.name)}</b></td>
+      <td>${CONTRACT_TYPE[s.contractType]||''}</td>
+      <td>${esc(s.client||'—')}</td>
+      <td class="r">${fmtN(s.amountGross)}</td>
+      <td>${STATUS_LABEL[s.status]||''}</td>
+      <td>${fmtD(s.signDate)}</td><td>${fmtD(s.deadline)}</td>
+      <td class="r" style="color:green">${fmtN(inc)}</td>
+      <td class="r" style="color:red">${fmtN(exp)}</td>
+      <td class="r" style="color:${bal>=0?'green':'red'};font-weight:700">${fmtN(bal)}</td>
+    </tr>`;
+  }).join('');
+  const totInc=sites.reduce((a,s)=>a+siteIncome(s.id),0);
+  const totExp=sites.reduce((a,s)=>a+siteExpense(s.id),0);
+  const html=`<table>
+    <thead><tr><th>№</th><th>Назва</th><th>Тип</th><th>Замовник</th><th class="r">Сума договору</th><th>Статус</th><th>Підписання</th><th>Виконання</th><th class="r">Отримано</th><th class="r">Витрачено</th><th class="r">Баланс</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="8">РАЗОМ (${sites.length} об'єктів)</td><td class="r">${fmtN(totInc)}</td><td class="r">${fmtN(totExp)}</td><td class="r">${fmtN(totInc-totExp)}</td></tr></tfoot>
+  </table>`;
+  printPDF('Об\'єкти — MACC',html);
+}
+
+// ── Бюджет об'єкту ────────────────────────────────────────────
+function exportBudgetExcel(siteId){
+  const s=(state.sites||[]).find(x=>x.id===siteId);if(!s)return;
+  const rows=(state.budgets[siteId]||{rows:[]}).rows||[];
+  const header=['№','Вид робіт','Ціна в ДЦ','Витрати план','Дохід план (грн)','Дохід план (%)','Витрати факт','Дохід факт (грн)','Дохід факт (%)','Баланс бюджету'];
+  const data=[header,...rows.map((r,i)=>{
+    const dc=+r.dcPrice||0,pc=+r.planCost||0;
+    const fc=(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
+    const pi=dc-pc,fi=dc-fc,diff=pc-fc;
+    return[i+1,r.workType||'',dc,pc,pi,dc?+(pi/dc*100).toFixed(2):0,fc,fi,dc&&fc?+(fi/dc*100).toFixed(2):0,diff];
+  })];
+  // totals row
+  const totDC=rows.reduce((a,r)=>a+(+r.dcPrice||0),0);
+  const totPC=rows.reduce((a,r)=>a+(+r.planCost||0),0);
+  const totFC=rows.reduce((a,r)=>a+(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0),0);
+  data.push(['','РАЗОМ',totDC,totPC,totDC-totPC,totDC?+(( totDC-totPC)/totDC*100).toFixed(2):0,totFC,totDC-totFC,totDC&&totFC?+((totDC-totFC)/totDC*100).toFixed(2):0,totPC-totFC]);
+  xlsxDownload(data,s.name.slice(0,30),`MACC_Бюджет_${s.name.slice(0,20)}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function exportBudgetPDF(siteId){
+  const s=(state.sites||[]).find(x=>x.id===siteId);if(!s)return;
+  const rows=(state.budgets[siteId]||{rows:[]}).rows||[];
+  let totDC=0,totPC=0,totFC=0;
+  const trs=rows.map((r,i)=>{
+    const dc=+r.dcPrice||0,pc=+r.planCost||0;
+    const fc=(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
+    totDC+=dc;totPC+=pc;totFC+=fc;
+    const pi=dc-pc,fi=dc-fc,diff=pc-fc;
+    const p=(n,d)=>d?(n/d*100).toFixed(1)+'%':'—';
+    return`<tr>
+      <td>${i+1}</td><td><b>${esc(r.workType)}</b></td>
+      <td class="r">${fmtN(dc)}</td><td class="r">${fmtN(pc)}</td>
+      <td class="r" style="color:${pi>=0?'green':'red'}">${fmtN(pi)}</td>
+      <td class="r">${p(pi,dc)}</td>
+      <td class="r">${fc?fmtN(fc):'—'}</td>
+      <td class="r" style="color:${fi>=0?'green':'red'}">${fc?fmtN(fi):'—'}</td>
+      <td class="r">${dc&&fc?p(fi,dc):'—'}</td>
+      <td class="r" style="color:${diff>=0?'green':'red'};font-weight:700">${pc?fmtN(diff):'—'}</td>
+    </tr>`;
+  }).join('');
+  const html=`<table>
+    <thead><tr><th>№</th><th>Вид робіт</th><th class="r">Ціна в ДЦ</th><th class="r">Витрати план</th><th class="r">Дохід план</th><th class="r">%</th><th class="r">Витрати факт</th><th class="r">Дохід факт</th><th class="r">%</th><th class="r">Баланс</th></tr></thead>
+    <tbody>${trs}</tbody>
+    <tfoot><tr><td colspan="2">РАЗОМ</td><td class="r">${fmtN(totDC)}</td><td class="r">${fmtN(totPC)}</td><td class="r">${fmtN(totDC-totPC)}</td><td class="r">${totDC?((totDC-totPC)/totDC*100).toFixed(1)+'%':'—'}</td><td class="r">${totFC?fmtN(totFC):'—'}</td><td class="r">${fmtN(totDC-totFC)}</td><td class="r">${totDC&&totFC?((totDC-totFC)/totDC*100).toFixed(1)+'%':'—'}</td><td class="r">${fmtN(totPC-totFC)}</td></tr></tfoot>
+  </table>`;
+  printPDF(`Бюджет: ${s.name}`,html);
+}
+
+// ── Грошові потоки ────────────────────────────────────────────
+function exportCashflowExcel(){
+  const all=state.cashflows||[];
+  let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
+  // apply current filters
+  if(cfFilters.type)    rows=rows.filter(r=>r.type===cfFilters.type);
+  if(cfFilters.form)    rows=rows.filter(r=>r.form===cfFilters.form);
+  if(cfFilters.category)rows=rows.filter(r=>r.category===cfFilters.category);
+  if(cfFilters.site)    rows=rows.filter(r=>r.siteId===cfFilters.site);
+  if(cfFilters.month)   rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
+  if(cfFilters.tag)     rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
+  if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q));}
+  const header=['Дата','Тип','Форма оплати','Категорія','Об\'єкт','Контрагент','Вид робіт','Тег','Сума','Примітки'];
+  const data=[header,...rows.map(r=>{
+    const site=(state.sites||[]).find(s=>s.id===r.siteId);
+    return[r.date,r.type==='income'?'Дохід':'Розхід',CF_FORM_LABEL[r.form]||r.form,r.category||'',site?.name||'',r.counterparty||'',r.workType||'',r.tag||'',+r.amount||0,r.notes||''];
+  })];
+  xlsxDownload(data,'Грошові потоки',`MACC_ГрошовіПотоки_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function exportCashflowPDF(){
+  const all=state.cashflows||[];
+  let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
+  if(cfFilters.type)    rows=rows.filter(r=>r.type===cfFilters.type);
+  if(cfFilters.form)    rows=rows.filter(r=>r.form===cfFilters.form);
+  if(cfFilters.category)rows=rows.filter(r=>r.category===cfFilters.category);
+  if(cfFilters.site)    rows=rows.filter(r=>r.siteId===cfFilters.site);
+  if(cfFilters.month)   rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
+  if(cfFilters.tag)     rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
+  if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q));}
+  let totInc=0,totExp=0;
+  const trs=rows.map(r=>{
+    const site=(state.sites||[]).find(s=>s.id===r.siteId);
+    const isInc=r.type==='income';
+    if(isInc)totInc+=(+r.amount||0);else totExp+=(+r.amount||0);
+    return`<tr>
+      <td style="white-space:nowrap">${fmtD(r.date)}</td>
+      <td style="color:${isInc?'green':'red'};font-weight:700">${isInc?'↑ Дохід':'↓ Розхід'}</td>
+      <td>${CF_FORM_LABEL[r.form]||r.form}</td>
+      <td>${esc(r.category||'—')}</td>
+      <td>${esc(site?.name||'—')}</td>
+      <td>${esc(r.counterparty||'—')}</td>
+      <td>${esc(r.workType||'—')}</td>
+      <td class="r" style="font-weight:700;color:${isInc?'green':'red'}">${isInc?'+':'-'}${fmtN(r.amount)}</td>
+      <td style="font-size:10px;color:#666">${esc(r.notes||'')}</td>
+    </tr>`;
+  }).join('');
+  const activeFilters=Object.entries({Тип:cfFilters.type,Форма:cfFilters.form,Категорія:cfFilters.category,Місяць:cfFilters.month,Тег:cfFilters.tag}).filter(([,v])=>v).map(([k,v])=>`${k}: ${v}`).join(' · ');
+  const html=`${activeFilters?`<div style="margin-bottom:10px;padding:6px 10px;background:#f5f5f5;border-radius:4px;font-size:11px;color:#555">Фільтри: ${activeFilters}</div>`:''}
+  <table>
+    <thead><tr><th>Дата</th><th>Тип</th><th>Форма</th><th>Категорія</th><th>Об'єкт</th><th>Контрагент</th><th>Вид робіт</th><th class="r">Сума</th><th>Примітки</th></tr></thead>
+    <tbody>${trs}</tbody>
+    <tfoot><tr><td colspan="7">РАЗОМ (${rows.length} записів) · Доходи: ${fmtN(totInc)} · Витрати: ${fmtN(totExp)}</td><td class="r" style="color:${totInc-totExp>=0?'green':'red'}">${fmtN(totInc-totExp)}</td><td></td></tr></tfoot>
+  </table>`;
+  printPDF(`Грошові потоки — MACC`,html);
 }
 
 // ══════════════════════════════════════════════════════════════
