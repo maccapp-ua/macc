@@ -460,6 +460,8 @@ function applyState(d){
 // ══════════════════════════════════════════════════════════════
 function navigate(page){
   curPage=page;
+  curSiteDetailId=null;
+  curBudgetSiteId=null;
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
   const nb=document.getElementById('nav-'+page);
   if(nb)nb.classList.add('active');
@@ -1186,7 +1188,7 @@ function renderCashflow(){
     <input type="month" value="${cfFilters.month}" onchange="cfFilters.month=this.value;renderCashflow()" title="Місяць">
     <input placeholder="🔍 Пошук..." value="${esc(cfFilters.search)}" oninput="cfFilters.search=this.value;renderCashflow()" style="min-width:120px">
     <input placeholder="Тег..." value="${esc(cfFilters.tag)}" oninput="cfFilters.tag=this.value;renderCashflow()" style="min-width:80px">
-    ${Object.values(cfFilters).some(v=>v)?`<button class="btn sm" onclick="cfFilters={type:'',form:'',category:'',site:'',tag:'',month:'',search:''};renderCashflow()">✕ Скинути</button>`:''}
+    <button class="btn sm" onclick="cfFilters={type:'',form:'',category:'',site:'',tag:'',month:'',search:''};renderCashflow()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9;opacity:${Object.values(cfFilters).some(v=>v)?1:0.45};pointer-events:${Object.values(cfFilters).some(v=>v)?'auto':'none'}">✕ Очистити фільтр</button>
   </div>`;
 
   let tbody='';
@@ -1224,11 +1226,11 @@ function renderCashflow(){
     <div class="page-header">
       <h1 class="page-title">💸 Грошові потоки</h1>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn sm" onclick="manageCFCategories()">⚙ Категорії</button>
-        <button class="btn sm" onclick="manageCFCounterparties()">⚙ Контрагенти</button>
+        <button class="btn sm" onclick="manageCFCategories()" style="background:#f97316;color:#fff;border-color:#f97316">⚙ Категорії</button>
+        <button class="btn sm" onclick="manageCFCounterparties()" style="background:#f97316;color:#fff;border-color:#f97316">⚙ Контрагенти</button>
         <button class="btn sm" onclick="exportCashflowExcel()" title="Excel">📥 Excel</button>
         <button class="btn sm" onclick="exportCashflowPDF()" title="PDF">🖨 PDF</button>
-        <button class="btn" onclick="openCFModal(null,'income')">+ 📈 Дохід</button>
+        <button class="btn" onclick="openCFModal(null,'income')" style="background:#22c55e;color:#fff;border-color:#22c55e">+ 📈 Дохід</button>
         <button class="btn primary" onclick="openCFModal(null,'expense')">+ 📉 Розхід</button>
       </div>
     </div>
