@@ -603,7 +603,7 @@ function renderBudgetDetail(){
   const totPI=totDC-totPC, totFI=totDC-totFC;
   const totPIPct=totDC?totPI/totDC*100:0;
   const totFIPct=totDC?totFI/totDC*100:0;
-  const totDiff=totFI-totPI;
+  const totDiff=totPC-totFC;
 
   function pct(num,den){if(!den)return'—';return(num/den*100).toFixed(1)+'%';}
   function colored(v,pos='var(--green)',neg='var(--red)'){return`style="color:${v>=0?pos:neg};font-weight:700"`}
@@ -615,7 +615,7 @@ function renderBudgetDetail(){
     rows.forEach((r,i)=>{
       const dc=+r.dcPrice||0, pc=+r.planCost||0;
       const fc=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
-      const pi=dc-pc, fi=dc-fc, diff=fi-pi;
+      const pi=dc-pc, fi=dc-fc, diff=pc-fc;
       tbody+=`<tr onclick="openBudgetRowModal('${s.id}','${r.id}')">
         <td style="color:var(--text3);text-align:center">${i+1}</td>
         <td style="color:var(--text);font-weight:600;min-width:160px">${esc(r.workType||'—')}</td>
@@ -667,7 +667,7 @@ function renderBudgetDetail(){
             <th class="r">Ціна витрат<br><span style="font-weight:400">(факт)</span></th>
             <th class="r">Дохід, грн<br><span style="font-weight:400">(факт)</span></th>
             <th class="r">Дохід, %<br><span style="font-weight:400">(факт)</span></th>
-            <th class="r">Різниця<br><span style="font-weight:400">факт−план</span></th>
+            <th class="r">Баланс бюджету<br><span style="font-weight:400">план−факт витрат</span></th>
             <th></th>
           </tr>
         </thead>
