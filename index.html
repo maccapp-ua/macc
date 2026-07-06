@@ -404,6 +404,7 @@ let editingSiteId=null, editingContractorId=null, editingExecutorId=null, editin
 let editingSiteSubId=null, editingSiteITRId=null;
 let execTab='contractors';
 let curBudgetSiteId=null, curSiteDetailId=null;
+let curContractorDetailId=null, curExecutorDetailId=null;
 let cfFilters={type:'',form:'',category:'',site:'',tag:'',month:'',search:''};
 
 // ══════════════════════════════════════════════════════════════
@@ -462,6 +463,8 @@ function navigate(page){
   curPage=page;
   curSiteDetailId=null;
   curBudgetSiteId=null;
+  curContractorDetailId=null;
+  curExecutorDetailId=null;
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
   const nb=document.getElementById('nav-'+page);
   if(nb)nb.classList.add('active');
@@ -992,6 +995,8 @@ function deleteBudgetRow(siteId,rowId){
 //  ВИКОНАВЦІ ТА ПІДРЯДНИКИ
 // ══════════════════════════════════════════════════════════════
 function renderExecutors(){
+  if(curContractorDetailId){renderContractorDetail();return;}
+  if(curExecutorDetailId){renderExecutorDetail();return;}
   const el=document.getElementById('main-content');
   el.innerHTML=`
     <div class="page-header">
@@ -1003,8 +1008,8 @@ function renderExecutors(){
     </div>
     <div class="card">
       <div class="subtabs">
-        <button class="subtab ${execTab==='contractors'?'active':''}" onclick="execTab='contractors';renderExecutors()">🏢 Підрядники</button>
-        <button class="subtab ${execTab==='executors'?'active':''}" onclick="execTab='executors';renderExecutors()">👤 Виконавці</button>
+        <button class="subtab ${execTab==='contractors'?'active':''}" onclick="execTab='contractors';curContractorDetailId=null;curExecutorDetailId=null;renderExecutors()">🏢 Підрядники</button>
+        <button class="subtab ${execTab==='executors'?'active':''}" onclick="execTab='executors';curContractorDetailId=null;curExecutorDetailId=null;renderExecutors()">👤 Виконавці</button>
       </div>
       <div style="overflow-x:auto">${execTab==='contractors'?renderContractorsTable():renderExecutorsTable()}</div>
     </div>`;
@@ -1018,7 +1023,7 @@ function renderContractorsTable(){
       <th>Назва / ПІБ</th><th>Контактна особа</th><th>Телефон</th><th>Email</th>
       <th>Вид робіт</th><th>ПДВ</th><th></th>
     </tr></thead>
-    <tbody>${list.map(c=>`<tr onclick="openContractorModal('${c.id}')">
+    <tbody>${list.map(c=>`<tr onclick="curContractorDetailId='${c.id}';renderExecutors()" style="cursor:pointer">
       <td style="color:var(--text);font-weight:600">${esc(c.name)}</td>
       <td>${esc(c.contactPerson||'—')}</td>
       <td style="white-space:nowrap">${esc(c.phone||'—')}</td>
@@ -1038,7 +1043,7 @@ function renderExecutorsTable(){
       <th>Ім'я та прізвище</th><th>Посада</th><th>ЗП, грн/міс</th>
       <th>Телефон</th><th>Email</th><th></th>
     </tr></thead>
-    <tbody>${list.map(e=>`<tr onclick="openExecutorModal('${e.id}')">
+    <tbody>${list.map(e=>`<tr onclick="curExecutorDetailId='${e.id}';renderExecutors()" style="cursor:pointer">
       <td style="color:var(--text);font-weight:600">${esc(e.name)}</td>
       <td style="color:var(--text2)">${esc(e.position||'—')}</td>
       <td class="r mono">${e.salaryLevel?fmtN(e.salaryLevel):'—'}</td>
@@ -1047,6 +1052,124 @@ function renderExecutorsTable(){
       <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="deleteExecutor('${e.id}')">×</button></td>
     </tr>`).join('')}</tbody>
   </table>`;
+}
+
+function renderContractorDetail(){
+  const el=document.getElementById('main-content');
+  const c=(state.contractors||[]).find(x=>x.id===curContractorDetailId);
+  if(!c){curContractorDetailId=null;renderExecutors();return;}
+  // find all site subcontracts for this contractor
+  const projects=[];
+  (state.sites||[]).forEach(s=>{
+    (s.subContracts||[]).forEach(sc=>{
+      if(sc.contractorId===c.id)projects.push({site:s,sc});
+    });
+  });
+  const projectRows=projects.length?projects.map((p,i)=>`<tr>
+    <td>${i+1}</td>
+    <td style="font-weight:600;color:var(--text)">${esc(p.site.name)}</td>
+    <td>${esc(p.sc.workType||'—')}</td>
+    <td class="r mono" style="color:var(--accent)">${fmtN(p.sc.amount)}</td>
+    <td><span class="badge" style="background:var(--bg3);color:var(--text2)">${STATUS_LABEL[p.site.status]||p.site.status||'—'}</span></td>
+  </tr>`).join(''):`<tr><td colspan="5"><div class="empty" style="padding:20px"><div class="empty-icon">📋</div><p>Підрядник ще не призначений на жоден проєкт</p></div></td></tr>`;
+  const totAmount=projects.reduce((a,p)=>a+(+p.sc.amount||0),0);
+  el.innerHTML=`
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="btn sm" onclick="curContractorDetailId=null;execTab='contractors';renderExecutors()">← Назад</button>
+        <h1 class="page-title">🏢 ${esc(c.name)}</h1>
+        ${c.vatPayer==='yes'?`<span class="badge" style="background:rgba(74,222,128,.12);color:var(--green);border:1px solid rgba(74,222,128,.3)">ПДВ платник</span>`:''}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="openContractorModal('${c.id}')">✏ Редагувати</button>
+        <button class="btn danger" onclick="deleteContractor('${c.id}')">🗑 Видалити</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:12px">Контактна інформація</div>
+        ${[
+          ['Контактна особа', c.contactPerson],
+          ['Телефон', c.phone?`<a href="tel:${esc(c.phone)}" style="color:var(--accent)">${esc(c.phone)}</a>`:'—'],
+          ['Email', c.email?`<a href="mailto:${esc(c.email)}" style="color:var(--accent)">${esc(c.email)}</a>`:'—'],
+          ['Вид робіт', c.worktype],
+          ['Примітки', c.notes],
+        ].map(([k,v])=>`<div style="display:flex;gap:8px;margin-bottom:8px;font-size:13px">
+          <span style="min-width:130px;color:var(--text3)">${k}:</span>
+          <span style="color:var(--text)">${v||'—'}</span>
+        </div>`).join('')}
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px">Статистика</div>
+        <div class="metric" style="--mc:var(--accent)"><div class="metric-label">Проєктів</div><div class="metric-value">${projects.length}</div></div>
+        <div class="metric" style="--mc:var(--green)"><div class="metric-label">Загальна сума договорів</div><div class="metric-value" style="font-size:15px">${fmtN(totAmount)}</div></div>
+      </div>
+    </div>
+    <div class="card" style="overflow-x:auto">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px">Проєкти підрядника</div>
+      <table class="tbl">
+        <thead><tr><th>№</th><th>Об'єкт</th><th>Вид робіт</th><th class="r">Сума договору</th><th>Статус об'єкту</th></tr></thead>
+        <tbody>${projectRows}</tbody>
+        ${projects.length?`<tfoot><tr><td colspan="3" style="font-weight:700">РАЗОМ</td><td class="r mono" style="font-weight:700;color:var(--accent)">${fmtN(totAmount)}</td><td></td></tr></tfoot>`:''}
+      </table>
+    </div>`;
+}
+
+function renderExecutorDetail(){
+  const el=document.getElementById('main-content');
+  const e=(state.executors||[]).find(x=>x.id===curExecutorDetailId);
+  if(!e){curExecutorDetailId=null;renderExecutors();return;}
+  // find all site ITR assignments for this executor
+  const projects=[];
+  (state.sites||[]).forEach(s=>{
+    (s.itrAssignments||[]).forEach(a=>{
+      if(a.executorId===e.id)projects.push({site:s,a});
+    });
+  });
+  const projectRows=projects.length?projects.map((p,i)=>`<tr>
+    <td>${i+1}</td>
+    <td style="font-weight:600;color:var(--text)">${esc(p.site.name)}</td>
+    <td>${esc(p.a.role||'—')}</td>
+    <td><span class="badge" style="background:rgba(90,112,144,.1);color:var(--text2)">${STATUS_LABEL[p.site.status]||p.site.status||'—'}</span></td>
+  </tr>`).join(''):`<tr><td colspan="4"><div class="empty" style="padding:20px"><div class="empty-icon">📋</div><p>Виконавець ще не призначений на жоден проєкт</p></div></td></tr>`;
+  el.innerHTML=`
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="btn sm" onclick="curExecutorDetailId=null;execTab='executors';renderExecutors()">← Назад</button>
+        <h1 class="page-title">👤 ${esc(e.name)}</h1>
+        ${e.position?`<span class="badge" style="background:rgba(240,180,41,.12);color:var(--accent)">${esc(e.position)}</span>`:''}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="openExecutorModal('${e.id}')">✏ Редагувати</button>
+        <button class="btn danger" onclick="deleteExecutor('${e.id}')">🗑 Видалити</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:12px">Контактна інформація</div>
+        ${[
+          ['Посада', e.position],
+          ['ЗП, грн/міс', e.salaryLevel?fmtN(e.salaryLevel):'—'],
+          ['Телефон', e.phone?`<a href="tel:${esc(e.phone)}" style="color:var(--accent)">${esc(e.phone)}</a>`:'—'],
+          ['Email', e.email?`<a href="mailto:${esc(e.email)}" style="color:var(--accent)">${esc(e.email)}</a>`:'—'],
+          ['Примітки', e.notes],
+        ].map(([k,v])=>`<div style="display:flex;gap:8px;margin-bottom:8px;font-size:13px">
+          <span style="min-width:130px;color:var(--text3)">${k}:</span>
+          <span style="color:var(--text)">${v||'—'}</span>
+        </div>`).join('')}
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px">Статистика</div>
+        <div class="metric" style="--mc:var(--accent)"><div class="metric-label">Проєктів</div><div class="metric-value">${projects.length}</div></div>
+      </div>
+    </div>
+    <div class="card" style="overflow-x:auto">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px">Проєкти виконавця</div>
+      <table class="tbl">
+        <thead><tr><th>№</th><th>Об'єкт</th><th>Роль на об'єкті</th><th>Статус об'єкту</th></tr></thead>
+        <tbody>${projectRows}</tbody>
+      </table>
+    </div>`;
 }
 
 function openContractorModal(id){
@@ -1077,11 +1200,11 @@ function saveContractor(){
   };
   if(editingContractorId){const i=state.contractors.findIndex(x=>x.id===editingContractorId);if(i>=0)state.contractors[i]=data;}
   else state.contractors.push(data);
-  save();closeModal('contractor');renderExecutors();
+  save();closeModal('contractor');if(editingContractorId)curContractorDetailId=editingContractorId;renderExecutors();
 }
 function deleteContractor(id){
   if(!confirm('Видалити підрядника?'))return;
-  state.contractors=state.contractors.filter(x=>x.id!==id);save();renderExecutors();
+  state.contractors=state.contractors.filter(x=>x.id!==id);curContractorDetailId=null;save();renderExecutors();
 }
 
 function openExecutorModal(id){
@@ -1110,11 +1233,11 @@ function saveExecutor(){
   };
   if(editingExecutorId){const i=state.executors.findIndex(x=>x.id===editingExecutorId);if(i>=0)state.executors[i]=data;}
   else state.executors.push(data);
-  save();closeModal('executor');renderExecutors();
+  save();closeModal('executor');if(editingExecutorId)curExecutorDetailId=editingExecutorId;renderExecutors();
 }
 function deleteExecutor(id){
   if(!confirm('Видалити виконавця?'))return;
-  state.executors=state.executors.filter(x=>x.id!==id);save();renderExecutors();
+  state.executors=state.executors.filter(x=>x.id!==id);curExecutorDetailId=null;save();renderExecutors();
 }
 
 // ══════════════════════════════════════════════════════════════
