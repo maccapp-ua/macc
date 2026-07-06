@@ -110,6 +110,7 @@ select.form-input option{background:var(--bg3)}
   <button class="nav-item"        id="nav-executors"   onclick="navigate('executors')">Виконавці та підрядники</button>
   <button class="nav-item"        id="nav-cashflow"    onclick="navigate('cashflow')">Грошові потоки</button>
   <button class="nav-item"        id="nav-meetings"    onclick="navigate('meetings')">Наради</button>
+  <button class="nav-item"        id="nav-tasks"       onclick="navigate('tasks')">Задачі</button>
   <button class="nav-item"        id="nav-dashboard"   onclick="navigate('dashboard')">Дашборд</button>
 </nav>
 
@@ -414,6 +415,57 @@ select.form-input option{background:var(--bg3)}
   </div>
 </div>
 
+<!-- Задача modal -->
+<div class="modal-overlay" id="modal-task">
+  <div class="modal" style="width:560px">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-task-title">Нова задача</span>
+      <button class="modal-close" onclick="closeModal('task')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Об'єкт *</label>
+        <select class="form-input" id="task-site">
+          <option value="">— оберіть об'єкт —</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Задача *</label>
+        <input class="form-input" id="task-name" placeholder="Опис задачі">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label class="form-label">Виконавець</label>
+          <select class="form-input" id="task-executor">
+            <option value="">— не призначено —</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Статус</label>
+          <select class="form-input" id="task-status">
+            <option value="todo">Не почато</option>
+            <option value="progress">В роботі</option>
+            <option value="done">Виконано</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Строк виконання</label>
+          <input class="form-input" type="date" id="task-deadline">
+        </div>
+        <div class="form-group"><label class="form-label">Пріоритет</label>
+          <select class="form-input" id="task-priority">
+            <option value="normal">⚪ Звичайний</option>
+            <option value="high">🟡 Високий</option>
+            <option value="urgent">🔴 Терміново</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Примітка</label>
+        <input class="form-input" id="task-note" placeholder="Додаткова інформація">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('task')">Скасувати</button>
+      <button class="btn primary" onclick="saveTask()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════════
 //  CONSTANTS
@@ -444,7 +496,8 @@ let state={
   cfCategories:[],
   cfCounterparties:[],
   budgets:{},
-  meetings:[]
+  meetings:[],
+  tasks:[]
 };
 let curPage='sites';
 let editingSiteId=null, editingContractorId=null, editingExecutorId=null, editingCFId=null, editingBudgetRowId=null;
@@ -453,6 +506,9 @@ let execTab='contractors';
 let curBudgetSiteId=null, curSiteDetailId=null;
 let curContractorDetailId=null, curExecutorDetailId=null;
 let editingMeetingId=null, curMeetingDetailId=null;
+let editingTaskId=null;
+let activeTaskFilter='all';
+let taskSort='site'; // 'site' | 'deadline'
 let meetingFilter={status:'',site:'',month:'',search:''};
 const MTG_STATUS={planned:'📅 Запланована',done:'✅ Проведена',cancelled:'❌ Скасована'};
 const MTG_STATUS_BADGE={planned:'blue',done:'green',cancelled:'gray'};
@@ -506,6 +562,7 @@ function applyState(d){
   state.cfCounterparties=d.cfCounterparties||[];
   state.budgets=d.budgets||{};
   state.meetings=d.meetings||[];
+  state.tasks=d.tasks||[];
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -528,6 +585,7 @@ function render(){
   else if(curPage==='executors')   renderExecutors();
   else if(curPage==='cashflow')    renderCashflow();
   else if(curPage==='meetings')    renderMeetings();
+  else if(curPage==='tasks')       renderTasksPage();
   else if(curPage==='dashboard')   renderDashboard();
 }
 function closeModal(name){document.getElementById('modal-'+name).classList.remove('open')}
@@ -1562,6 +1620,254 @@ function renderDashboard(){
       <div class="metric" style="--mc:${totInc-totExp>=0?'var(--amber)':'var(--red)'}"><div class="metric-label">Загальний баланс</div><div class="metric-value" style="font-size:15px;color:${totInc-totExp>=0?'var(--accent)':'var(--red)'}">${fmtN(totInc-totExp)}</div></div>
     </div>
     <div class="empty" style="margin-top:30px"><div class="empty-icon">🚧</div><h3>Дашборд в розробці</h3><p>Тут будуть аналітичні графіки та зведені показники</p></div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TASKS
+// ══════════════════════════════════════════════════════════════
+
+const TASK_PR_COLOR={urgent:'var(--red)',high:'#f97316',normal:'var(--text3)'};
+const TASK_PR_LABEL={urgent:'🔴 Терміново',high:'🟡 Високий',normal:'⚪ Звичайний'};
+const TASK_ST_BADGE={todo:'gray',progress:'blue',done:'green'};
+const TASK_ST_LABEL={todo:'Не почато',progress:'В роботі',done:'Виконано'};
+
+function isOverdue(dateStr){
+  if(!dateStr)return false;
+  return new Date(dateStr)<new Date(new Date().toDateString());
+}
+
+function setTaskFilter(f){
+  activeTaskFilter=f;
+  document.querySelectorAll('[data-ts]').forEach(b=>b.classList.toggle('active',b.dataset.ts===f));
+  renderTasksPage();
+}
+
+function setTaskSort(s){
+  taskSort=s;
+  document.getElementById('tsort-site').classList.toggle('active',s==='site');
+  document.getElementById('tsort-deadline').classList.toggle('active',s==='deadline');
+  renderTasksPage();
+}
+
+function renderTasksPage(){
+  const el=document.getElementById('main-content');
+  const sites=state.sites||[];
+  const executors=state.executors||[];
+
+  // metrics
+  const all=state.tasks||[];
+  const totTodo=all.filter(t=>(t.status||'todo')==='todo').length;
+  const totProgress=all.filter(t=>t.status==='progress').length;
+  const totDone=all.filter(t=>t.status==='done').length;
+  const totOverdue=all.filter(t=>isOverdue(t.deadline)&&t.status!=='done').length;
+
+  // build page shell first so filter selects exist in DOM
+  el.innerHTML=`
+    <div class="page-header">
+      <h1 class="page-title">✅ Задачі</h1>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" onclick="exportTasksExcel()" style="color:var(--green);border-color:rgba(74,222,128,.4)">📥 Excel</button>
+        <button class="btn primary" onclick="openTaskModal(null)">+ Задача</button>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="metric" style="--mc:var(--text3)"><div class="metric-label">Не почато</div><div class="metric-value">${totTodo}</div></div>
+      <div class="metric" style="--mc:#0ea5e9"><div class="metric-label">В роботі</div><div class="metric-value">${totProgress}</div></div>
+      <div class="metric" style="--mc:var(--green)"><div class="metric-label">Виконано</div><div class="metric-value">${totDone}</div></div>
+      <div class="metric" style="--mc:var(--red)"><div class="metric-label">Прострочено</div><div class="metric-value">${totOverdue}</div></div>
+    </div>
+    <div class="filter-bar" style="gap:6px;flex-wrap:wrap">
+      <select class="form-input" id="tasks-filter-site" onchange="renderTasksBody()" style="min-width:180px;height:30px;font-size:11px;padding:4px 8px">
+        <option value="">Всі об'єкти</option>
+        ${sites.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+      </select>
+      <select class="form-input" id="tasks-filter-exec" onchange="renderTasksBody()" style="min-width:160px;height:30px;font-size:11px;padding:4px 8px">
+        <option value="">Всі виконавці</option>
+        ${executors.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}
+      </select>
+      <button class="subtab active" data-ts="all"      onclick="setTaskFilter('all')">Всі</button>
+      <button class="subtab"        data-ts="todo"     onclick="setTaskFilter('todo')">Не почато</button>
+      <button class="subtab"        data-ts="progress" onclick="setTaskFilter('progress')">В роботі</button>
+      <button class="subtab"        data-ts="done"     onclick="setTaskFilter('done')">Виконано</button>
+      <button class="subtab"        data-ts="overdue"  onclick="setTaskFilter('overdue')" style="color:var(--red)">⚠ Прострочені</button>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Групувати:</span>
+        <button class="subtab active" id="tsort-site"     onclick="setTaskSort('site')">По об'єктах</button>
+        <button class="subtab"        id="tsort-deadline" onclick="setTaskSort('deadline')">По дедлайну</button>
+      </div>
+    </div>
+    <div class="card" style="overflow-x:auto">
+      <table class="tbl" id="all-tasks-table"></table>
+    </div>`;
+
+  // restore filter button states
+  document.querySelectorAll('[data-ts]').forEach(b=>b.classList.toggle('active',b.dataset.ts===activeTaskFilter));
+  document.getElementById('tsort-site').classList.toggle('active',taskSort==='site');
+  document.getElementById('tsort-deadline').classList.toggle('active',taskSort==='deadline');
+
+  renderTasksBody();
+}
+
+function renderTasksBody(){
+  const el=document.getElementById('all-tasks-table');
+  if(!el)return;
+
+  const siteSel=document.getElementById('tasks-filter-site');
+  const execSel=document.getElementById('tasks-filter-exec');
+  const filterSite=siteSel?siteSel.value:'';
+  const filterExec=execSel?execSel.value:'';
+
+  let tasks=[...(state.tasks||[])];
+  if(filterSite) tasks=tasks.filter(t=>t.siteId===filterSite);
+  if(filterExec) tasks=tasks.filter(t=>t.executorId===filterExec);
+  if(activeTaskFilter==='overdue') tasks=tasks.filter(t=>isOverdue(t.deadline)&&t.status!=='done');
+  else if(activeTaskFilter!=='all') tasks=tasks.filter(t=>(t.status||'todo')===activeTaskFilter);
+
+  if(!tasks.length){
+    el.innerHTML=`<tr><td colspan="6"><div class="empty"><div class="empty-icon">✅</div><h3>${(state.tasks||[]).length?'Нічого не знайдено':'Задач ще немає'}</h3><p>${(state.tasks||[]).length?'Спробуйте інші фільтри':'Натисніть «+ Задача» щоб додати першу задачу'}</p></div></td></tr>`;
+    return;
+  }
+
+  let html='<thead><tr><th>Задача</th><th>Виконавець</th><th>Дедлайн</th><th>Пріоритет</th><th>Статус</th><th></th></tr></thead><tbody>';
+
+  if(taskSort==='site'){
+    // group by site
+    const bySite={};const siteOrder=[];
+    tasks.forEach(t=>{
+      const key=t.siteId||'_';
+      if(!bySite[key]){bySite[key]=[];siteOrder.push(key);}
+      bySite[key].push(t);
+    });
+    siteOrder.forEach(key=>{
+      const site=(state.sites||[]).find(s=>s.id===key)||null;
+      const grp=bySite[key];
+      grp.sort((a,b)=>{
+        if(a.status==='done'&&b.status!=='done')return 1;
+        if(a.status!=='done'&&b.status==='done')return -1;
+        const po={urgent:0,high:1,normal:2};
+        return(po[a.priority||'normal'])-(po[b.priority||'normal']);
+      });
+      html+=`<tr><td colspan="6" style="padding:8px 14px;background:rgba(240,180,41,.06);border-top:2px solid rgba(240,180,41,.35);border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.07em">
+          🏗 ${esc(site?site.name:'Без об\'єкту')}
+        </span>
+        <span style="font-size:10px;color:var(--text3);margin-left:8px">${grp.length} задач</span>
+      </td></tr>`;
+      grp.forEach(t=>{ html+=renderTaskRow(t,false); });
+    });
+  } else {
+    // sort by deadline
+    tasks.sort((a,b)=>{
+      if(a.status==='done'&&b.status!=='done')return 1;
+      if(a.status!=='done'&&b.status==='done')return -1;
+      if(!a.deadline&&!b.deadline)return 0;
+      if(!a.deadline)return 1; if(!b.deadline)return -1;
+      return a.deadline<b.deadline?-1:1;
+    });
+    let prevDone=false;
+    tasks.forEach(t=>{
+      if(t.status==='done'&&!prevDone){
+        html+=`<tr><td colspan="6" style="padding:6px 14px;background:var(--bg3);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;border-top:1px solid var(--border)">✓ Виконані задачі</td></tr>`;
+        prevDone=true;
+      }
+      html+=renderTaskRow(t,true);
+    });
+  }
+
+  html+='</tbody>';
+  el.innerHTML=html;
+}
+
+function renderTaskRow(t, showSite){
+  const site=(state.sites||[]).find(s=>s.id===t.siteId)||null;
+  const ex=(state.executors||[]).find(e=>e.id===t.executorId)||null;
+  const od=isOverdue(t.deadline)&&t.status!=='done';
+  const pr=t.priority||'normal';
+  const st=t.status||'todo';
+  const isDone=st==='done';
+  const idx=(state.tasks||[]).indexOf(t);
+  let row=`<tr style="${isDone?'opacity:.55':''}${od?';background:rgba(239,68,68,.04)':''}">`;
+  row+=`<td><div style="font-weight:600;${isDone?'text-decoration:line-through':''}">${esc(t.name||'')}</div>`;
+  if(showSite&&site) row+=`<div style="font-size:10px;color:var(--accent);margin-top:2px">🏗 ${esc(site.name)}</div>`;
+  if(t.note) row+=`<div style="font-size:11px;color:var(--text3)">${esc(t.note)}</div>`;
+  row+=`</td>`;
+  row+=`<td style="font-size:12px;color:var(--text2)">${ex?esc(ex.name):'—'}</td>`;
+  row+=`<td><input type="date" value="${t.deadline||''}" onchange="updateTaskDeadline('${t.id}',this.value)" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;color:${od?'var(--red)':'var(--text)'};font-size:11px;font-family:var(--font);padding:3px 6px;outline:none;width:130px"></td>`;
+  row+=`<td style="font-size:11px;color:${TASK_PR_COLOR[pr]}">${TASK_PR_LABEL[pr]}</td>`;
+  row+=`<td><span class="badge ${TASK_ST_BADGE[st]}">${TASK_ST_LABEL[st]}</span></td>`;
+  row+=`<td style="white-space:nowrap">
+    <button class="btn sm" onclick="openTaskModal('${t.id}')" style="margin-right:4px">Ред.</button>
+    <button class="btn sm danger" onclick="deleteTask('${t.id}')">✕</button>
+  </td></tr>`;
+  return row;
+}
+
+function updateTaskDeadline(id,val){
+  const t=(state.tasks||[]).find(x=>x.id===id);
+  if(!t)return;
+  t.deadline=val;
+  save();
+  renderTasksBody();
+}
+
+function openTaskModal(id){
+  editingTaskId=id||null;
+  const t=id?(state.tasks||[]).find(x=>x.id===id):null;
+  document.getElementById('modal-task-title').textContent=id?'Редагувати задачу':'Нова задача';
+  // site select
+  const siteSel=document.getElementById('task-site');
+  siteSel.innerHTML='<option value="">— оберіть об\'єкт —</option>'+(state.sites||[]).map(s=>`<option value="${s.id}"${t?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+  // executor select
+  const exSel=document.getElementById('task-executor');
+  exSel.innerHTML='<option value="">— не призначено —</option>'+(state.executors||[]).map(e=>`<option value="${e.id}"${t?.executorId===e.id?' selected':''}>${esc(e.name)}</option>`).join('');
+  document.getElementById('task-name').value=t?.name||'';
+  document.getElementById('task-status').value=t?.status||'todo';
+  document.getElementById('task-deadline').value=t?.deadline||'';
+  document.getElementById('task-priority').value=t?.priority||'normal';
+  document.getElementById('task-note').value=t?.note||'';
+  document.getElementById('modal-task').classList.add('open');
+}
+
+function saveTask(){
+  const siteId=document.getElementById('task-site').value;
+  const name=document.getElementById('task-name').value.trim();
+  if(!siteId){alert('Оберіть об\'єкт');return;}
+  if(!name){alert('Введіть назву задачі');return;}
+  const data={
+    id:editingTaskId||uid(),
+    siteId,
+    name,
+    executorId:document.getElementById('task-executor').value||'',
+    status:document.getElementById('task-status').value||'todo',
+    deadline:document.getElementById('task-deadline').value||'',
+    priority:document.getElementById('task-priority').value||'normal',
+    note:document.getElementById('task-note').value.trim()||'',
+  };
+  if(!state.tasks)state.tasks=[];
+  if(editingTaskId){const i=state.tasks.findIndex(x=>x.id===editingTaskId);if(i>=0)state.tasks[i]=data;}
+  else state.tasks.push(data);
+  save();closeModal('task');renderTasksBody();
+}
+
+function deleteTask(id){
+  if(!confirm('Видалити задачу?'))return;
+  state.tasks=(state.tasks||[]).filter(x=>x.id!==id);
+  save();renderTasksBody();
+}
+
+function exportTasksExcel(){
+  const tasks=state.tasks||[];
+  if(!tasks.length){alert('Задач ще немає');return;}
+  const PR_LABEL_XL={urgent:'Терміново',high:'Високий',normal:'Звичайний'};
+  const ST_LABEL_XL={todo:'Не почато',progress:'В роботі',done:'Виконано'};
+  const header=['Об\'єкт','Задача','Виконавець','Строк виконання','Пріоритет','Статус','Примітка'];
+  const rows=[header,...tasks.map(t=>{
+    const site=(state.sites||[]).find(s=>s.id===t.siteId);
+    const ex=(state.executors||[]).find(e=>e.id===t.executorId);
+    return[site?.name||'',t.name||'',ex?.name||'',t.deadline||'',
+      PR_LABEL_XL[t.priority||'normal'],ST_LABEL_XL[t.status||'todo'],t.note||''];
+  })];
+  xlsxDownload(rows,'Задачі',`MACC_Задачі_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 // ══════════════════════════════════════════════════════════════
