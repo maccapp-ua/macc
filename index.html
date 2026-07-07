@@ -913,16 +913,62 @@ function renderBudgets(){
 function renderBudgetList(){
   const el=document.getElementById('main-content');
   const sites=state.sites||[];
+
+  // ── Зведені показники по всіх об'єктах ──
+  let sumDC=0, sumPlanCost=0, sumFactCost=0;
+  sites.forEach(s=>{
+    const rows=(state.budgets[s.id]||{rows:[]}).rows||[];
+    rows.forEach(r=>{
+      sumDC+=(+r.dcPrice||0);
+      sumPlanCost+=(+r.planCost||0);
+      sumFactCost+=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
+    });
+  });
+  const sumPlanInc=sumDC-sumPlanCost;
+  const sumFactInc=sumDC-sumFactCost;
+  const avgMargin=sumDC>0?(sumFactInc/sumDC*100):0;
+
+  const metricBlue=`color:#38bdf8;font-size:16px;font-weight:800`;
+  const metricGreen=`color:#4ade80;font-size:16px;font-weight:800`;
+
+  const metricsHTML=`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Всього підписано ДЦ</div>
+        <div style="${metricBlue}">${fmtN(sumDC)}</div>
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Всього ціна витрат (план)</div>
+        <div style="${metricBlue}">${fmtN(sumPlanCost)}</div>
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Всього плановий дохід</div>
+        <div style="${metricBlue}">${fmtN(sumPlanInc)}</div>
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Ціна витрат ФАКТ</div>
+        <div style="${metricGreen}">${fmtN(sumFactCost)}</div>
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Всього дохід ФАКТ</div>
+        <div style="${metricGreen}">${fmtN(sumFactInc)}</div>
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Середня маржинальність</div>
+        <div style="${metricGreen}">${sumDC>0?avgMargin.toFixed(1)+'%':'—'}</div>
+      </div>
+    </div>`;
+
   let tbody='';
   if(!sites.length){
-    tbody=`<tr><td colspan="5"><div class="empty"><div class="empty-icon">📊</div><h3>Немає об'єктів</h3><p>Спочатку додайте об'єкти в розділі «Об'єкти»</p><button class="btn primary" onclick="navigate('sites')">Перейти до Об'єктів</button></div></td></tr>`;
+    tbody=`<tr><td colspan="6"><div class="empty"><div class="empty-icon">📊</div><h3>Немає об'єктів</h3><p>Спочатку додайте об'єкти в розділі «Об'єкти»</p><button class="btn primary" onclick="navigate('sites')">Перейти до Об'єктів</button></div></td></tr>`;
   } else {
     sites.forEach(s=>{
       const rows=(state.budgets[s.id]||{rows:[]}).rows||[];
       const totDC=rows.reduce((a,r)=>a+(+r.dcPrice||0),0);
       const totPlanCost=rows.reduce((a,r)=>a+(+r.planCost||0),0);
       const totPlanInc=totDC-totPlanCost;
-      const totFactCost=rows.reduce((a,r)=>a+(+r.factCost||0),0);
+      const totFactCost=rows.reduce((a,r)=>a+(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a2,c)=>a2+(+c.amount||0),0),0);
       const totFactInc=totDC-totFactCost;
       tbody+=`<tr onclick="openBudget('${s.id}')">
         <td style="color:var(--text);font-weight:600">${esc(s.name)}</td>
@@ -938,6 +984,7 @@ function renderBudgetList(){
     <div class="page-header">
       <h1 class="page-title">📊 Бюджети об'єктів</h1>
     </div>
+    ${metricsHTML}
     <div class="card">
       <div style="overflow-x:auto">
         <table class="tbl">
