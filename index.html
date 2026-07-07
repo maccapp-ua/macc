@@ -340,6 +340,8 @@ select.form-input option{background:var(--bg3)}
         <input class="form-input" id="ss-worktype" placeholder="напр. Фундаментні роботи..."></div>
       <div class="form-group"><label class="form-label">Сума договору, грн</label>
         <input class="form-input" type="number" id="ss-amount" placeholder="0" min="0" step="0.01"></div>
+      <div class="form-group"><label class="form-label">Закриті акти, грн</label>
+        <input class="form-input" type="number" id="ss-closed-acts" placeholder="0" min="0" step="0.01"></div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('site-sub')">Скасувати</button>
@@ -739,21 +741,22 @@ function renderSiteDetail(){
   if(!subs.length){
     subBody=`<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3);font-size:11px">Субпідрядників не додано</td></tr>`;
   } else {
-    let totAmt=0,totAv=0,totAct=0,totSaldo=0;
+    let totAmt=0,totAv=0,totClosed=0,totSaldo=0;
     subs.forEach(c=>{
       const contr=(state.contractors||[]).find(x=>x.id===c.contractorId);
       const name=contr?.name||c.contractorName||'';
       const docPrice=+c.amount||0;
-      const avans=cfSum(name,'аванс');
-      const acts=cfSum(name,'акт');
-      const saldo=docPrice-avans-acts;
-      totAmt+=docPrice; totAv+=avans; totAct+=acts; totSaldo+=saldo;
+      const avansRaw=cfSum(name,'аванс');
+      const closed=+c.closedActs||0;
+      const avansDisplay=Math.max(0, avansRaw-closed);
+      const saldo=docPrice-avansRaw+closed;
+      totAmt+=docPrice; totAv+=avansDisplay; totClosed+=closed; totSaldo+=saldo;
       subBody+=`<tr>
         <td style="color:var(--text);font-weight:600">${esc(name||'—')}</td>
         <td style="font-size:11px">${esc(c.workType||'—')}</td>
         <td class="r mono">${docPrice?fmtN(docPrice):'—'}</td>
-        <td class="r mono" style="color:#38bdf8">${avans?fmtN(avans):'—'}</td>
-        <td class="r mono" style="color:var(--green)">${acts?fmtN(acts):'—'}</td>
+        <td class="r mono" style="color:#38bdf8">${avansRaw?fmtN(avansDisplay):'—'}</td>
+        <td class="r mono" style="color:#f59e0b">${closed?fmtN(closed):'—'}</td>
         <td class="r mono" style="font-weight:700;color:${saldo>=0?'var(--accent)':'var(--red)'}">${docPrice?fmtN(saldo):'—'}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap">
           <button class="btn sm" onclick="openSiteSubModal('${s.id}','${c.id}')">✏</button>
@@ -765,7 +768,7 @@ function renderSiteDetail(){
       <td colspan="2" style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase">Разом</td>
       <td class="r mono" style="font-weight:700;color:var(--accent)">${fmtN(totAmt)}</td>
       <td class="r mono" style="font-weight:700;color:#38bdf8">${fmtN(totAv)}</td>
-      <td class="r mono" style="font-weight:700;color:var(--green)">${fmtN(totAct)}</td>
+      <td class="r mono" style="font-weight:700;color:#f59e0b">${fmtN(totClosed)}</td>
       <td class="r mono" style="font-weight:700;color:${totSaldo>=0?'var(--accent)':'var(--red)'}">${fmtN(totSaldo)}</td>
       <td></td>
     </tr>`;
@@ -834,7 +837,7 @@ function renderSiteDetail(){
       <div style="overflow-x:auto">
         <table class="tbl">
           <thead><tr>
-            <th>Субпідрядник</th><th>Вид робіт</th><th class="r">Договірна ціна</th><th class="r">Аванс</th><th class="r">Оплата по Актам</th><th class="r">Сальдо</th><th></th>
+            <th>Субпідрядник</th><th>Вид робіт</th><th class="r">Договірна ціна</th><th class="r">Аванс</th><th class="r">Закрито актами</th><th class="r">Сальдо</th><th></th>
           </tr></thead>
           <tbody>${subBody}</tbody>
         </table>
@@ -870,6 +873,7 @@ function openSiteSubModal(siteId, subId){
   sel.innerHTML='<option value="">— Оберіть підрядника —</option>'+(state.contractors||[]).map(x=>`<option value="${x.id}"${c?.contractorId===x.id?' selected':''}>${esc(x.name)}</option>`).join('');
   document.getElementById('ss-worktype').value=c?.workType||'';
   document.getElementById('ss-amount').value=c?.amount||'';
+  document.getElementById('ss-closed-acts').value=c?.closedActs||'';
   document.getElementById('modal-site-sub').classList.add('open');
 }
 function saveSiteSub(){
@@ -883,6 +887,7 @@ function saveSiteSub(){
     contractorId,
     workType:document.getElementById('ss-worktype').value.trim(),
     amount:+document.getElementById('ss-amount').value||0,
+    closedActs:+document.getElementById('ss-closed-acts').value||0,
   };
   if(editingSiteSubId){const i=s.subContracts.findIndex(x=>x.id===editingSiteSubId);if(i>=0)s.subContracts[i]=data;}
   else s.subContracts.push(data);
