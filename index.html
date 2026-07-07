@@ -512,7 +512,7 @@ let taskSort='site'; // 'site' | 'deadline'
 let meetingFilter={status:'',site:'',month:'',search:''};
 const MTG_STATUS={planned:'📅 Запланована',done:'✅ Проведена',cancelled:'❌ Скасована'};
 const MTG_STATUS_BADGE={planned:'blue',done:'green',cancelled:'gray'};
-let cfFilters={type:'',form:'',category:'',site:'',tag:'',month:'',search:''};
+let cfFilters={type:'',form:'',category:'',site:'',counterparty:'',tag:'',month:'',search:''};
 
 // ══════════════════════════════════════════════════════════════
 //  HELPERS
@@ -1450,12 +1450,13 @@ function renderCashflow(){
   const all=state.cashflows||[];
 
   let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
-  if(cfFilters.type)    rows=rows.filter(r=>r.type===cfFilters.type);
-  if(cfFilters.form)    rows=rows.filter(r=>r.form===cfFilters.form);
-  if(cfFilters.category)rows=rows.filter(r=>r.category===cfFilters.category);
-  if(cfFilters.site)    rows=rows.filter(r=>r.siteId===cfFilters.site);
-  if(cfFilters.tag)     rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
-  if(cfFilters.month)   rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
+  if(cfFilters.type)        rows=rows.filter(r=>r.type===cfFilters.type);
+  if(cfFilters.form)        rows=rows.filter(r=>r.form===cfFilters.form);
+  if(cfFilters.category)    rows=rows.filter(r=>r.category===cfFilters.category);
+  if(cfFilters.site)        rows=rows.filter(r=>r.siteId===cfFilters.site);
+  if(cfFilters.counterparty)rows=rows.filter(r=>r.counterparty===cfFilters.counterparty);
+  if(cfFilters.tag)         rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
+  if(cfFilters.month)       rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
   if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.tag||'').toLowerCase().includes(q));}
 
   const totInc =rows.filter(r=>r.type==='income').reduce((a,r)=>a+(+r.amount||0),0);
@@ -1510,10 +1511,14 @@ function renderCashflow(){
       <option value="">Всі об'єкти</option>
       ${sites.map(s=>`<option value="${s.id}"${cfFilters.site===s.id?' selected':''}>${esc(s.name)}</option>`).join('')}
     </select>
+    <select onchange="cfFilters.counterparty=this.value;renderCashflow()" style="min-width:150px">
+      <option value="">Всі контрагенти</option>
+      ${[...new Set((state.cashflows||[]).map(r=>r.counterparty).filter(Boolean))].sort().map(cp=>`<option value="${esc(cp)}"${cfFilters.counterparty===cp?' selected':''}>${esc(cp)}</option>`).join('')}
+    </select>
     <input type="month" value="${cfFilters.month}" onchange="cfFilters.month=this.value;renderCashflow()" title="Місяць">
     <input placeholder="🔍 Пошук..." value="${esc(cfFilters.search)}" oninput="cfFilters.search=this.value;renderCashflow()" style="min-width:120px">
     <input placeholder="Тег..." value="${esc(cfFilters.tag)}" oninput="cfFilters.tag=this.value;renderCashflow()" style="min-width:80px">
-    <button class="btn sm" onclick="cfFilters={type:'',form:'',category:'',site:'',tag:'',month:'',search:''};renderCashflow()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9;opacity:${Object.values(cfFilters).some(v=>v)?1:0.45};pointer-events:${Object.values(cfFilters).some(v=>v)?'auto':'none'}">✕ Очистити фільтр</button>
+    <button class="btn sm" onclick="cfFilters={type:'',form:'',category:'',site:'',counterparty:'',tag:'',month:'',search:''};renderCashflow()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9;opacity:${Object.values(cfFilters).some(v=>v)?1:0.45};pointer-events:${Object.values(cfFilters).some(v=>v)?'auto':'none'}">✕ Очистити фільтр</button>
   </div>`;
 
   let tbody='';
