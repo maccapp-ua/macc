@@ -746,7 +746,7 @@ function renderSiteDetail(){
       const docPrice=+c.amount||0;
       const avans=cfSum(name,'аванс');
       const acts=cfSum(name,'акт');
-      const saldo=docPrice-acts;
+      const saldo=docPrice-avans-acts;
       totAmt+=docPrice; totAv+=avans; totAct+=acts; totSaldo+=saldo;
       subBody+=`<tr>
         <td style="color:var(--text);font-weight:600">${esc(name||'—')}</td>
