@@ -774,7 +774,7 @@ function renderSiteDetail(){
       const paidActs=cfSum(name,'акт');
       const closed=(c.acts||[]).reduce((a,x)=>a+(+x.amount||0),0);
       const avansDisplay=Math.max(0, avansRaw-closed);
-      const saldo=docPrice-avansRaw+closed-paidActs;
+      const saldo=docPrice-avansRaw-paidActs;
       totAmt+=docPrice; totAv+=avansDisplay; totClosed+=closed; totPaid+=paidActs; totSaldo+=saldo;
       subBody+=`<tr>
         <td style="color:var(--text);font-weight:600">${esc(name||'—')}</td>
