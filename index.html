@@ -913,49 +913,63 @@ function renderBudgets(){
 function renderBudgetList(){
   const el=document.getElementById('main-content');
   const sites=state.sites||[];
+  const cfs=state.cashflows||[];
 
-  // ── Зведені показники по всіх об'єктах ──
+  // ── Зведені показники: ітеруємо всі об'єкти → всі рядки бюджету ──
   let sumDC=0, sumPlanCost=0, sumFactCost=0;
   sites.forEach(s=>{
     const rows=(state.budgets[s.id]||{rows:[]}).rows||[];
     rows.forEach(r=>{
-      sumDC+=(+r.dcPrice||0);
-      sumPlanCost+=(+r.planCost||0);
-      sumFactCost+=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
+      sumDC      += (+r.dcPrice   || 0);
+      sumPlanCost += (+r.planCost  || 0);
+      // factCost рядка = витрати з грош.потоків цього об'єкту по цьому виду робіт
+      sumFactCost += cfs
+        .filter(c=>c.siteId===s.id && c.type==='expense' && c.workType===r.workType)
+        .reduce((a,c)=>a+(+c.amount||0),0);
     });
   });
-  const sumPlanInc=sumDC-sumPlanCost;
-  const sumFactInc=sumDC-sumFactCost;
-  const avgMargin=sumDC>0?(sumFactInc/sumDC*100):0;
+  const sumPlanInc  = sumDC - sumPlanCost;   // плановий дохід
+  const sumFactInc  = sumDC - sumFactCost;   // фактичний дохід
+  const sumBalance  = sumPlanCost - sumFactCost; // баланс = план витрат − факт витрат
+  const avgMargin   = sumDC > 0 ? (sumFactInc / sumDC * 100) : 0;
+  const balColor    = sumBalance >= 0 ? '#facc15' : 'var(--red)';
 
-  const metricBlue=`color:#38bdf8;font-size:16px;font-weight:800`;
-  const metricGreen=`color:#4ade80;font-size:16px;font-weight:800`;
+  const lbl = txt=>`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">${txt}</div>`;
+  const val = (v,col)=>`<div style="color:${col};font-size:16px;font-weight:800;font-variant-numeric:tabular-nums">${v}</div>`;
 
   const metricsHTML=`
+    <!-- Баланс бюджету — верхній блок -->
+    <div class="card" style="padding:16px 20px;margin-bottom:12px;border-left:4px solid ${balColor};display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:4px">📊 Баланс бюджету (зведений по всіх об'єктах)</div>
+        <div style="color:${balColor};font-size:24px;font-weight:800;font-variant-numeric:tabular-nums">${fmtN(sumBalance)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Планові витрати − Фактичні витрати</div>
+      </div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <div><div style="font-size:10px;color:var(--text3)">Всього ДЦ</div><div style="font-weight:700;color:var(--text)">${fmtN(sumDC)}</div></div>
+        <div><div style="font-size:10px;color:var(--text3)">Витрати план</div><div style="font-weight:700;color:var(--text)">${fmtN(sumPlanCost)}</div></div>
+        <div><div style="font-size:10px;color:var(--text3)">Витрати факт</div><div style="font-weight:700;color:var(--text)">${fmtN(sumFactCost)}</div></div>
+      </div>
+    </div>
+    <!-- 3 блакитні + 3 зелені -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
-      <div class="card" style="padding:14px 16px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Всього підписано ДЦ</div>
-        <div style="${metricBlue}">${fmtN(sumDC)}</div>
+      <div class="card" style="padding:14px 16px;border-top:3px solid #38bdf8">
+        ${lbl('Всього підписано ДЦ')}${val(fmtN(sumDC),'#38bdf8')}
       </div>
-      <div class="card" style="padding:14px 16px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Всього ціна витрат (план)</div>
-        <div style="${metricBlue}">${fmtN(sumPlanCost)}</div>
+      <div class="card" style="padding:14px 16px;border-top:3px solid #38bdf8">
+        ${lbl('Всього ціна витрат (план)')}${val(fmtN(sumPlanCost),'#38bdf8')}
       </div>
-      <div class="card" style="padding:14px 16px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Всього плановий дохід</div>
-        <div style="${metricBlue}">${fmtN(sumPlanInc)}</div>
+      <div class="card" style="padding:14px 16px;border-top:3px solid #38bdf8">
+        ${lbl('Всього плановий дохід')}${val(fmtN(sumPlanInc),'#38bdf8')}
       </div>
-      <div class="card" style="padding:14px 16px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Ціна витрат ФАКТ</div>
-        <div style="${metricGreen}">${fmtN(sumFactCost)}</div>
+      <div class="card" style="padding:14px 16px;border-top:3px solid #4ade80">
+        ${lbl('Ціна витрат ФАКТ')}${val(fmtN(sumFactCost),'#4ade80')}
       </div>
-      <div class="card" style="padding:14px 16px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Всього дохід ФАКТ</div>
-        <div style="${metricGreen}">${fmtN(sumFactInc)}</div>
+      <div class="card" style="padding:14px 16px;border-top:3px solid #4ade80">
+        ${lbl('Всього дохід ФАКТ')}${val(fmtN(sumFactInc),'#4ade80')}
       </div>
-      <div class="card" style="padding:14px 16px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Середня маржинальність</div>
-        <div style="${metricGreen}">${sumDC>0?avgMargin.toFixed(1)+'%':'—'}</div>
+      <div class="card" style="padding:14px 16px;border-top:3px solid #4ade80">
+        ${lbl('Середня маржинальність')}${val(sumDC>0?avgMargin.toFixed(1)+'%':'—','#4ade80')}
       </div>
     </div>`;
 
