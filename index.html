@@ -340,12 +340,35 @@ select.form-input option{background:var(--bg3)}
         <input class="form-input" id="ss-worktype" placeholder="напр. Фундаментні роботи..."></div>
       <div class="form-group"><label class="form-label">Сума договору, грн</label>
         <input class="form-input" type="number" id="ss-amount" placeholder="0" min="0" step="0.01"></div>
-      <div class="form-group"><label class="form-label">Закриті акти, грн</label>
-        <input class="form-input" type="number" id="ss-closed-acts" placeholder="0" min="0" step="0.01"></div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('site-sub')">Скасувати</button>
       <button class="btn primary" onclick="saveSiteSub()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Акти субпідрядника -->
+<div class="modal-overlay" id="modal-sub-acts">
+  <div class="modal" style="width:560px">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-sub-acts-title">Акти субпідрядника</span>
+      <button class="modal-close" onclick="closeModal('sub-acts')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="sub-acts-list"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;align-items:flex-end">
+        <div class="form-group" style="flex:1;margin:0"><label class="form-label">Дата</label>
+          <input class="form-input" type="date" id="sa-date"></div>
+        <div class="form-group" style="flex:2;margin:0"><label class="form-label">Сума акту, грн</label>
+          <input class="form-input" type="number" id="sa-amount" placeholder="0" min="0" step="0.01"></div>
+        <div class="form-group" style="flex:2;margin:0"><label class="form-label">Опис</label>
+          <input class="form-input" id="sa-note" placeholder="необов'язково"></div>
+        <button class="btn primary" style="height:38px;white-space:nowrap" onclick="addSubAct()">+ Додати</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn primary" onclick="closeModal('sub-acts')">Готово</button>
     </div>
   </div>
 </div>
@@ -508,6 +531,7 @@ let execTab='contractors';
 let curBudgetSiteId=null, curSiteDetailId=null;
 let curContractorDetailId=null, curExecutorDetailId=null;
 let editingMeetingId=null, curMeetingDetailId=null;
+let curSubActsSiteId=null, curSubActsSubId=null;
 let editingTaskId=null;
 let activeTaskFilter='all';
 let taskSort='site'; // 'site' | 'deadline'
@@ -747,7 +771,7 @@ function renderSiteDetail(){
       const name=contr?.name||c.contractorName||'';
       const docPrice=+c.amount||0;
       const avansRaw=cfSum(name,'аванс');
-      const closed=+c.closedActs||0;
+      const closed=(c.acts||[]).reduce((a,x)=>a+(+x.amount||0),0);
       const avansDisplay=Math.max(0, avansRaw-closed);
       const saldo=docPrice-avansRaw+closed;
       totAmt+=docPrice; totAv+=avansDisplay; totClosed+=closed; totSaldo+=saldo;
@@ -759,7 +783,8 @@ function renderSiteDetail(){
         <td class="r mono" style="color:#f59e0b">${closed?fmtN(closed):'—'}</td>
         <td class="r mono" style="font-weight:700;color:${saldo>=0?'var(--accent)':'var(--red)'}">${docPrice?fmtN(saldo):'—'}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap">
-          <button class="btn sm" onclick="openSiteSubModal('${s.id}','${c.id}')">✏</button>
+          <button class="btn sm" style="background:var(--accent);color:#fff" onclick="openSubActsModal('${s.id}','${c.id}')">Акти${(c.acts||[]).length?` (${(c.acts||[]).length})`:'+'}</button>
+          <button class="btn sm" onclick="openSiteSubModal('${s.id}','${c.id}')" style="margin-left:4px">✏</button>
           <button class="btn sm danger" onclick="deleteSiteSub('${s.id}','${c.id}')" style="margin-left:4px">×</button>
         </td>
       </tr>`;
@@ -873,7 +898,6 @@ function openSiteSubModal(siteId, subId){
   sel.innerHTML='<option value="">— Оберіть підрядника —</option>'+(state.contractors||[]).map(x=>`<option value="${x.id}"${c?.contractorId===x.id?' selected':''}>${esc(x.name)}</option>`).join('');
   document.getElementById('ss-worktype').value=c?.workType||'';
   document.getElementById('ss-amount').value=c?.amount||'';
-  document.getElementById('ss-closed-acts').value=c?.closedActs||'';
   document.getElementById('modal-site-sub').classList.add('open');
 }
 function saveSiteSub(){
@@ -882,12 +906,13 @@ function saveSiteSub(){
   const s=(state.sites||[]).find(x=>x.id===curSiteDetailId);
   if(!s)return;
   if(!s.subContracts)s.subContracts=[];
+  const existing=editingSiteSubId?(s.subContracts||[]).find(x=>x.id===editingSiteSubId):null;
   const data={
     id:editingSiteSubId||uid(),
     contractorId,
     workType:document.getElementById('ss-worktype').value.trim(),
     amount:+document.getElementById('ss-amount').value||0,
-    closedActs:+document.getElementById('ss-closed-acts').value||0,
+    acts:existing?.acts||[],
   };
   if(editingSiteSubId){const i=s.subContracts.findIndex(x=>x.id===editingSiteSubId);if(i>=0)s.subContracts[i]=data;}
   else s.subContracts.push(data);
@@ -898,6 +923,60 @@ function deleteSiteSub(siteId, subId){
   const s=(state.sites||[]).find(x=>x.id===siteId);
   if(s)s.subContracts=(s.subContracts||[]).filter(x=>x.id!==subId);
   save();renderSiteDetail();
+}
+
+// ── Sub Acts ──────────────────────────────────────────────────
+function openSubActsModal(siteId, subId){
+  curSubActsSiteId=siteId;
+  curSubActsSubId=subId;
+  const s=(state.sites||[]).find(x=>x.id===siteId);
+  const sc=(s?.subContracts||[]).find(x=>x.id===subId);
+  const contr=(state.contractors||[]).find(x=>x.id===sc?.contractorId);
+  document.getElementById('modal-sub-acts-title').textContent='Акти: '+(contr?.name||sc?.contractorName||'');
+  document.getElementById('sa-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('sa-amount').value='';
+  document.getElementById('sa-note').value='';
+  renderSubActsList();
+  document.getElementById('modal-sub-acts').classList.add('open');
+}
+function renderSubActsList(){
+  const s=(state.sites||[]).find(x=>x.id===curSubActsSiteId);
+  const sc=(s?.subContracts||[]).find(x=>x.id===curSubActsSubId);
+  const acts=sc?.acts||[];
+  const total=acts.reduce((a,x)=>a+(+x.amount||0),0);
+  const el=document.getElementById('sub-acts-list');
+  if(!acts.length){el.innerHTML=`<p style="color:var(--text3);font-size:12px;text-align:center;padding:8px 0">Актів ще немає</p>`;return;}
+  el.innerHTML=`<table class="tbl" style="margin-bottom:4px"><thead><tr><th>Дата</th><th>Опис</th><th class="r">Сума, грн</th><th></th></tr></thead><tbody>`
+    +acts.map((a,i)=>`<tr>
+      <td style="white-space:nowrap">${a.date||'—'}</td>
+      <td style="font-size:12px">${esc(a.note||'')}</td>
+      <td class="r mono" style="color:#f59e0b">${fmtN(+a.amount||0)}</td>
+      <td><button class="btn sm danger" onclick="deleteSubAct(${i})">×</button></td>
+    </tr>`).join('')
+    +`<tr style="background:var(--bg2)"><td colspan="2" style="font-size:10px;font-weight:700;color:var(--text3)">Разом закрито актами</td><td class="r mono" style="font-weight:700;color:#f59e0b">${fmtN(total)}</td><td></td></tr>`
+    +`</tbody></table>`;
+}
+function addSubAct(){
+  const amount=+document.getElementById('sa-amount').value;
+  if(!amount){alert('Введіть суму акту');return;}
+  const date=document.getElementById('sa-date').value;
+  const note=document.getElementById('sa-note').value.trim();
+  const s=(state.sites||[]).find(x=>x.id===curSubActsSiteId);
+  const sc=(s?.subContracts||[]).find(x=>x.id===curSubActsSubId);
+  if(!sc)return;
+  if(!sc.acts)sc.acts=[];
+  sc.acts.push({id:uid(),date,amount,note});
+  save();renderSubActsList();renderSiteDetail();
+  document.getElementById('sa-amount').value='';
+  document.getElementById('sa-note').value='';
+}
+function deleteSubAct(idx){
+  if(!confirm('Видалити акт?'))return;
+  const s=(state.sites||[]).find(x=>x.id===curSubActsSiteId);
+  const sc=(s?.subContracts||[]).find(x=>x.id===curSubActsSubId);
+  if(!sc)return;
+  sc.acts.splice(idx,1);
+  save();renderSubActsList();renderSiteDetail();
 }
 
 // ── Site ITR CRUD ─────────────────────────────────────────────
