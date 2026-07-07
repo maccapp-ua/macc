@@ -763,24 +763,26 @@ function renderSiteDetail(){
 
   let subBody='';
   if(!subs.length){
-    subBody=`<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3);font-size:11px">Субпідрядників не додано</td></tr>`;
+    subBody=`<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3);font-size:11px">Субпідрядників не додано</td></tr>`;
   } else {
-    let totAmt=0,totAv=0,totClosed=0,totSaldo=0;
+    let totAmt=0,totAv=0,totClosed=0,totPaid=0,totSaldo=0;
     subs.forEach(c=>{
       const contr=(state.contractors||[]).find(x=>x.id===c.contractorId);
       const name=contr?.name||c.contractorName||'';
       const docPrice=+c.amount||0;
       const avansRaw=cfSum(name,'аванс');
+      const paidActs=cfSum(name,'акт');
       const closed=(c.acts||[]).reduce((a,x)=>a+(+x.amount||0),0);
       const avansDisplay=Math.max(0, avansRaw-closed);
-      const saldo=docPrice-avansRaw+closed;
-      totAmt+=docPrice; totAv+=avansDisplay; totClosed+=closed; totSaldo+=saldo;
+      const saldo=docPrice-avansRaw+closed-paidActs;
+      totAmt+=docPrice; totAv+=avansDisplay; totClosed+=closed; totPaid+=paidActs; totSaldo+=saldo;
       subBody+=`<tr>
         <td style="color:var(--text);font-weight:600">${esc(name||'—')}</td>
         <td style="font-size:11px">${esc(c.workType||'—')}</td>
         <td class="r mono">${docPrice?fmtN(docPrice):'—'}</td>
         <td class="r mono" style="color:#38bdf8">${avansRaw?fmtN(avansDisplay):'—'}</td>
         <td class="r mono" style="color:#f59e0b">${closed?fmtN(closed):'—'}</td>
+        <td class="r mono" style="color:var(--green)">${paidActs?fmtN(paidActs):'—'}</td>
         <td class="r mono" style="font-weight:700;color:${saldo>=0?'var(--accent)':'var(--red)'}">${docPrice?fmtN(saldo):'—'}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap">
           <button class="btn sm" style="background:var(--accent);color:#fff" onclick="openSubActsModal('${s.id}','${c.id}')">Акти${(c.acts||[]).length?` (${(c.acts||[]).length})`:'+'}</button>
@@ -794,6 +796,7 @@ function renderSiteDetail(){
       <td class="r mono" style="font-weight:700;color:var(--accent)">${fmtN(totAmt)}</td>
       <td class="r mono" style="font-weight:700;color:#38bdf8">${fmtN(totAv)}</td>
       <td class="r mono" style="font-weight:700;color:#f59e0b">${fmtN(totClosed)}</td>
+      <td class="r mono" style="font-weight:700;color:var(--green)">${fmtN(totPaid)}</td>
       <td class="r mono" style="font-weight:700;color:${totSaldo>=0?'var(--accent)':'var(--red)'}">${fmtN(totSaldo)}</td>
       <td></td>
     </tr>`;
@@ -862,7 +865,7 @@ function renderSiteDetail(){
       <div style="overflow-x:auto">
         <table class="tbl">
           <thead><tr>
-            <th>Субпідрядник</th><th>Вид робіт</th><th class="r">Договірна ціна</th><th class="r">Аванс</th><th class="r">Закрито актами</th><th class="r">Сальдо</th><th></th>
+            <th>Субпідрядник</th><th>Вид робіт</th><th class="r">Договірна ціна</th><th class="r">Аванс</th><th class="r">Закрито актами</th><th class="r">Оплачені акти</th><th class="r">Сальдо</th><th></th>
           </tr></thead>
           <tbody>${subBody}</tbody>
         </table>
