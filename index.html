@@ -2067,25 +2067,46 @@ function renderGanttInto(container, compact){
     return Math.max(0,Math.min(totalPx,days*PPD));
   }
 
-  // ── header ───────────────────────────────────────────────────
-  let monthsHtml='',daysHtml='',gridLines='';
-  let cur=new Date(minD);
-  while(cur<maxD){
-    const left=px(cur.toISOString().slice(0,10));
-    const next=new Date(cur);next.setMonth(next.getMonth()+1);
-    const mw=Math.round((next-cur)/86400000)*PPD;
-    const label=cur.toLocaleDateString('uk',{month:'short',year:'2-digit'});
-    monthsHtml+=`<div style="position:absolute;left:${left}px;width:${mw}px;height:20px;display:flex;align-items:center;padding-left:5px;font-size:10px;font-weight:700;color:#fff;border-right:1px solid rgba(255,255,255,.12);box-sizing:border-box;overflow:hidden;white-space:nowrap;text-transform:uppercase">${label}</div>`;
-    gridLines+=`<div class="gantt-grid-line" style="left:${left}px"></div>`;
-    if(PPD>=10){
-      const d=new Date(cur);d.setDate(d.getDate()+7);
-      while(d<next&&d<maxD){
-        const dl=px(d.toISOString().slice(0,10));
-        daysHtml+=`<div style="position:absolute;left:${dl}px;height:14px;display:flex;align-items:center;padding-left:2px;font-size:8px;color:rgba(255,255,255,.3);border-left:1px solid rgba(255,255,255,.05)">${d.getDate()}</div>`;
-        d.setDate(d.getDate()+7);
-      }
+  // ── header: 3 rows (year / month / week) + grid lines overlay ─
+  let yearHtml='',monthHtml='',weekHtml='';
+  let gridOverlay=''; // full-height vertical lines
+
+  // year bands
+  let yCur=new Date(minD);yCur.setMonth(0);yCur.setDate(1);
+  while(yCur<maxD){
+    const yNext=new Date(yCur);yNext.setFullYear(yNext.getFullYear()+1);
+    const left=Math.max(0,px(yCur.toISOString().slice(0,10)));
+    const right=Math.min(totalPx,px(yNext.toISOString().slice(0,10)));
+    const yw=right-left;
+    yearHtml+=`<div style="position:absolute;left:${left}px;width:${yw}px;height:100%;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:800;color:#fff;border-right:2px solid rgba(139,0,30,.7);box-sizing:border-box;overflow:hidden;white-space:nowrap;letter-spacing:.04em">${yCur.getFullYear()}</div>`;
+    if(left>0) gridOverlay+=`<div style="position:absolute;left:${left}px;top:0;bottom:0;width:2px;background:rgba(139,0,30,.45);z-index:2;pointer-events:none"></div>`;
+    yCur.setFullYear(yCur.getFullYear()+1);
+  }
+
+  // month bands
+  let mCur=new Date(minD);
+  while(mCur<maxD){
+    const mNext=new Date(mCur);mNext.setMonth(mNext.getMonth()+1);
+    const left=px(mCur.toISOString().slice(0,10));
+    const mw=Math.round((mNext-mCur)/86400000)*PPD;
+    const label=mCur.toLocaleDateString('uk',{month:'short'});
+    monthHtml+=`<div style="position:absolute;left:${left}px;width:${mw}px;height:100%;display:flex;align-items:center;padding-left:5px;font-size:9px;font-weight:700;color:rgba(255,255,255,.8);border-right:1px solid rgba(251,146,60,.4);box-sizing:border-box;overflow:hidden;white-space:nowrap;text-transform:uppercase">${label}</div>`;
+    if(left>0) gridOverlay+=`<div style="position:absolute;left:${left}px;top:0;bottom:0;width:1px;background:rgba(251,146,60,.3);z-index:1;pointer-events:none"></div>`;
+    mCur.setMonth(mCur.getMonth()+1);
+  }
+
+  // week ticks (every Sunday) — only if zoom >= 8px/day
+  if(PPD>=8){
+    let wCur=new Date(minD);
+    // advance to first Sunday
+    while(wCur.getDay()!==0)wCur.setDate(wCur.getDate()+1);
+    while(wCur<maxD){
+      const left=px(wCur.toISOString().slice(0,10));
+      const d=wCur.getDate();
+      weekHtml+=`<div style="position:absolute;left:${left}px;height:100%;display:flex;align-items:center;padding-left:2px;font-size:8px;color:rgba(255,255,255,.35);border-left:1px solid rgba(120,120,120,.25);box-sizing:border-box;white-space:nowrap">${PPD>=14?d:''}</div>`;
+      gridOverlay+=`<div style="position:absolute;left:${left}px;top:0;bottom:0;width:1px;background:rgba(100,100,100,.18);z-index:0;pointer-events:none"></div>`;
+      wCur.setDate(wCur.getDate()+7);
     }
-    cur.setMonth(cur.getMonth()+1);
   }
 
   const todayPx=px(new Date().toISOString().slice(0,10));
@@ -2125,16 +2146,16 @@ function renderGanttInto(container, compact){
 
     const rh=`height:${ROW_H}px`;
 
-    // site row — gold bar
+    // site row — gold bar (no gridLines per-row — overlay handles it)
     leftRows+=`<div class="gantt-row site-row" style="${rh}"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:1px">
       <div class="gantt-cell-name site" style="color:#fff;font-size:${compact?11:14}px">${esc(s.name)}</div>
       <div style="font-size:9px;color:rgba(255,255,255,.4)">${sd?fmtD(sd):'—'} → ${ed?fmtD(ed):'—'}</div>
     </div></div>`;
-    rightRows+=`<div class="gantt-row site-row" style="${rh};position:relative">${gridLines}
+    rightRows+=`<div class="gantt-row site-row" style="${rh};position:relative">
       ${bar('linear-gradient(90deg,#c98a00,var(--accent))',sL,sW,`_gBarDown(event,'site','${s.id}',null,'move')`)}
     </div>`;
 
-    // work rows — per-site palette color (distinct from tasks)
+    // work rows — per-site palette color
     budgetRows.forEach(r=>{
       if(!r.workType)return;
       const rsd=r.startDate||sd,red_=r.endDate||ed;
@@ -2144,7 +2165,7 @@ function renderGanttInto(container, compact){
         <div class="gantt-cell-name sub" style="padding-left:10px;color:${pal.text};font-size:${compact?10:12}px">⚙ ${esc(r.workType)}</div>
         <div style="font-size:8px;color:rgba(255,255,255,.28);padding-left:10px">${rsd?fmtD(rsd):'—'} → ${red_?fmtD(red_):'—'}</div>
       </div></div>`;
-      rightRows+=`<div class="gantt-row" style="${rh};position:relative">${gridLines}
+      rightRows+=`<div class="gantt-row" style="${rh};position:relative">
         ${bar(pal.bar,rL,rW,`_gBarDown(event,'work','${s.id}','${r.id}','move')`)}
       </div>`;
     });
@@ -2161,7 +2182,7 @@ function renderGanttInto(container, compact){
         <div class="gantt-cell-name sub" style="padding-left:10px;color:${TASK_TEXT};font-size:${compact?10:12}px">${icon} ${esc(t.name)}</div>
         <div style="font-size:8px;color:rgba(255,255,255,.28);padding-left:10px">${tsd?fmtD(tsd):'—'} → ${ted?fmtD(ted):'—'}</div>
       </div></div>`;
-      rightRows+=`<div class="gantt-row" style="${rh};position:relative">${gridLines}
+      rightRows+=`<div class="gantt-row" style="${rh};position:relative">
         ${bar(taskBg,tL,tW,`_gBarDown(event,'task','${t.siteId}','${t.id}','move')`)}
       </div>`;
     });
@@ -2201,29 +2222,37 @@ function renderGanttInto(container, compact){
       </div>
     </div>
     <div id="gantt-print-wrap" style="display:flex;flex-direction:column;height:${chartH};border:1px solid var(--border);border-radius:var(--radius);background:var(--card);overflow:hidden">
-      <div style="display:flex;background:#162030;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0">
-        <div style="width:240px;min-width:240px;display:flex;align-items:center;padding:0 12px;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35);border-right:1px solid rgba(255,255,255,.08);flex-shrink:0;height:30px">Назва</div>
-        <div style="flex:1;overflow:hidden">
-          <div style="position:relative;height:18px;width:${totalPx}px;border-bottom:1px solid rgba(255,255,255,.07)">${monthsHtml}</div>
-          <div style="position:relative;height:12px;width:${totalPx}px">${daysHtml}</div>
+      <!-- 3-row scrollable header -->
+      <div style="display:flex;flex-shrink:0;background:#0f1c2e;border-bottom:1px solid rgba(255,255,255,.12)">
+        <div style="width:240px;min-width:240px;display:flex;align-items:center;padding:0 12px;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.3);border-right:1px solid rgba(255,255,255,.08);flex-shrink:0">Назва</div>
+        <div style="flex:1;overflow:hidden" id="gantt-header">
+          <div style="width:${totalPx}px">
+            <div style="position:relative;height:18px;border-bottom:1px solid rgba(139,0,30,.3)">${yearHtml}</div>
+            <div style="position:relative;height:15px;border-bottom:1px solid rgba(251,146,60,.2)">${monthHtml}</div>
+            <div style="position:relative;height:13px">${weekHtml}</div>
+          </div>
         </div>
       </div>
+      <!-- body -->
       <div style="display:flex;flex:1;overflow:hidden">
         <div style="width:240px;min-width:240px;overflow-y:auto;flex-shrink:0;border-right:1px solid rgba(255,255,255,.07)" id="gantt-left">${leftRows}</div>
         <div style="flex:1;overflow:auto;position:relative" id="gantt-right">
           <div style="width:${totalPx}px;position:relative;min-height:100%">
+            ${gridOverlay}
             ${rightRows}
-            ${todayPx!=null?`<div style="position:absolute;left:${todayPx}px;top:0;bottom:0;width:1px;background:#f87171;opacity:.6;pointer-events:none;z-index:5"></div>`:''}
+            ${todayPx!=null?`<div style="position:absolute;left:${todayPx}px;top:0;bottom:0;width:1px;background:#f87171;opacity:.7;pointer-events:none;z-index:6"></div>`:''}
           </div>
         </div>
       </div>
     </div>`;
 
+  // sync: horizontal header ↔ right body; vertical left ↔ right
+  const gh=document.getElementById('gantt-header');
   const gl=document.getElementById('gantt-left');
   const gr=document.getElementById('gantt-right');
-  if(gl&&gr){
-    gr.addEventListener('scroll',()=>{gl.scrollTop=gr.scrollTop;});
-    gl.addEventListener('scroll',()=>{gr.scrollTop=gl.scrollTop;});
+  if(gr){
+    if(gh) gr.addEventListener('scroll',()=>{gh.scrollLeft=gr.scrollLeft;gl.scrollTop=gr.scrollTop;});
+    if(gl) gl.addEventListener('scroll',()=>{gr.scrollTop=gl.scrollTop;});
   }
 }
 
