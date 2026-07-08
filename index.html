@@ -341,10 +341,15 @@ select.form-input option{background:var(--bg3)}
       <button class="modal-close" onclick="closeModal('brow')">×</button>
     </div>
     <div class="modal-body">
-      <div class="form-group"><label class="form-label">Вид робіт *</label>
+      <div class="form-group"><label class="form-label">Роботи та матеріали *</label>
         <input class="form-input" id="br-work" placeholder="напр. Фундаментні роботи, Каркас..."></div>
+      <div class="form-group"><label class="form-label">Виконавець / підрядник</label>
+        <select class="form-input" id="br-executor">
+          <option value="">— не вказано —</option>
+          <option value="СС">СС (власне виконання)</option>
+        </select></div>
       <div class="form-row2">
-        <div class="form-group"><label class="form-label">Ціна в ДЦ, грн</label>
+        <div class="form-group"><label class="form-label">ДЦ замовника, грн</label>
           <input class="form-input" type="number" id="br-dc" placeholder="0" oninput="calcBudgetRow()"></div>
         <div class="form-group"><label class="form-label">Ціна витрат (план), грн</label>
           <input class="form-input" type="number" id="br-plan-cost" placeholder="0" oninput="calcBudgetRow()"></div>
@@ -1215,15 +1220,18 @@ function renderBudgetDetail(){
 
   let tbody='';
   if(!rows.length){
-    tbody=`<tr><td colspan="10"><div class="empty" style="padding:30px"><div class="empty-icon">📋</div><h3>Бюджет порожній</h3><p>Натисніть «+ Додати рядок»</p></div></td></tr>`;
+    tbody=`<tr><td colspan="12"><div class="empty" style="padding:30px"><div class="empty-icon">📋</div><h3>Бюджет порожній</h3><p>Натисніть «+ Додати рядок»</p></div></td></tr>`;
   } else {
     rows.forEach((r,i)=>{
       const dc=+r.dcPrice||0, pc=+r.planCost||0;
       const fc=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
       const pi=dc-pc, fi=dc-fc, diff=pc-fc;
+      const execLabel=r.executor||'—';
+      const execColor=r.executor==='СС'?'var(--green)':r.executor?'var(--blue)':'var(--text3)';
       tbody+=`<tr onclick="openBudgetRowModal('${s.id}','${r.id}')">
         <td style="color:var(--text3);text-align:center">${i+1}</td>
         <td style="color:var(--text);font-weight:600;min-width:160px">${esc(r.workType||'—')}</td>
+        <td style="font-size:11px;font-weight:600;color:${execColor}">${esc(execLabel)}</td>
         <td class="r mono">${dc?fmtN(dc):'—'}</td>
         <td class="r mono" style="color:var(--red)">${pc?fmtN(pc):'—'}</td>
         <td class="r mono" ${colored(pi)}>${dc?fmtN(pi):'—'}</td>
@@ -1237,7 +1245,7 @@ function renderBudgetDetail(){
     });
     // totals row
     tbody+=`<tr style="background:var(--bg2);border-top:2px solid var(--border2)">
-      <td colspan="2" style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">РАЗОМ</td>
+      <td colspan="3" style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">РАЗОМ</td>
       <td class="r mono" style="color:var(--text);font-weight:700">${fmtN(totDC)}</td>
       <td class="r mono" style="color:var(--red);font-weight:700">${fmtN(totPC)}</td>
       <td class="r mono" style="color:${totPI>=0?'var(--green)':'var(--red)'};font-weight:700">${fmtN(totPI)}</td>
@@ -1271,15 +1279,16 @@ function renderBudgetDetail(){
         <thead>
           <tr>
             <th style="text-align:center;width:36px">№</th>
-            <th>Вид робіт</th>
-            <th class="r">Ціна в ДЦ</th>
-            <th class="r">Ціна витрат<br><span style="font-weight:400">(план)</span></th>
-            <th class="r">Дохід, грн<br><span style="font-weight:400">(план)</span></th>
-            <th class="r">Дохід, %<br><span style="font-weight:400">(план)</span></th>
-            <th class="r">Ціна витрат<br><span style="font-weight:400">(факт)</span></th>
-            <th class="r">Дохід, грн<br><span style="font-weight:400">(факт)</span></th>
-            <th class="r">Дохід, %<br><span style="font-weight:400">(факт)</span></th>
-            <th class="r">Баланс бюджету<br><span style="font-weight:400">план−факт витрат</span></th>
+            <th>Роботи та матеріали</th>
+            <th>Виконавець/<br>підрядник</th>
+            <th class="r">ДЦ замовника</th>
+            <th class="r">Собівартість<br><span style="font-weight:400">(план)</span></th>
+            <th class="r">Прибуток<br><span style="font-weight:400">(план)</span></th>
+            <th class="r">Прибуток в %<br><span style="font-weight:400">(план)</span></th>
+            <th class="r">Собівартість<br><span style="font-weight:400">(факт)</span></th>
+            <th class="r">Прибуток<br><span style="font-weight:400">(факт)</span></th>
+            <th class="r">Прибуток (факт) %</th>
+            <th class="r">Відхилення<br><span style="font-weight:400">від плану</span></th>
             <th></th>
           </tr>
         </thead>
@@ -1300,6 +1309,15 @@ function openBudgetRowModal(siteId,rowId){
   document.getElementById('br-plan-cost').value=r?.planCost||'';
   document.getElementById('br-start-date').value=r?.startDate||'';
   document.getElementById('br-end-date').value=r?.endDate||'';
+  // populate executor dropdown: СС + subcontractors of this site
+  const site=(state.sites||[]).find(x=>x.id===siteId);
+  const subs=(site?.subContracts||[]).map(sc=>sc.name).filter(Boolean);
+  const contractors=(state.contractors||[]).map(c=>c.name).filter(Boolean);
+  const execSel=document.getElementById('br-executor');
+  const allExec=[...new Set([...subs,...contractors])].sort();
+  execSel.innerHTML=`<option value="">— не вказано —</option><option value="СС">СС (власне виконання)</option>`
+    +allExec.map(n=>`<option value="${esc(n)}"${r?.executor===n?' selected':''}>${esc(n)}</option>`).join('');
+  execSel.value=r?.executor||'';
   calcBudgetRow();
   document.getElementById('modal-brow').classList.add('open');
 }
@@ -1328,6 +1346,7 @@ function saveBudgetRow(){
   const data={
     id:editingBudgetRowId||uid(),
     workType,
+    executor:document.getElementById('br-executor').value||'',
     dcPrice:+document.getElementById('br-dc').value||0,
     planCost:+document.getElementById('br-plan-cost').value||0,
     startDate:document.getElementById('br-start-date').value||'',
@@ -1346,9 +1365,10 @@ function deleteBudgetRow(siteId,rowId){
 
 // ── Budget Excel template & import ───────────────────────────
 const BUDGET_COLS=[
-  {key:'workType',   label:'Вид робіт *'},
-  {key:'dcPrice',    label:'Договірна ціна, грн'},
-  {key:'planCost',   label:'Планова собівартість, грн'},
+  {key:'workType',   label:'Роботи та матеріали *'},
+  {key:'executor',   label:'Виконавець / підрядник'},
+  {key:'dcPrice',    label:'ДЦ замовника, грн'},
+  {key:'planCost',   label:'Собівартість (план), грн'},
   {key:'startDate',  label:'Дата початку (РРРР-ММ-ДД)'},
   {key:'endDate',    label:'Дата завершення (РРРР-ММ-ДД)'},
   {key:'notes',      label:'Примітки'},
@@ -1356,20 +1376,49 @@ const BUDGET_COLS=[
 
 function downloadBudgetTemplate(){
   if(!window.XLSX){alert('Бібліотека XLSX не завантажена');return;}
-  // header row
-  const ws_data=[BUDGET_COLS.map(c=>c.label)];
-  // 3 empty example rows
-  ws_data.push(['Фундаментні роботи','450000','320000','2025-03-01','2025-05-15','']);
-  ws_data.push(['Каркас будівлі','','','','','']);
-  ws_data.push(['Оздоблювальні роботи','','','','','']);
 
+  // ── info sheet: object + site data ───────────────────────────
+  const site=curBudgetSiteId?(state.sites||[]).find(s=>s.id===curBudgetSiteId):null;
+  const subs=(site?.subContracts||[]).map(sc=>sc.name).filter(Boolean);
+  const contractors=(state.contractors||[]).map(c=>c.name).filter(Boolean);
+  const allExec=['СС (власне виконання)',...[...new Set([...subs,...contractors])].sort()];
+
+  const infoData=[
+    ['ІНФОРМАЦІЯ ПРО ОБ\'ЄКТ',''],
+    ['Назва об\'єкта', site?.name||''],
+    ['Замовник', site?.client||''],
+    ['Адреса', site?.address||''],
+    ['Тип договору', site?.contractType||''],
+    ['Дата підписання', site?.signDate||''],
+    ['Дедлайн', site?.deadline||''],
+    ['Сума договору (ДЦ), грн', site?.amountGross||''],
+    ['',''],
+    ['ВИКОНАВЦІ НА МАЙДАНЧИКУ',''],
+    ...allExec.map((e,i)=>[`${i+1}.`,e]),
+    ['',''],
+    ['ІНСТРУКЦІЯ ДЛЯ ЗАПОВНЕННЯ',''],
+    ['1. Перейдіть на аркуш "Бюджет"',''],
+    ['2. Заповніть кожен рядок — один рядок = один вид робіт або матеріал',''],
+    ['3. Виконавець: вкажіть "СС" або ім\'я підрядника зі списку вище',''],
+    ['4. Дати у форматі РРРР-ММ-ДД (напр. 2025-06-01)',''],
+    ['5. Збережіть файл і надішліть для імпорту',''],
+  ];
+  const wsInfo=XLSX.utils.aoa_to_sheet(infoData);
+  wsInfo['!cols']=[{wch:38},{wch:40}];
+
+  // ── budget sheet ──────────────────────────────────────────────
+  const ws_data=[BUDGET_COLS.map(c=>c.label)];
+  ws_data.push(['Фундаментні роботи','СС','450000','320000','2025-03-01','2025-05-15','приклад']);
+  ws_data.push(['Армування','Назва субпідрядника','','','','','']);
+  ws_data.push(['Оздоблювальні роботи','','','','','','']);
   const ws=XLSX.utils.aoa_to_sheet(ws_data);
-  // column widths
-  ws['!cols']=[{wch:30},{wch:22},{wch:28},{wch:22},{wch:24},{wch:30}];
-  // style header (xlsx-full supports basic styles)
+  ws['!cols']=[{wch:32},{wch:26},{wch:20},{wch:24},{wch:22},{wch:24},{wch:30}];
+
   const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,wsInfo,'Інформація');
   XLSX.utils.book_append_sheet(wb,ws,'Бюджет');
-  XLSX.writeFile(wb,'budget_template.xlsx');
+  const fname=site?`budget_${site.name.replace(/[^a-zA-Zа-яА-Я0-9]/g,'_').slice(0,30)}.xlsx`:'budget_template.xlsx';
+  XLSX.writeFile(wb,fname);
 }
 
 function _parseDateStr(v){
@@ -1409,11 +1458,12 @@ function importBudgetExcel(siteId, input){
         return headerRow.findIndex(h=>keywords.some(k=>h.includes(k)));
       }
       const colMap={
-        workType: findCol(['вид робіт','вид роб','work']),
-        dcPrice:  findCol(['договірна','доход','дц','dc price','dc']),
-        planCost: findCol(['собівартість','план','cost','витрат']),
-        startDate:findCol(['початку','start']),
-        endDate:  findCol(['завершення','end','кінець']),
+        workType: findCol(['роботи та матеріали','вид робіт','вид роб','work','роботи']),
+        executor: findCol(['виконавець','підрядник','executor']),
+        dcPrice:  findCol(['дц замовника','договірна','дц','dc']),
+        planCost: findCol(['собівартість (план)','собівартість','план','cost','витрат']),
+        startDate:findCol(['дата початку','початку','start']),
+        endDate:  findCol(['дата завершення','завершення','end','кінець']),
         notes:    findCol(['примітк','note','коментар']),
       };
 
@@ -1425,7 +1475,8 @@ function importBudgetExcel(siteId, input){
         if(!workType)continue; // skip empty
         parsed.push({
           workType,
-          dcPrice:   colMap.dcPrice>=0  ? (+String(row[colMap.dcPrice]).replace(/[^\d.]/g,'')||0) : 0,
+          executor:  colMap.executor>=0  ? String(row[colMap.executor]||'').trim()  : '',
+          dcPrice:   colMap.dcPrice>=0   ? (+String(row[colMap.dcPrice]).replace(/[^\d.]/g,'')||0) : 0,
           planCost:  colMap.planCost>=0  ? (+String(row[colMap.planCost]).replace(/[^\d.]/g,'')||0) : 0,
           startDate: colMap.startDate>=0 ? _parseDateStr(row[colMap.startDate]) : '',
           endDate:   colMap.endDate>=0   ? _parseDateStr(row[colMap.endDate])   : '',
