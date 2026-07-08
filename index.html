@@ -156,7 +156,6 @@ select.form-input option{background:var(--bg3)}
   <button class="nav-item" id="nav-executors" onclick="navigate('executors')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Виконавці</button>
   <button class="nav-item" id="nav-tasks" onclick="navigate('tasks')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>Задачі</button>
   <button class="nav-item" id="nav-meetings" onclick="navigate('meetings')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>Наради</button>
-  <button class="nav-item" id="nav-gantt" onclick="navigate('gantt')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="10" x2="15" y2="10"/><line x1="3" y1="14" x2="18" y2="14"/><line x1="3" y1="18" x2="12" y2="18"/></svg></span>Діаграма Ганта</button>
   <div style="flex:1"></div>
   <button class="nav-item" id="nav-service" onclick="navigate('service')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><circle cx="12" cy="12" r="9"/></svg></span>Сервіс</button>
 </nav>
@@ -2133,7 +2132,8 @@ function renderGanttInto(container, compact){
   const TASK_BG_NORMAL='linear-gradient(90deg,#5b21b6,#a78bfa)';
   const TASK_BG_DONE='linear-gradient(90deg,#15803d,#4ade80)';
   const TASK_BG_OVERDUE='linear-gradient(90deg,#b91c1c,#f87171)';
-  const TASK_TEXT='#c4b5fd'; // violet text for task labels
+  const TASK_TEXT='#ffffff';
+  const WORK_TEXT='#ffffff';
 
   let leftRows='',rightRows='';
   vis.forEach(s=>{
@@ -2162,7 +2162,7 @@ function renderGanttInto(container, compact){
       const rL=rsd?px(rsd):null,rR=red_?px(red_):null;
       const rW=(rL!=null&&rR!=null)?rR-rL:0;
       leftRows+=`<div class="gantt-row" style="${rh}"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:0;padding-left:4px">
-        <div class="gantt-cell-name sub" style="padding-left:10px;color:${pal.text};font-size:${compact?10:12}px">⚙ ${esc(r.workType)}</div>
+        <div class="gantt-cell-name sub" style="padding-left:10px;color:#ffffff;font-size:${compact?10:12}px">⚙ ${esc(r.workType)}</div>
         <div style="font-size:8px;color:rgba(255,255,255,.28);padding-left:10px">${rsd?fmtD(rsd):'—'} → ${red_?fmtD(red_):'—'}</div>
       </div></div>`;
       rightRows+=`<div class="gantt-row" style="${rh};position:relative">
@@ -2179,7 +2179,7 @@ function renderGanttInto(container, compact){
       const taskBg=overdue?TASK_BG_OVERDUE:t.status==='done'?TASK_BG_DONE:TASK_BG_NORMAL;
       const icon=t.status==='done'?'✓':t.status==='progress'?'▶':'○';
       leftRows+=`<div class="gantt-row" style="${rh}"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:0;padding-left:4px">
-        <div class="gantt-cell-name sub" style="padding-left:10px;color:${TASK_TEXT};font-size:${compact?10:12}px">${icon} ${esc(t.name)}</div>
+        <div class="gantt-cell-name sub" style="padding-left:10px;color:#ffffff;font-size:${compact?10:12}px">${icon} ${esc(t.name)}</div>
         <div style="font-size:8px;color:rgba(255,255,255,.28);padding-left:10px">${tsd?fmtD(tsd):'—'} → ${ted?fmtD(ted):'—'}</div>
       </div></div>`;
       rightRows+=`<div class="gantt-row" style="${rh};position:relative">
@@ -2271,36 +2271,18 @@ function renderService(){
   const isLight=document.body.classList.contains('light-theme');
   el.innerHTML=`
     <div class="page-header"><h1 class="page-title">⚙️ Сервіс</h1></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
-      <div class="card">
-        <div class="card-head"><span class="card-title">🎨 Тема оформлення</span></div>
-        <div class="card-body">
-          <p style="font-size:12px;color:var(--text3);margin-bottom:16px">Оберіть зручну для вас кольорову схему інтерфейсу</p>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div onclick="applyTheme('dark')" style="cursor:pointer;border:2px solid ${!isLight?'var(--accent)':'var(--border)'};border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px;background:${!isLight?'rgba(240,180,41,.06)':'var(--bg3)'}">
-              <div style="width:40px;height:40px;border-radius:9px;background:linear-gradient(135deg,#162030,#1c2b3e);border:1px solid #334d6e;display:flex;align-items:center;justify-content:center;font-size:20px">🌙</div>
-              <div>
-                <div style="font-weight:700;font-size:13px;color:var(--text)">Темна тема</div>
-                <div style="font-size:11px;color:var(--text3);margin-top:2px">Глибокий синьо-чорний фон</div>
-              </div>
-              ${!isLight?'<span style="margin-left:auto;color:var(--accent);font-size:18px">✓</span>':''}
-            </div>
-            <div onclick="applyTheme('light')" style="cursor:pointer;border:2px solid ${isLight?'var(--accent)':'var(--border)'};border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px;background:${isLight?'rgba(37,99,235,.05)':'var(--bg3)'}">
-              <div style="width:40px;height:40px;border-radius:9px;background:linear-gradient(135deg,#2563eb,#0284c7);display:flex;align-items:center;justify-content:center;font-size:20px">☀️</div>
-              <div>
-                <div style="font-weight:700;font-size:13px;color:var(--text)">Світла тема</div>
-                <div style="font-size:11px;color:var(--text3);margin-top:2px">Яскрава ділова палітра</div>
-              </div>
-              ${isLight?'<span style="margin-left:auto;color:var(--accent);font-size:18px">✓</span>':''}
-            </div>
+    <div class="card" style="max-width:340px">
+      <div class="card-head"><span class="card-title">Тема оформлення</span></div>
+      <div class="card-body">
+        <div style="display:flex;align-items:center;gap:14px">
+          <span style="font-size:12px;color:var(--text2);min-width:70px">☀️ Світла</span>
+          <div onclick="applyTheme(this.dataset.cur==='light'?'dark':'light')" data-cur="${isLight?'light':'dark'}"
+               style="width:36px;height:20px;border-radius:10px;background:${isLight?'var(--accent)':'rgba(255,255,255,.15)'};border:1px solid var(--border);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0">
+            <div style="position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;${isLight?'right:2px':'left:2px'};transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></div>
           </div>
-          <div style="margin-top:16px;padding:12px;border-radius:8px;background:var(--bg3);border:1px solid var(--border)">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Кольорова палітра</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              ${['var(--accent)','var(--green)','var(--blue)','var(--red)','var(--violet)','var(--amber)'].map(c=>`<div style="width:28px;height:28px;border-radius:6px;background:${c}"></div>`).join('')}
-            </div>
-          </div>
+          <span style="font-size:12px;color:var(--text2)">🌙 Темна</span>
         </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text3)">Зараз: <b style="color:var(--accent)">${isLight?'Світла':'Темна'} тема</b></div>
       </div>
     </div>`;
 }
