@@ -116,9 +116,9 @@ select.form-input option{background:var(--bg3)}
 .gantt-row.site-row{height:40px;background:rgba(240,180,41,.04)}
 .gantt-row:hover{background:rgba(255,255,255,.03)}
 .gantt-cell-left{width:260px;min-width:260px;display:flex;align-items:center;padding:0 12px;border-right:1px solid rgba(255,255,255,.06);flex-shrink:0;overflow:hidden}
-.gantt-cell-name{font-size:11px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gantt-cell-name.site{font-size:12px;font-weight:700;color:#fff}
-.gantt-cell-name.sub{color:rgba(255,255,255,.6);font-size:10px;padding-left:16px}
+.gantt-cell-name{font-size:13px;font-weight:600;color:#ffffff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
+.gantt-cell-name.site{font-size:14px;font-weight:700;color:#ffffff}
+.gantt-cell-name.sub{color:#e2e8f0;font-size:12px;padding-left:16px;font-weight:500}
 .gantt-grid-line{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.07)}
 .gantt-bar{position:absolute;top:50%;transform:translateY(-50%);height:14px;border-radius:3px;display:flex;align-items:center;padding:0 6px;font-size:9px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;min-width:6px;cursor:grab;user-select:none;transition:filter .1s}
 .gantt-bar:hover{filter:brightness(1.15)}
@@ -591,6 +591,7 @@ let curSubActsSiteId=null, curSubActsSubId=null;
 let editingTaskId=null;
 let activeTaskFilter='all';
 let ganttSiteFilter='';
+let ganttZoom=28; // px per day
 let taskSort='site'; // 'site' | 'deadline'
 let meetingFilter={status:'',site:'',month:'',search:''};
 const MTG_STATUS={planned:'📅 Запланована',done:'✅ Проведена',cancelled:'❌ Скасована'};
@@ -1899,199 +1900,259 @@ function showMgr(ovId,title,list,inputId,placeholder,addFn){
 //  GANTT
 // ══════════════════════════════════════════════════════════════
 // ── Gantt drag ────────────────────────────────────────────────
-const G_PPD=28; // px per day
 let _gDrag=null;
 function _gAddDays(ds,n){if(!ds)return '';const d=new Date(ds);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function _gGetDates(type,sid,rid){
+  let sd='',ed='',label='';
+  if(type==='site'){const s=(state.sites||[]).find(x=>x.id===sid);sd=s?.signDate||'';ed=s?.deadline||'';label=s?.name||'';}
+  else if(type==='work'){const r=((state.budgets||{})[sid]||{rows:[]}).rows.find(x=>x.id===rid);const s=(state.sites||[]).find(x=>x.id===sid);sd=r?.startDate||s?.signDate||'';ed=r?.endDate||s?.deadline||'';label=r?.workType||'';}
+  else if(type==='task'){const t=(state.tasks||[]).find(x=>x.id===rid);sd=t?.startDate||'';ed=t?.deadline||'';label=t?.name||'';}
+  return{sd,ed,label};
+}
+function _gApplyDates(type,sid,rid,sd,ed){
+  if(type==='site'){const s=(state.sites||[]).find(x=>x.id===sid);if(s){s.signDate=sd;s.deadline=ed;}}
+  else if(type==='work'){const rows=((state.budgets||{})[sid]||{rows:[]}).rows;const r=rows.find(x=>x.id===rid);if(r){r.startDate=sd;r.endDate=ed;}}
+  else if(type==='task'){const t=(state.tasks||[]).find(x=>x.id===rid);if(t){t.startDate=sd;t.deadline=ed;}}
+}
 function _gBarDown(e,type,sid,rid,field){
   e.preventDefault();e.stopPropagation();
-  let sd='',ed='';
-  if(type==='site'){const s=(state.sites||[]).find(x=>x.id===sid);sd=s?.signDate||'';ed=s?.deadline||'';}
-  else if(type==='work'){const r=((state.budgets||{})[sid]||{rows:[]}).rows.find(x=>x.id===rid);const s=(state.sites||[]).find(x=>x.id===sid);sd=r?.startDate||s?.signDate||'';ed=r?.endDate||s?.deadline||'';}
-  else if(type==='task'){const t=(state.tasks||[]).find(x=>x.id===rid);sd=t?.startDate||t?.deadline||'';ed=t?.deadline||'';}
-  _gDrag={type,sid,rid,field,x0:e.clientX,sd0:sd,ed0:ed};
-  const tip=document.getElementById('gantt-tip');if(tip)tip.style.display='block';
+  const{sd,ed}=_gGetDates(type,sid,rid);
+  _gDrag={type,sid,rid,field,x0:e.clientX,sd0:sd,ed0:ed,moved:false};
   document.addEventListener('mousemove',_gMove);document.addEventListener('mouseup',_gUp);
 }
 function _gMove(e){
   if(!_gDrag)return;
   const {type,sid,rid,field,x0,sd0,ed0}=_gDrag;
-  const days=Math.round((e.clientX-x0)/G_PPD);
+  const days=Math.round((e.clientX-x0)/ganttZoom);
+  if(!days)return;
+  _gDrag.moved=true;
   let nsd=sd0,ned=ed0;
   if(field==='move'){nsd=_gAddDays(sd0,days);ned=_gAddDays(ed0,days);}
   else if(field==='left'){nsd=_gAddDays(sd0,days);if(nsd>=ned)return;}
   else if(field==='right'){ned=_gAddDays(ed0,days);if(ned<=nsd)return;}
-  // apply to state
-  if(type==='site'){const s=(state.sites||[]).find(x=>x.id===sid);if(s){s.signDate=nsd;s.deadline=ned;}}
-  else if(type==='work'){const rows=((state.budgets||{})[sid]||{rows:[]}).rows;const r=rows.find(x=>x.id===rid);if(r){r.startDate=nsd;r.endDate=ned;}}
-  else if(type==='task'){const t=(state.tasks||[]).find(x=>x.id===rid);if(t){t.startDate=nsd;t.deadline=ned;}}
+  _gApplyDates(type,sid,rid,nsd,ned);
   _gDrag.x0=e.clientX;_gDrag.sd0=nsd;_gDrag.ed0=ned;
-  // update tooltip
   const tip=document.getElementById('gantt-tip');
   if(tip){tip.style.display='block';tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-30)+'px';tip.textContent=`${nsd||'?'} → ${ned||'?'}`;}
   renderGantt();
 }
 function _gUp(){
-  if(_gDrag){save();}
+  if(_gDrag){
+    if(_gDrag.moved){save();}
+    else{_gOpenEdit(_gDrag.type,_gDrag.sid,_gDrag.rid);}
+  }
   _gDrag=null;
   const tip=document.getElementById('gantt-tip');if(tip)tip.style.display='none';
   document.removeEventListener('mousemove',_gMove);document.removeEventListener('mouseup',_gUp);
+}
+function _gOpenEdit(type,sid,rid){
+  const{sd,ed,label}=_gGetDates(type,sid,rid);
+  document.getElementById('gantt-edit-popup')?.remove();
+  const p=document.createElement('div');
+  p.id='gantt-edit-popup';
+  p.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1c2b3e;border:1px solid #3f5f84;border-radius:12px;padding:20px 22px;z-index:3000;min-width:300px;box-shadow:0 12px 40px rgba(0,0,0,.6)';
+  p.innerHTML=`
+    <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:16px;padding-right:28px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(label)}</div>
+    <button onclick="document.getElementById('gantt-edit-popup').remove()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:rgba(255,255,255,.4);font-size:20px;cursor:pointer;line-height:1;padding:0 4px">&times;</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div>
+        <div style="font-size:9px;color:rgba(255,255,255,.45);margin-bottom:5px;text-transform:uppercase;letter-spacing:.07em">Дата початку</div>
+        <input id="gep-start" type="date" value="${sd}" style="width:100%;box-sizing:border-box;background:#263a52;border:1px solid #334d6e;border-radius:7px;color:#fff;padding:7px 9px;font-size:13px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:rgba(255,255,255,.45);margin-bottom:5px;text-transform:uppercase;letter-spacing:.07em">Дата завершення</div>
+        <input id="gep-end" type="date" value="${ed}" style="width:100%;box-sizing:border-box;background:#263a52;border:1px solid #334d6e;border-radius:7px;color:#fff;padding:7px 9px;font-size:13px;outline:none">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="document.getElementById('gantt-edit-popup').remove()" style="padding:7px 16px;background:rgba(255,255,255,.06);border:1px solid #334d6e;border-radius:7px;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer">Скасувати</button>
+      <button id="gep-save-btn" style="padding:7px 18px;background:var(--accent);border:none;border-radius:7px;color:#1a0f00;font-size:12px;font-weight:700;cursor:pointer">Зберегти</button>
+    </div>`;
+  document.body.appendChild(p);
+  document.getElementById('gep-save-btn').onclick=()=>_gSaveEdit(type,sid,rid);
+  p.addEventListener('keydown',e=>{if(e.key==='Enter')_gSaveEdit(type,sid,rid);if(e.key==='Escape')p.remove();});
+  setTimeout(()=>document.addEventListener('mousedown',function h(ev){if(!p.contains(ev.target)){p.remove();document.removeEventListener('mousedown',h);}},true),50);
+  document.getElementById('gep-start').focus();
+}
+function _gSaveEdit(type,sid,rid){
+  const sd=document.getElementById('gep-start')?.value||'';
+  const ed=document.getElementById('gep-end')?.value||'';
+  _gApplyDates(type,sid,rid,sd,ed);
+  save();renderGantt();
+  document.getElementById('gantt-edit-popup')?.remove();
 }
 
 function renderGantt(){
   const el=document.getElementById('main-content');
   const sites=state.sites||[];
-  const PX_PER_DAY=G_PPD;
+  const PPD=ganttZoom; // px per day
 
-  // visible sites
   const vis=ganttSiteFilter?sites.filter(s=>s.id===ganttSiteFilter):sites;
-
-  // compute date range
-  let minD=null,maxD=null;
-  vis.forEach(s=>{
-    if(s.signDate){const d=new Date(s.signDate);if(!minD||d<minD)minD=d;}
-    if(s.deadline){const d=new Date(s.deadline);if(!maxD||d>maxD)maxD=d;}
-  });
-  if(!minD){minD=new Date();minD.setDate(1);}
-  if(!maxD){maxD=new Date(minD);maxD.setMonth(maxD.getMonth()+6);}
-  // pad
-  minD=new Date(minD);minD.setDate(1);
-  maxD=new Date(maxD);maxD.setMonth(maxD.getMonth()+1);maxD.setDate(0);
-  const totalDays=Math.max(1,Math.round((maxD-minD)/86400000));
-  const totalPx=totalDays*PX_PER_DAY;
-
-  function px(dateStr){
-    if(!dateStr)return null;
-    const d=new Date(dateStr);
-    const days=Math.round((d-minD)/86400000);
-    return Math.max(0,Math.min(totalPx,days*PX_PER_DAY));
-  }
-
-  // month header cells
-  let monthsHtml='';
-  let cur=new Date(minD);
-  while(cur<=maxD){
-    const left=px(cur.toISOString().slice(0,10));
-    const label=cur.toLocaleDateString('uk',{month:'short',year:'2-digit'}).replace(' р.','');
-    monthsHtml+=`<div class="gantt-month-cell" style="left:${left}px">${label}</div>`;
-    cur.setMonth(cur.getMonth()+1);
-  }
-
-  // grid lines (month starts)
-  let gridLines='';
-  cur=new Date(minD);
-  while(cur<=maxD){
-    const left=px(cur.toISOString().slice(0,10));
-    gridLines+=`<div class="gantt-grid-line" style="left:${left}px"></div>`;
-    cur.setMonth(cur.getMonth()+1);
-  }
-
-  // today line
-  const todayPx=px(new Date().toISOString().slice(0,10));
-  const todayLine=todayPx!=null?`<div class="gantt-today" style="left:${todayPx}px"><div class="gantt-today-label" style="left:${todayPx}px">Сьогодні</div></div>`:'';
-
-  // build rows
-  let leftRows='', rightRows='';
-  vis.forEach(s=>{
-    const sd=s.signDate,ed=s.deadline;
-    const sL=sd?px(sd):null, sR=ed?px(ed):null;
-    const sW=(sL!=null&&sR!=null)?Math.max(4,sR-sL):0;
-    const budgetRows=((state.budgets||{})[s.id]||{rows:[]}).rows||[];
-    const siteTasks=(state.tasks||[]).filter(t=>t.siteId===s.id);
-    const rowCount=1+budgetRows.length+siteTasks.length;
-
-    function bar(cls,left,width,label,ondown){
-      if(left==null||!width)return'';
-      return`<div class="gantt-bar ${cls}" style="left:${left}px;width:${Math.max(6,width)}px" onmousedown="${ondown}">
-        <span class="gantt-handle left" onmousedown="event.stopPropagation();${ondown.replace("'move'","'left'")}"></span>
-        ${Math.max(6,width)>30?`<span style="overflow:hidden;text-overflow:ellipsis;flex:1">${esc(label)}</span>`:''}
-        <span class="gantt-handle right" onmousedown="event.stopPropagation();${ondown.replace("'move'","'right'")}"></span>
-      </div>`;
-    }
-
-    // site row
-    leftRows+=`<div class="gantt-row site-row"><div class="gantt-cell-left">
-      <div style="display:flex;flex-direction:column;overflow:hidden">
-        <div class="gantt-cell-name site">${esc(s.name)}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:1px">${sd?fmtD(sd):''} → ${ed?fmtD(ed):'?'}</div>
-      </div></div></div>`;
-    rightRows+=`<div class="gantt-row site-row" style="position:relative">${gridLines}
-      ${bar('site',sL,sW,s.name,`_gBarDown(event,'site','${s.id}',null,'move')`)}
-      ${todayLine}</div>`;
-
-    // work type rows
-    budgetRows.forEach(r=>{
-      if(!r.workType)return;
-      const rsd=r.startDate||sd, red=r.endDate||ed;
-      const rL=rsd?px(rsd):null, rR=red?px(red):null;
-      const rW=(rL!=null&&rR!=null)?Math.max(6,rR-rL):0;
-      leftRows+=`<div class="gantt-row"><div class="gantt-cell-left">
-        <div class="gantt-cell-name sub">⚙ ${esc(r.workType)}</div>
-        ${rsd?`<div style="font-size:8px;color:rgba(255,255,255,.3);margin-top:1px;padding-left:16px">${fmtD(rsd)}→${fmtD(red)}</div>`:''}
-      </div></div>`;
-      rightRows+=`<div class="gantt-row" style="position:relative">${gridLines}
-        ${bar('work',rL,rW,r.workType,`_gBarDown(event,'work','${s.id}','${r.id}','move')`)}
-      </div>`;
-    });
-
-    // task rows
-    siteTasks.forEach(t=>{
-      const tsd=t.startDate||t.deadline, ted=t.deadline;
-      const tL=tsd?px(tsd):null, tR=ted?px(ted):null;
-      const tW=(tL!=null&&tR!=null)?Math.max(6,tR-tL):20;
-      const overdue=ted&&new Date(ted)<new Date()&&t.status!=='done';
-      const cls=overdue?'task-overdue':t.status==='done'?'task-done':t.status==='progress'?'task-progress':'task-todo';
-      const icon=t.status==='done'?'✓':t.status==='progress'?'▶':'○';
-      leftRows+=`<div class="gantt-row"><div class="gantt-cell-left">
-        <div class="gantt-cell-name sub">${icon} ${esc(t.name)}</div>
-        ${tsd?`<div style="font-size:8px;color:rgba(255,255,255,.3);margin-top:1px;padding-left:16px">${fmtD(tsd)}→${fmtD(ted)}</div>`:''}
-      </div></div>`;
-      rightRows+=`<div class="gantt-row" style="position:relative">${gridLines}
-        ${bar(cls,tL,tW,t.name,`_gBarDown(event,'task','${t.siteId}','${t.id}','move')`)}
-      </div>`;
-    });
-  });
 
   if(!vis.length){
     el.innerHTML=`<div class="page-header"><h1 class="page-title">📅 Діаграма Ганта</h1></div><div class="empty"><div class="empty-icon">📅</div><h3>Об'єктів ще немає</h3><p>Додайте об'єкти з датами початку та завершення</p></div>`;
     return;
   }
 
-  const siteOptions=sites.map(s=>`<option value="${s.id}"${ganttSiteFilter===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+  // date range
+  let minD=null,maxD=null;
+  vis.forEach(s=>{
+    [s.signDate,s.deadline].forEach(d=>{if(d){const dt=new Date(d);if(!minD||dt<minD)minD=dt;if(!maxD||dt>maxD)maxD=dt;}});
+    ((state.budgets||{})[s.id]||{rows:[]}).rows.forEach(r=>{
+      [r.startDate,r.endDate].forEach(d=>{if(d){const dt=new Date(d);if(!minD||dt<minD)minD=dt;if(!maxD||dt>maxD)maxD=dt;}});
+    });
+    (state.tasks||[]).filter(t=>t.siteId&&t.siteId===s.id).forEach(t=>{
+      [t.startDate,t.deadline].forEach(d=>{if(d){const dt=new Date(d);if(!minD||dt<minD)minD=dt;if(!maxD||dt>maxD)maxD=dt;}});
+    });
+  });
+  if(!minD){minD=new Date();minD.setDate(1);}
+  if(!maxD){maxD=new Date(minD);maxD.setMonth(maxD.getMonth()+6);}
+  minD=new Date(minD);minD.setDate(1);
+  maxD=new Date(maxD);maxD.setMonth(maxD.getMonth()+1);maxD.setDate(1);
+  const totalDays=Math.max(1,Math.round((maxD-minD)/86400000));
+  const totalPx=totalDays*PPD;
 
-  // ensure tooltip exists
+  function px(ds){
+    if(!ds)return null;
+    const days=Math.round((new Date(ds)-minD)/86400000);
+    return Math.max(0,Math.min(totalPx,days*PPD));
+  }
+
+  // ── header: months row + days row ────────────────────────────
+  let monthsHtml='',daysHtml='',gridLines='';
+  let cur=new Date(minD);
+  while(cur<maxD){
+    const left=px(cur.toISOString().slice(0,10));
+    const label=cur.toLocaleDateString('uk',{month:'short',year:'2-digit'});
+    // compute month width
+    const next=new Date(cur);next.setMonth(next.getMonth()+1);
+    const mw=Math.round((next-cur)/86400000)*PPD;
+    monthsHtml+=`<div style="position:absolute;left:${left}px;width:${mw}px;height:20px;display:flex;align-items:center;padding-left:6px;font-size:10px;font-weight:700;color:#fff;border-right:1px solid rgba(255,255,255,.12);box-sizing:border-box;overflow:hidden;white-space:nowrap;letter-spacing:.03em;text-transform:uppercase">${label}</div>`;
+    gridLines+=`<div class="gantt-grid-line" style="left:${left}px"></div>`;
+    // day ticks within month (every 7 days)
+    const d=new Date(cur);d.setDate(d.getDate()+7);
+    while(d<next&&d<maxD){
+      const dl=px(d.toISOString().slice(0,10));
+      daysHtml+=`<div style="position:absolute;left:${dl}px;height:14px;display:flex;align-items:center;padding-left:3px;font-size:8px;color:rgba(255,255,255,.35);border-left:1px solid rgba(255,255,255,.06);box-sizing:border-box">${d.getDate()}</div>`;
+      d.setDate(d.getDate()+7);
+    }
+    cur.setMonth(cur.getMonth()+1);
+  }
+
+  // today
+  const todayPx=px(new Date().toISOString().slice(0,10));
+
+  // ── build rows ────────────────────────────────────────────────
+  function bar(cls,left,width,ondown,showLabel,label){
+    if(left==null||!width)return'';
+    const w=Math.max(6,width);
+    return`<div class="gantt-bar ${cls}" style="left:${left}px;width:${w}px" onmousedown="${ondown}">
+      <span class="gantt-handle left" onmousedown="event.stopPropagation();${ondown.replace("'move'","'left'")}"></span>
+      ${showLabel&&w>36?`<span style="overflow:hidden;text-overflow:ellipsis;flex:1;font-size:10px;font-weight:600">${esc(label)}</span>`:''}
+      <span class="gantt-handle right" onmousedown="event.stopPropagation();${ondown.replace("'move'","'right'")}"></span>
+    </div>`;
+  }
+
+  let leftRows='',rightRows='';
+  vis.forEach(s=>{
+    const sd=s.signDate,ed=s.deadline;
+    const sL=sd?px(sd):null,sR=ed?px(ed):null;
+    const sW=(sL!=null&&sR!=null)?sR-sL:0;
+    const budgetRows=((state.budgets||{})[s.id]||{rows:[]}).rows||[];
+    const siteTasks=(state.tasks||[]).filter(t=>t.siteId&&t.siteId===s.id);
+
+    // site row
+    leftRows+=`<div class="gantt-row site-row"><div class="gantt-cell-left" style="gap:2px;flex-direction:column;align-items:flex-start;justify-content:center">
+      <div class="gantt-cell-name site">${esc(s.name)}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.5)">${sd?fmtD(sd):'—'} → ${ed?fmtD(ed):'—'}</div>
+    </div></div>`;
+    rightRows+=`<div class="gantt-row site-row" style="position:relative">${gridLines}
+      ${bar('site',sL,sW,`_gBarDown(event,'site','${s.id}',null,'move')`,true,s.name)}
+    </div>`;
+
+    // work rows
+    budgetRows.forEach(r=>{
+      if(!r.workType)return;
+      const rsd=r.startDate||sd,red=r.endDate||ed;
+      const rL=rsd?px(rsd):null,rR=red?px(red):null;
+      const rW=(rL!=null&&rR!=null)?rR-rL:0;
+      leftRows+=`<div class="gantt-row"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:1px">
+        <div class="gantt-cell-name sub" style="padding-left:14px">⚙ ${esc(r.workType)}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.35);padding-left:14px">${rsd?fmtD(rsd):'—'} → ${red?fmtD(red):'—'}</div>
+      </div></div>`;
+      rightRows+=`<div class="gantt-row" style="position:relative">${gridLines}
+        ${bar('work',rL,rW,`_gBarDown(event,'work','${s.id}','${r.id}','move')`,false,'')}
+      </div>`;
+    });
+
+    // task rows
+    siteTasks.forEach(t=>{
+      const tsd=t.startDate||t.deadline,ted=t.deadline;
+      const tL=tsd?px(tsd):null,tR=ted?px(ted):null;
+      const tW=(tL!=null&&tR!=null)?Math.max(8,tR-tL):12;
+      const overdue=ted&&new Date(ted)<new Date()&&t.status!=='done';
+      const cls=overdue?'task-overdue':t.status==='done'?'task-done':t.status==='progress'?'task-progress':'task-todo';
+      const icon=t.status==='done'?'✓':t.status==='progress'?'▶':'○';
+      leftRows+=`<div class="gantt-row"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:1px">
+        <div class="gantt-cell-name sub" style="padding-left:14px">${icon} ${esc(t.name)}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.35);padding-left:14px">${tsd?fmtD(tsd):'—'} → ${ted?fmtD(ted):'—'}</div>
+      </div></div>`;
+      rightRows+=`<div class="gantt-row" style="position:relative">${gridLines}
+        ${bar(cls,tL,tW,`_gBarDown(event,'task','${t.siteId}','${t.id}','move')`,false,'')}
+      </div>`;
+    });
+  });
+
+  // ── render ────────────────────────────────────────────────────
   if(!document.getElementById('gantt-tip')){
     const tip=document.createElement('div');tip.id='gantt-tip';tip.className='gantt-tooltip';document.body.appendChild(tip);
   }
 
+  const siteOptions=sites.map(s=>`<option value="${s.id}"${ganttSiteFilter===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+  const zoomLabel=PPD<=14?'Місяці':PPD<=22?'2 тижні':PPD<=32?'Тиждень':'Дні';
+
   el.innerHTML=`
-    <div class="page-header">
+    <div class="page-header" style="margin-bottom:10px">
       <h1 class="page-title">📅 Діаграма Ганта</h1>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <select class="form-input" style="width:220px;height:34px;font-size:12px;padding:4px 10px" onchange="ganttSiteFilter=this.value;renderGantt()">
-          <option value="">Всі об'єкти</option>
-          ${siteOptions}
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <select class="form-input" style="width:200px;height:32px;font-size:12px;padding:4px 10px" onchange="ganttSiteFilter=this.value;renderGantt()">
+          <option value="">Всі об'єкти</option>${siteOptions}
         </select>
-        <span style="font-size:10px;color:var(--text3)">Перетягуйте лінії для зміни дат</span>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:4px 10px">
+          <span style="font-size:10px;color:var(--text3);white-space:nowrap">Масштаб:</span>
+          <input type="range" min="8" max="56" step="4" value="${PPD}" oninput="ganttZoom=+this.value;renderGantt()" style="width:90px;accent-color:var(--accent);cursor:pointer">
+          <span style="font-size:10px;color:var(--accent);white-space:nowrap;min-width:52px">${zoomLabel}</span>
+        </div>
+        <span style="font-size:10px;color:var(--text3)">Клік — редагувати · Перетяг — змінити</span>
       </div>
     </div>
-    <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
-      ${[['var(--accent)','Об\'єкт'],['#38bdf8','Вид робіт'],['#a78bfa','В роботі'],['#4ade80','Виконано'],['#f87171','Прострочено']].map(([c,l])=>`<span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:18px;height:6px;border-radius:2px;background:${c};display:inline-block"></span>${l}</span>`).join('')}
-      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:1px;height:12px;background:#f87171;display:inline-block"></span>Сьогодні</span>
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+      ${[['var(--accent)','Об\'єкт'],['#38bdf8','Вид робіт'],['#a78bfa','В роботі'],['#4ade80','Виконано'],['#f87171','Прострочено']].map(([c,l])=>`<span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:16px;height:5px;border-radius:2px;background:${c};display:inline-block"></span>${l}</span>`).join('')}
     </div>
-    <div class="gantt-wrap" style="height:calc(100vh - 200px)">
+    <div class="gantt-wrap" style="height:calc(100vh - 195px)">
       <div style="display:flex;flex-direction:column;height:100%">
-        <div style="display:flex;background:var(--bg2);border-bottom:1px solid var(--border2);flex-shrink:0;height:34px">
-          <div style="width:260px;min-width:260px;display:flex;align-items:center;padding:0 14px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);border-right:1px solid rgba(255,255,255,.07);flex-shrink:0">Назва</div>
-          <div style="flex:1;overflow:hidden"><div style="position:relative;height:34px;width:${totalPx}px">${monthsHtml}</div></div>
+        <!-- header: months + days -->
+        <div style="display:flex;background:#162030;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0">
+          <div style="width:260px;min-width:260px;display:flex;align-items:center;padding:0 14px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.4);border-right:1px solid rgba(255,255,255,.08);flex-shrink:0;height:34px">Назва</div>
+          <div style="flex:1;overflow:hidden">
+            <div style="position:relative;height:20px;width:${totalPx}px;border-bottom:1px solid rgba(255,255,255,.07)">${monthsHtml}</div>
+            <div style="position:relative;height:14px;width:${totalPx}px">${daysHtml}</div>
+          </div>
         </div>
+        <!-- body -->
         <div style="display:flex;flex:1;overflow:hidden">
           <div style="width:260px;min-width:260px;overflow-y:auto;flex-shrink:0;border-right:1px solid rgba(255,255,255,.07)" id="gantt-left">${leftRows}</div>
-          <div style="flex:1;overflow:auto" id="gantt-right"><div style="width:${totalPx}px;position:relative">${rightRows}</div></div>
+          <div style="flex:1;overflow:auto;position:relative" id="gantt-right">
+            <div style="width:${totalPx}px;position:relative">
+              ${rightRows}
+              ${todayPx!=null?`<div class="gantt-today" style="left:${todayPx}px;top:0;bottom:0;position:absolute;pointer-events:none;z-index:5"><span style="position:sticky;top:2px;display:block;font-size:8px;font-weight:700;color:#f87171;padding-left:2px;white-space:nowrap">●сьогодні</span></div>`:''}
+            </div>
+          </div>
         </div>
       </div>
     </div>`;
 
-  // sync vertical scroll
+  // sync scroll
   const gl=document.getElementById('gantt-left');
   const gr=document.getElementById('gantt-right');
   if(gl&&gr){
