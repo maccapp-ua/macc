@@ -321,12 +321,8 @@ select.form-input option{background:var(--bg3)}
       <datalist id="cf-wt-list"></datalist>
       <div class="form-group"><label class="form-label">Вид робіт <span style="font-size:9px;color:var(--text3)">(прив'язка до бюджету)</span></label>
         <input class="form-input" id="cf-worktype" list="cf-wt-list" placeholder="оберіть зі списку або введіть вручну..."></div>
-      <div class="form-row2">
-        <div class="form-group"><label class="form-label">Контрагент</label>
-          <input class="form-input" id="cf-counterparty" list="cf-cp-list" placeholder="введіть або оберіть..."></div>
-        <div class="form-group"><label class="form-label">Тег</label>
-          <input class="form-input" id="cf-tag" placeholder="напр. матеріали, зарплата..."></div>
-      </div>
+      <div class="form-group"><label class="form-label">Контрагент</label>
+        <input class="form-input" id="cf-counterparty" list="cf-cp-list" placeholder="введіть або оберіть..."></div>
       <div class="form-group"><label class="form-label">Примітки</label>
         <textarea class="form-input" id="cf-notes" rows="2"></textarea></div>
     </div>
@@ -1712,13 +1708,12 @@ function renderCashflow(){
     </select>
     <input type="month" value="${cfFilters.month}" onchange="cfFilters.month=this.value;renderCashflow()" title="Місяць">
     <input placeholder="🔍 Пошук..." value="${esc(cfFilters.search)}" oninput="cfFilters.search=this.value;renderCashflow()" style="min-width:120px">
-    <input placeholder="Тег..." value="${esc(cfFilters.tag)}" oninput="cfFilters.tag=this.value;renderCashflow()" style="min-width:80px">
     <button class="btn sm" onclick="cfFilters={type:'',form:'',category:'',site:'',counterparty:'',tag:'',month:'',search:''};renderCashflow()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9;opacity:${Object.values(cfFilters).some(v=>v)?1:0.45};pointer-events:${Object.values(cfFilters).some(v=>v)?'auto':'none'}">✕ Очистити фільтр</button>
   </div>`;
 
   let tbody='';
   if(!rows.length){
-    tbody=`<tr><td colspan="9"><div class="empty"><div class="empty-icon">💸</div><h3>${all.length?'Нічого не знайдено':'Транзакцій ще немає'}</h3><p>${all.length?'Спробуйте інші фільтри':'Натисніть «+ Дохід» або «+ Розхід»'}</p></div></td></tr>`;
+    tbody=`<tr><td colspan="8"><div class="empty"><div class="empty-icon">💸</div><h3>${all.length?'Нічого не знайдено':'Транзакцій ще немає'}</h3><p>${all.length?'Спробуйте інші фільтри':'Натисніть «+ Дохід» або «+ Розхід»'}</p></div></td></tr>`;
   } else {
     rows.forEach(r=>{
       const site=sites.find(s=>s.id===r.siteId);
@@ -1730,11 +1725,10 @@ function renderCashflow(){
         <td style="font-size:11px">${esc(r.category||'—')}</td>
         <td>${site?`<span style="font-size:10px;color:var(--accent);font-weight:600">${esc(site.name)}</span>`:'<span style="color:var(--text3);font-size:10px">—</span>'}</td>
         <td>${esc(r.counterparty||'—')}</td>
-        <td>${r.tag?`<span class="tag-chip">${esc(r.tag)}</span>`:'<span style="color:var(--text3);font-size:10px">—</span>'}</td>
         <td class="r mono" style="font-size:13px;font-weight:700;${isInc?'color:var(--green)':'color:var(--red)'}">${isInc?'+':'-'}${fmtN(r.amount)}</td>
         <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="deleteCF('${r.id}')">×</button></td>
       </tr>`;
-      if(r.notes)tbody+=`<tr><td colspan="9" style="padding:2px 10px 8px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border)">💬 ${esc(r.notes)}</td></tr>`;
+      if(r.notes)tbody+=`<tr><td colspan="8" style="padding:2px 10px 8px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border)">💬 ${esc(r.notes)}</td></tr>`;
     });
   }
 
@@ -1766,7 +1760,7 @@ function renderCashflow(){
         <table class="tbl">
           <thead><tr>
             <th>Дата</th><th>Тип</th><th>Форма</th><th>Категорія</th>
-            <th>Об'єкт</th><th>Контрагент</th><th>Тег</th>
+            <th>Об'єкт</th><th>Контрагент</th>
             <th class="r">Сума</th><th></th>
           </tr></thead>
           <tbody>${tbody}</tbody>
@@ -1800,7 +1794,6 @@ function openCFModal(id,defaultType){
   document.getElementById('cf-form').value=r?.form||'bank';
   document.getElementById('cf-date').value=r?.date||new Date().toISOString().slice(0,10);
   document.getElementById('cf-amount').value=r?.amount||'';
-  document.getElementById('cf-tag').value=r?.tag||'';
   document.getElementById('cf-notes').value=r?.notes||'';
   const siteSel=document.getElementById('cf-site');
   siteSel.innerHTML='<option value="">— Без об\'єкта —</option>'+(state.sites||[]).map(s=>`<option value="${s.id}"${r?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
@@ -1839,7 +1832,6 @@ function saveCF(){
     date,amount,category,
     siteId:document.getElementById('cf-site').value,
     counterparty:document.getElementById('cf-counterparty').value.trim(),
-    tag:document.getElementById('cf-tag').value.trim(),
     notes:document.getElementById('cf-notes').value.trim(),
     workType:document.getElementById('cf-worktype').value.trim(),
   };
@@ -2310,6 +2302,9 @@ function renderDashboard(){
   // 5. Фактичні витрати — всі витрати з грошових потоків
   const factExp=cfs.filter(c=>c.type==='expense').reduce((a,c)=>a+(+c.amount||0),0);
 
+  // 6. Середня маржинальність = planIncome / totalContractPrice * 100
+  const avgMargin=totalContractPrice>0?Math.round(planIncome/totalContractPrice*100*10)/10:0;
+
   el.innerHTML=`
     <div class="page-header"><h1 class="page-title">📋 Дашборд</h1></div>
     <div class="metrics" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin-bottom:20px">
@@ -2332,6 +2327,10 @@ function renderDashboard(){
       <div class="metric" style="--mc:#f97316">
         <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Фактичні витрати</div>
         <div class="metric-value" style="font-size:15px">${fmtN(factExp)}</div>
+      </div>
+      <div class="metric" style="--mc:var(--violet)">
+        <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></span>Середня маржинальність</div>
+        <div class="metric-value" style="font-size:18px;color:${avgMargin>=0?'var(--green)':'var(--red)'}">${avgMargin}%</div>
       </div>
     </div>
     <div id="dash-gantt-container"></div>`;
@@ -3046,7 +3045,7 @@ function exportCashflowExcel(){
   if(cfFilters.month)   rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
   if(cfFilters.tag)     rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
   if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q));}
-  const header=['Дата','Тип','Форма оплати','Категорія','Об\'єкт','Контрагент','Вид робіт','Тег','Сума','Примітки'];
+  const header=['Дата','Тип','Форма оплати','Категорія','Об\'єкт','Контрагент','Вид робіт','Сума','Примітки'];
   const data=[header,...rows.map(r=>{
     const site=(state.sites||[]).find(s=>s.id===r.siteId);
     return[r.date,r.type==='income'?'Дохід':'Розхід',CF_FORM_LABEL[r.form]||r.form,r.category||'',site?.name||'',r.counterparty||'',r.workType||'',r.tag||'',+r.amount||0,r.notes||''];
