@@ -1982,6 +1982,18 @@ function _gSaveEdit(type,sid,rid){
   document.getElementById('gantt-edit-popup')?.remove();
 }
 
+function renderGantt(){
+  const el=document.getElementById('main-content');
+  if(!el)return;
+  const sites=state.sites||[];
+  if(!(sites.length)){
+    el.innerHTML=`<div class="page-header"><h1 class="page-title">📅 Діаграма Ганта</h1></div><div class="empty"><div class="empty-icon">📅</div><h3>Об'єктів ще немає</h3><p>Додайте об'єкти з датами початку та завершення</p></div>`;
+    return;
+  }
+  el.innerHTML=`<div class="page-header" style="margin-bottom:8px"><h1 class="page-title">📅 Діаграма Ганта</h1></div><div id="gantt-standalone-wrap"></div>`;
+  renderGanttInto(document.getElementById('gantt-standalone-wrap'), false);
+}
+
 // palette: distinct hues per site index
 const G_PALETTE=[
   {bar:'linear-gradient(90deg,#0e4d8a,#38bdf8)',text:'#7dd3fc'},
@@ -2013,14 +2025,14 @@ function ganttExportPDF(){
   setTimeout(()=>{win.focus();win.print();},600);
 }
 
-function renderGantt(){
-  const el=document.getElementById('main-content');
+function renderGanttInto(container, compact){
+  if(!container)return;
   const sites=state.sites||[];
 
   const vis=ganttSiteFilter?sites.filter(s=>s.id===ganttSiteFilter):sites;
 
   if(!vis.length){
-    el.innerHTML=`<div class="page-header"><h1 class="page-title">📅 Діаграма Ганта</h1></div><div class="empty"><div class="empty-icon">📅</div><h3>Об'єктів ще немає</h3><p>Додайте об'єкти з датами початку та завершення</p></div>`;
+    container.innerHTML=`<div class="empty" style="padding:30px 0"><div class="empty-icon">📅</div><p style="color:var(--text3)">Додайте об'єкти з датами</p></div>`;
     return;
   }
 
@@ -2083,15 +2095,24 @@ function renderGantt(){
   vis.forEach((s,i)=>{siteColorMap[s.id]=G_PALETTE[i%G_PALETTE.length];});
 
   // ── build rows ───────────────────────────────────────────────
-  function bar(bgStyle,left,width,ondown,label){
+  // bar height: compact (dashboard) = 8px, standalone = 10px
+  const BH = compact ? 8 : 10;
+  const ROW_H = compact ? 28 : 34;
+
+  function bar(bgStyle,left,width,ondown){
     if(left==null||!width)return'';
-    const w=Math.max(6,width);
-    return`<div class="gantt-bar" style="left:${left}px;width:${w}px;background:${bgStyle}" onmousedown="${ondown}">
+    const w=Math.max(4,width);
+    return`<div class="gantt-bar" style="left:${left}px;width:${w}px;height:${BH}px;background:${bgStyle};border-radius:2px" onmousedown="${ondown}">
       <span class="gantt-handle left" onmousedown="event.stopPropagation();${ondown.replace("'move'","'left'")}"></span>
-      ${w>40&&label?`<span style="overflow:hidden;text-overflow:ellipsis;flex:1;font-size:9px;font-weight:600;color:#fff">${esc(label)}</span>`:''}
       <span class="gantt-handle right" onmousedown="event.stopPropagation();${ondown.replace("'move'","'right'")}"></span>
     </div>`;
   }
+
+  // task bars: always violet palette
+  const TASK_BG_NORMAL='linear-gradient(90deg,#5b21b6,#a78bfa)';
+  const TASK_BG_DONE='linear-gradient(90deg,#15803d,#4ade80)';
+  const TASK_BG_OVERDUE='linear-gradient(90deg,#b91c1c,#f87171)';
+  const TASK_TEXT='#c4b5fd'; // violet text for task labels
 
   let leftRows='',rightRows='';
   vis.forEach(s=>{
@@ -2102,46 +2123,46 @@ function renderGantt(){
     const budgetRows=((state.budgets||{})[s.id]||{rows:[]}).rows||[];
     const siteTasks=(state.tasks||[]).filter(t=>t.siteId&&t.siteId===s.id);
 
-    // site bar: gold gradient + site name
-    const siteBg=`linear-gradient(90deg,#c98a00,var(--accent))`;
-    leftRows+=`<div class="gantt-row site-row"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:1px">
-      <div class="gantt-cell-name site" style="color:#fff">${esc(s.name)}</div>
-      <div style="font-size:9px;color:rgba(255,255,255,.45)">${sd?fmtD(sd):'—'} → ${ed?fmtD(ed):'—'}</div>
+    const rh=`height:${ROW_H}px`;
+
+    // site row — gold bar
+    leftRows+=`<div class="gantt-row site-row" style="${rh}"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:1px">
+      <div class="gantt-cell-name site" style="color:#fff;font-size:${compact?11:14}px">${esc(s.name)}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.4)">${sd?fmtD(sd):'—'} → ${ed?fmtD(ed):'—'}</div>
     </div></div>`;
-    rightRows+=`<div class="gantt-row site-row" style="position:relative">${gridLines}
-      ${bar(siteBg,sL,sW,`_gBarDown(event,'site','${s.id}',null,'move')`,s.name)}
+    rightRows+=`<div class="gantt-row site-row" style="${rh};position:relative">${gridLines}
+      ${bar('linear-gradient(90deg,#c98a00,var(--accent))',sL,sW,`_gBarDown(event,'site','${s.id}',null,'move')`)}
     </div>`;
 
-    // work rows — per-site palette color
+    // work rows — per-site palette color (distinct from tasks)
     budgetRows.forEach(r=>{
       if(!r.workType)return;
-      const rsd=r.startDate||sd,red=r.endDate||ed;
-      const rL=rsd?px(rsd):null,rR=red?px(red):null;
+      const rsd=r.startDate||sd,red_=r.endDate||ed;
+      const rL=rsd?px(rsd):null,rR=red_?px(red_):null;
       const rW=(rL!=null&&rR!=null)?rR-rL:0;
-      leftRows+=`<div class="gantt-row"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:0px;padding-left:4px">
-        <div class="gantt-cell-name sub" style="padding-left:10px;color:${pal.text}">⚙ ${esc(r.workType)}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,.3);padding-left:10px">${rsd?fmtD(rsd):'—'} → ${red?fmtD(red):'—'}</div>
+      leftRows+=`<div class="gantt-row" style="${rh}"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:0;padding-left:4px">
+        <div class="gantt-cell-name sub" style="padding-left:10px;color:${pal.text};font-size:${compact?10:12}px">⚙ ${esc(r.workType)}</div>
+        <div style="font-size:8px;color:rgba(255,255,255,.28);padding-left:10px">${rsd?fmtD(rsd):'—'} → ${red_?fmtD(red_):'—'}</div>
       </div></div>`;
-      rightRows+=`<div class="gantt-row" style="position:relative">${gridLines}
-        ${bar(pal.bar,rL,rW,`_gBarDown(event,'work','${s.id}','${r.id}','move')`,'')}
+      rightRows+=`<div class="gantt-row" style="${rh};position:relative">${gridLines}
+        ${bar(pal.bar,rL,rW,`_gBarDown(event,'work','${s.id}','${r.id}','move')`)}
       </div>`;
     });
 
-    // task rows
+    // task rows — always violet
     siteTasks.forEach(t=>{
       const tsd=t.startDate||t.deadline,ted=t.deadline;
       const tL=tsd?px(tsd):null,tR=ted?px(ted):null;
-      const tW=(tL!=null&&tR!=null)?Math.max(8,tR-tL):10;
+      const tW=(tL!=null&&tR!=null)?Math.max(6,tR-tL):8;
       const overdue=ted&&new Date(ted)<new Date()&&t.status!=='done';
-      // task bar color: overdue→red, done→green, else site palette slightly lighter
-      const taskBg=overdue?'linear-gradient(90deg,#b91c1c,#f87171)':t.status==='done'?'linear-gradient(90deg,#15803d,#4ade80)':pal.bar;
+      const taskBg=overdue?TASK_BG_OVERDUE:t.status==='done'?TASK_BG_DONE:TASK_BG_NORMAL;
       const icon=t.status==='done'?'✓':t.status==='progress'?'▶':'○';
-      leftRows+=`<div class="gantt-row"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:0px;padding-left:4px">
-        <div class="gantt-cell-name sub" style="padding-left:10px;color:${pal.text}">${icon} ${esc(t.name)}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,.3);padding-left:10px">${tsd?fmtD(tsd):'—'} → ${ted?fmtD(ted):'—'}</div>
+      leftRows+=`<div class="gantt-row" style="${rh}"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:0;padding-left:4px">
+        <div class="gantt-cell-name sub" style="padding-left:10px;color:${TASK_TEXT};font-size:${compact?10:12}px">${icon} ${esc(t.name)}</div>
+        <div style="font-size:8px;color:rgba(255,255,255,.28);padding-left:10px">${tsd?fmtD(tsd):'—'} → ${ted?fmtD(ted):'—'}</div>
       </div></div>`;
-      rightRows+=`<div class="gantt-row" style="position:relative">${gridLines}
-        ${bar(taskBg,tL,tW,`_gBarDown(event,'task','${t.siteId}','${t.id}','move')`,'')}
+      rightRows+=`<div class="gantt-row" style="${rh};position:relative">${gridLines}
+        ${bar(taskBg,tL,tW,`_gBarDown(event,'task','${t.siteId}','${t.id}','move')`)}
       </div>`;
     });
   });
@@ -2153,47 +2174,51 @@ function renderGantt(){
 
   const siteOptions=sites.map(s=>`<option value="${s.id}"${ganttSiteFilter===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
   const zoomLabel=PPD<=8?'Рік':PPD<=12?'Квартал':PPD<=18?'Місяці':PPD<=26?'2 тижні':'Тиждень';
+  const rerender=compact?'renderDashboard':'renderGantt';
+  const chartH=compact?'380px':'calc(100vh - 170px)';
 
-  el.innerHTML=`
-    <div class="page-header" style="margin-bottom:8px">
-      <h1 class="page-title">📅 Діаграма Ганта</h1>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <select class="form-input" style="width:190px;height:32px;font-size:12px;padding:4px 8px" onchange="ganttSiteFilter=this.value;renderGantt()">
+  const legend=[['linear-gradient(90deg,#c98a00,var(--accent))','Об\'єкт'],['#4a9eff','Вид робіт'],['#a78bfa','Задача'],['#4ade80','Виконано'],['#f87171','Прострочено']];
+
+  container.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        ${compact?`<span style="font-size:11px;font-weight:700;color:var(--text2)">📅 Діаграма Ганта</span>`:''}
+        <select class="form-input" style="width:180px;height:28px;font-size:11px;padding:2px 8px" onchange="ganttSiteFilter=this.value;${rerender}()">
           <option value="">Всі об'єкти</option>${siteOptions}
         </select>
-        <div style="display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:3px 10px">
-          <span style="font-size:10px;color:var(--text3)">Масштаб:</span>
-          <button onclick="ganttZoom=Math.max(4,ganttZoom-4);renderGantt()" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 2px;line-height:1">−</button>
-          <input type="range" min="4" max="60" step="2" value="${PPD}" oninput="ganttZoom=+this.value;renderGantt()" style="width:80px;accent-color:var(--accent);cursor:pointer">
-          <button onclick="ganttZoom=Math.min(60,ganttZoom+4);renderGantt()" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 2px;line-height:1">+</button>
-          <span style="font-size:10px;color:var(--accent);min-width:48px">${zoomLabel}</span>
+        <div style="display:flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:2px 8px">
+          <span style="font-size:9px;color:var(--text3)">Масштаб:</span>
+          <button onclick="ganttZoom=Math.max(4,ganttZoom-4);${rerender}()" style="background:none;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:0 1px;line-height:1">−</button>
+          <input type="range" min="4" max="60" step="2" value="${PPD}" oninput="ganttZoom=+this.value;${rerender}()" style="width:70px;accent-color:var(--accent);cursor:pointer">
+          <button onclick="ganttZoom=Math.min(60,ganttZoom+4);${rerender}()" style="background:none;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:0 1px;line-height:1">+</button>
+          <span style="font-size:9px;color:var(--accent);min-width:44px">${zoomLabel}</span>
         </div>
-        <button onclick="ganttZoom=28;renderGantt()" style="height:32px;padding:0 10px;background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--text3);font-size:11px;cursor:pointer">Авто</button>
-        <button onclick="ganttExportPDF()" style="height:32px;padding:0 12px;background:var(--accent);border:none;border-radius:7px;color:#1a0f00;font-size:11px;font-weight:700;cursor:pointer">⬇ PDF</button>
+        <button onclick="ganttZoom=28;${rerender}()" style="height:28px;padding:0 9px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:10px;cursor:pointer">Авто</button>
+        <button onclick="ganttExportPDF()" style="height:28px;padding:0 10px;background:var(--accent);border:none;border-radius:6px;color:#1a0f00;font-size:10px;font-weight:700;cursor:pointer">⬇ PDF</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        ${legend.map(([bg,l])=>`<span style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--text3)"><span style="width:14px;height:4px;border-radius:2px;background:${bg};display:inline-block;flex-shrink:0"></span>${l}</span>`).join('')}
       </div>
     </div>
-    <div id="gantt-print-wrap" style="display:flex;flex-direction:column;height:calc(100vh - 170px);border:1px solid var(--border);border-radius:var(--radius);background:var(--card);overflow:hidden">
-      <!-- header -->
+    <div id="gantt-print-wrap" style="display:flex;flex-direction:column;height:${chartH};border:1px solid var(--border);border-radius:var(--radius);background:var(--card);overflow:hidden">
       <div style="display:flex;background:#162030;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0">
-        <div style="width:260px;min-width:260px;display:flex;align-items:center;padding:0 14px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.4);border-right:1px solid rgba(255,255,255,.08);flex-shrink:0;height:34px">Назва / Вид робіт / Задача</div>
+        <div style="width:240px;min-width:240px;display:flex;align-items:center;padding:0 12px;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35);border-right:1px solid rgba(255,255,255,.08);flex-shrink:0;height:30px">Назва</div>
         <div style="flex:1;overflow:hidden">
-          <div style="position:relative;height:20px;width:${totalPx}px;border-bottom:1px solid rgba(255,255,255,.07)">${monthsHtml}</div>
-          <div style="position:relative;height:14px;width:${totalPx}px">${daysHtml}</div>
+          <div style="position:relative;height:18px;width:${totalPx}px;border-bottom:1px solid rgba(255,255,255,.07)">${monthsHtml}</div>
+          <div style="position:relative;height:12px;width:${totalPx}px">${daysHtml}</div>
         </div>
       </div>
-      <!-- body -->
       <div style="display:flex;flex:1;overflow:hidden">
-        <div style="width:260px;min-width:260px;overflow-y:auto;flex-shrink:0;border-right:1px solid rgba(255,255,255,.07)" id="gantt-left">${leftRows}</div>
+        <div style="width:240px;min-width:240px;overflow-y:auto;flex-shrink:0;border-right:1px solid rgba(255,255,255,.07)" id="gantt-left">${leftRows}</div>
         <div style="flex:1;overflow:auto;position:relative" id="gantt-right">
           <div style="width:${totalPx}px;position:relative;min-height:100%">
             ${rightRows}
-            ${todayPx!=null?`<div style="position:absolute;left:${todayPx}px;top:0;bottom:0;width:1px;background:#f87171;opacity:.7;pointer-events:none;z-index:5"></div>`:''}
+            ${todayPx!=null?`<div style="position:absolute;left:${todayPx}px;top:0;bottom:0;width:1px;background:#f87171;opacity:.6;pointer-events:none;z-index:5"></div>`:''}
           </div>
         </div>
       </div>
     </div>`;
 
-  // sync scroll left↔right (vertical)
   const gl=document.getElementById('gantt-left');
   const gr=document.getElementById('gantt-right');
   if(gl&&gr){
@@ -2276,7 +2301,7 @@ function renderDashboard(){
 
   el.innerHTML=`
     <div class="page-header"><h1 class="page-title">📋 Дашборд</h1></div>
-    <div class="metrics" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+    <div class="metrics" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin-bottom:20px">
       <div class="metric" style="--mc:var(--accent)">
         <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21V12h6v9"/></svg></span>Всього об'єктів</div>
         <div class="metric-value">${sitesCount}</div>
@@ -2297,7 +2322,10 @@ function renderDashboard(){
         <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Фактичні витрати</div>
         <div class="metric-value" style="font-size:15px">${fmtN(factExp)}</div>
       </div>
-    </div>`;
+    </div>
+    <div id="dash-gantt-container"></div>`;
+  // render gantt inline below metrics
+  renderGanttInto(document.getElementById('dash-gantt-container'), true);
 }
 
 // ══════════════════════════════════════════════════════════════
