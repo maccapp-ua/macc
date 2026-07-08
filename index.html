@@ -335,26 +335,38 @@ select.form-input option{background:var(--bg3)}
 
 <!-- Рядок бюджету -->
 <div class="modal-overlay" id="modal-brow">
-  <div class="modal" style="width:540px">
+  <div class="modal" style="width:560px">
     <div class="modal-head">
       <span class="modal-title" id="modal-brow-title">Новий рядок бюджету</span>
       <button class="modal-close" onclick="closeModal('brow')">×</button>
     </div>
     <div class="modal-body">
-      <div class="form-group"><label class="form-label">Роботи та матеріали *</label>
-        <input class="form-input" id="br-work" placeholder="напр. Фундаментні роботи, Каркас..."></div>
+      <div class="form-group"><label class="form-label">Назва статті *</label>
+        <input class="form-input" id="br-work" placeholder="напр. Улаштування фундаменту..."></div>
       <div class="form-group"><label class="form-label">Виконавець / підрядник</label>
-        <select class="form-input" id="br-executor">
-          <option value="">— не вказано —</option>
-          <option value="СС">СС (власне виконання)</option>
-        </select></div>
-      <div class="form-row2">
-        <div class="form-group"><label class="form-label">ДЦ замовника, грн</label>
-          <input class="form-input" type="number" id="br-dc" placeholder="0" oninput="calcBudgetRow()"></div>
-        <div class="form-group"><label class="form-label">Ціна витрат (план), грн</label>
-          <input class="form-input" type="number" id="br-plan-cost" placeholder="0" oninput="calcBudgetRow()"></div>
+        <input class="form-input" id="br-executor" list="br-executor-list" placeholder="— не вказано —" autocomplete="off">
+        <datalist id="br-executor-list"></datalist></div>
+      <!-- items grid -->
+      <div style="margin-top:14px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Складові статті</div>
+        <div style="display:grid;grid-template-columns:120px 1fr 1fr;gap:5px 10px;align-items:center">
+          <div></div>
+          <div style="font-size:10px;color:var(--text3);text-align:right;padding-right:2px">ДЦ замовника, грн</div>
+          <div style="font-size:10px;color:var(--text3);text-align:right;padding-right:2px">Собівартість (план), грн</div>
+          <div style="font-size:12px;font-weight:600;color:var(--blue);padding:3px 0">🔧 Роботи</div>
+          <input class="form-input" type="number" id="br-dc-r" placeholder="0" min="0" oninput="calcBudgetRow()" style="text-align:right">
+          <input class="form-input" type="number" id="br-pc-r" placeholder="0" min="0" oninput="calcBudgetRow()" style="text-align:right">
+          <div style="font-size:12px;font-weight:600;color:var(--amber);padding:3px 0">🧱 Матеріали</div>
+          <input class="form-input" type="number" id="br-dc-m" placeholder="0" min="0" oninput="calcBudgetRow()" style="text-align:right">
+          <input class="form-input" type="number" id="br-pc-m" placeholder="0" min="0" oninput="calcBudgetRow()" style="text-align:right">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);padding:3px 0">
+            <input type="checkbox" id="br-mech-on" onchange="toggleMech()"> ⚙️ Механізми
+          </label>
+          <input class="form-input" type="number" id="br-dc-mech" placeholder="0" min="0" oninput="calcBudgetRow()" style="text-align:right;opacity:.35" disabled>
+          <input class="form-input" type="number" id="br-pc-mech" placeholder="0" min="0" oninput="calcBudgetRow()" style="text-align:right;opacity:.35" disabled>
+        </div>
       </div>
-      <div class="form-row2">
+      <div class="form-row2" style="margin-top:12px">
         <div class="form-group"><label class="form-label">Дата початку робіт</label>
           <input class="form-input" type="date" id="br-start-date"></div>
         <div class="form-group"><label class="form-label">Дата завершення робіт</label>
@@ -363,9 +375,10 @@ select.form-input option{background:var(--bg3)}
       <!-- preview -->
       <div id="br-preview" style="margin-top:14px;padding:12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);display:none">
         <div style="font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Розрахунок (план)</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px">
-          <div><span style="font-size:9px;color:var(--text3)">Дохід план, грн</span><br><span id="br-p-inc" style="font-size:14px;font-weight:700;color:var(--accent)">—</span></div>
-          <div><span style="font-size:9px;color:var(--text3)">Дохід план, %</span><br><span id="br-p-pct" style="font-size:14px;font-weight:700;color:var(--accent)">—</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 16px">
+          <div><span style="font-size:9px;color:var(--text3)">ДЦ разом, грн</span><br><span id="br-p-dc" style="font-size:13px;font-weight:700;color:var(--text)">—</span></div>
+          <div><span style="font-size:9px;color:var(--text3)">Прибуток план, грн</span><br><span id="br-p-inc" style="font-size:13px;font-weight:700;color:var(--accent)">—</span></div>
+          <div><span style="font-size:9px;color:var(--text3)">Прибуток план, %</span><br><span id="br-p-pct" style="font-size:13px;font-weight:700;color:var(--accent)">—</span></div>
         </div>
         <div style="margin-top:8px;font-size:10px;color:var(--text3)">💡 Фактичні витрати підтягуються автоматично з «Грошових потоків» по виду робіт</div>
       </div>
@@ -1207,7 +1220,7 @@ function renderBudgetDetail(){
   // totals
   let totDC=0,totPC=0,totFC=0;
   rows.forEach(r=>{
-    totDC+=(+r.dcPrice||0);totPC+=(+r.planCost||0);
+    totDC+=rowDC(r);totPC+=rowPC(r);
     totFC+=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
   });
   const totPI=totDC-totPC, totFI=totDC-totFC;
@@ -1217,32 +1230,49 @@ function renderBudgetDetail(){
 
   function pct(num,den){if(!den)return'—';return(num/den*100).toFixed(1)+'%';}
   function colored(v,pos='var(--green)',neg='var(--red)'){return`style="color:${v>=0?pos:neg};font-weight:700"`}
+  const ITEM_STYLE={Роботи:'var(--blue)',Матеріали:'var(--amber)',Механізми:'var(--text2)'};
+  const ITEM_ICON={Роботи:'🔧',Матеріали:'🧱',Механізми:'⚙️'};
 
   let tbody='';
   if(!rows.length){
     tbody=`<tr><td colspan="12"><div class="empty" style="padding:30px"><div class="empty-icon">📋</div><h3>Бюджет порожній</h3><p>Натисніть «+ Додати рядок»</p></div></td></tr>`;
   } else {
     rows.forEach((r,i)=>{
-      const dc=+r.dcPrice||0, pc=+r.planCost||0;
+      const dc=rowDC(r), pc=rowPC(r);
       const fc=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
       const pi=dc-pc, fi=dc-fc, diff=pc-fc;
       const execLabel=r.executor||'—';
       const execColor=r.executor==='СС'?'var(--green)':r.executor?'var(--blue)':'var(--text3)';
-      tbody+=`<tr onclick="openBudgetRowModal('${s.id}','${r.id}')">
-        <td style="color:var(--text3);text-align:center">${i+1}</td>
-        <td style="color:var(--text);font-weight:600;min-width:160px">${esc(r.workType||'—')}</td>
-        <td style="font-size:11px;font-weight:600;color:${execColor}">${esc(execLabel)}</td>
-        <td class="r mono">${dc?fmtN(dc):'—'}</td>
-        <td class="r mono" style="color:var(--red)">${pc?fmtN(pc):'—'}</td>
-        <td class="r mono" ${colored(pi)}>${dc?fmtN(pi):'—'}</td>
-        <td class="r" style="color:${pi>=0?'var(--green)':'var(--red)'}">${pct(pi,dc)}</td>
-        <td class="r mono" style="color:var(--amber)">${fc?fmtN(fc):'—'}</td>
-        <td class="r mono" ${colored(fi)}>${dc?fmtN(fi):'—'}</td>
-        <td class="r" style="color:${fi>=0?'var(--green)':'var(--red)'}">${dc&&fc?pct(fi,dc):'—'}</td>
-        <td class="r mono" ${colored(diff,'var(--green)','var(--red)')}>${pc?fmtN(diff):'—'}</td>
-        <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="deleteBudgetRow('${s.id}','${r.id}')">×</button></td>
+      const hasItems=r.items&&r.items.length>0;
+      tbody+=`<tr onclick="openBudgetRowModal('${s.id}','${r.id}')" style="cursor:pointer">
+        <td style="color:var(--text3);text-align:center;vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${i+1}</td>
+        <td style="color:var(--text);font-weight:600;min-width:160px;vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${esc(r.workType||'—')}</td>
+        <td style="font-size:11px;font-weight:600;color:${execColor};vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${esc(execLabel)}</td>
+        <td class="r mono" style="vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${dc?fmtN(dc):'—'}</td>
+        <td class="r mono" style="color:var(--red);vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${pc?fmtN(pc):'—'}</td>
+        <td class="r mono" ${colored(pi)} style="vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${dc?fmtN(pi):'—'}</td>
+        <td class="r" style="color:${pi>=0?'var(--green)':'var(--red)'};vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${pct(pi,dc)}</td>
+        <td class="r mono" style="color:var(--amber);vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${fc?fmtN(fc):'—'}</td>
+        <td class="r mono" ${colored(fi)} style="vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${dc?fmtN(fi):'—'}</td>
+        <td class="r" style="color:${fi>=0?'var(--green)':'var(--red)'};vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${dc&&fc?pct(fi,dc):'—'}</td>
+        <td class="r mono" ${colored(diff,'var(--green)','var(--red)')} style="vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${pc?fmtN(diff):'—'}</td>
+        <td onclick="event.stopPropagation()" style="vertical-align:top;padding-top:${hasItems?'8px':'6px'}"><button class="btn sm danger" onclick="deleteBudgetRow('${s.id}','${r.id}')">×</button></td>
       </tr>`;
-    });
+      // sub-item rows
+      if(hasItems){
+        r.items.forEach(it=>{
+          const icolor=ITEM_STYLE[it.type]||'var(--text3)';
+          const iicon=ITEM_ICON[it.type]||'';
+          tbody+=`<tr onclick="openBudgetRowModal('${s.id}','${r.id}')" style="cursor:pointer;background:rgba(255,255,255,.03)">
+            <td></td>
+            <td style="font-size:11px;color:${icolor};padding-left:22px;padding-top:1px;padding-bottom:5px;border-top:none">${iicon} ${it.type}</td>
+            <td style="border-top:none"></td>
+            <td class="r mono" style="font-size:11px;color:var(--text2);padding-top:1px;padding-bottom:5px;border-top:none">${it.dcPrice?fmtN(it.dcPrice):'—'}</td>
+            <td class="r mono" style="font-size:11px;color:var(--text2);padding-top:1px;padding-bottom:5px;border-top:none">${it.planCost?fmtN(it.planCost):'—'}</td>
+            <td colspan="7" style="border-top:none"></td>
+          </tr>`;
+        });
+      }
     // totals row
     tbody+=`<tr style="background:var(--bg2);border-top:2px solid var(--border2)">
       <td colspan="3" style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">РАЗОМ</td>
@@ -1298,6 +1328,20 @@ function renderBudgetDetail(){
 }
 
 // ── Budget row modal ──────────────────────────────────────────
+// helpers: get total DC / plan cost from row (new items[] or legacy flat fields)
+function rowDC(r){return r.items?r.items.reduce((a,i)=>a+(+i.dcPrice||0),0):(+r.dcPrice||0);}
+function rowPC(r){return r.items?r.items.reduce((a,i)=>a+(+i.planCost||0),0):(+r.planCost||0);}
+
+function toggleMech(){
+  const on=document.getElementById('br-mech-on').checked;
+  ['br-dc-mech','br-pc-mech'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.disabled=!on; el.style.opacity=on?'1':'.35';
+    if(!on)el.value='';
+  });
+  calcBudgetRow();
+}
+
 function openBudgetRowModal(siteId,rowId){
   curBudgetSiteId=siteId;
   editingBudgetRowId=rowId||null;
@@ -1305,50 +1349,78 @@ function openBudgetRowModal(siteId,rowId){
   const r=rowId?rows.find(x=>x.id===rowId):null;
   document.getElementById('modal-brow-title').textContent=rowId?'Редагувати рядок':'Новий рядок бюджету';
   document.getElementById('br-work').value=r?.workType||'';
-  document.getElementById('br-dc').value=r?.dcPrice||'';
-  document.getElementById('br-plan-cost').value=r?.planCost||'';
   document.getElementById('br-start-date').value=r?.startDate||'';
   document.getElementById('br-end-date').value=r?.endDate||'';
-  // populate executor dropdown: СС + subcontractors of this site
+  // executor combobox datalist
   const site=(state.sites||[]).find(x=>x.id===siteId);
   const subs=(site?.subContracts||[]).map(sc=>sc.name).filter(Boolean);
   const contractors=(state.contractors||[]).map(c=>c.name).filter(Boolean);
-  const execSel=document.getElementById('br-executor');
   const allExec=[...new Set([...subs,...contractors])].sort();
-  execSel.innerHTML=`<option value="">— не вказано —</option><option value="СС">СС (власне виконання)</option>`
-    +allExec.map(n=>`<option value="${esc(n)}"${r?.executor===n?' selected':''}>${esc(n)}</option>`).join('');
-  execSel.value=r?.executor||'';
+  document.getElementById('br-executor-list').innerHTML=
+    `<option value="СС">СС (власне виконання)</option>`
+    +allExec.map(n=>`<option value="${esc(n)}">`).join('');
+  document.getElementById('br-executor').value=r?.executor||'';
+  // items
+  const items=r?.items||[];
+  const getItem=type=>items.find(i=>i.type===type)||null;
+  const rIt=getItem('Роботи'), mIt=getItem('Матеріали'), mechIt=getItem('Механізми');
+  // backward compat: legacy flat row → treat as Роботи
+  const legacyR=!items.length&&(r?.dcPrice||r?.planCost);
+  document.getElementById('br-dc-r').value=rIt?rIt.dcPrice:(legacyR?r.dcPrice:'');
+  document.getElementById('br-pc-r').value=rIt?rIt.planCost:(legacyR?r.planCost:'');
+  document.getElementById('br-dc-m').value=mIt?mIt.dcPrice:'';
+  document.getElementById('br-pc-m').value=mIt?mIt.planCost:'';
+  const hasMech=!!mechIt;
+  document.getElementById('br-mech-on').checked=hasMech;
+  document.getElementById('br-dc-mech').value=mechIt?mechIt.dcPrice:'';
+  document.getElementById('br-pc-mech').value=mechIt?mechIt.planCost:'';
+  ['br-dc-mech','br-pc-mech'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.disabled=!hasMech; el.style.opacity=hasMech?'1':'.35';
+  });
   calcBudgetRow();
   document.getElementById('modal-brow').classList.add('open');
 }
 
 function calcBudgetRow(){
-  const dc=+document.getElementById('br-dc').value||0;
-  const pc=+document.getElementById('br-plan-cost').value||0;
+  const dc=(+document.getElementById('br-dc-r').value||0)
+          +(+document.getElementById('br-dc-m').value||0)
+          +(+document.getElementById('br-dc-mech').value||0);
+  const pc=(+document.getElementById('br-pc-r').value||0)
+          +(+document.getElementById('br-pc-m').value||0)
+          +(+document.getElementById('br-pc-mech').value||0);
   const prev=document.getElementById('br-preview');
-  if(!dc){prev.style.display='none';return;}
+  if(!dc&&!pc){prev.style.display='none';return;}
   prev.style.display='block';
   const pi=dc-pc;
-  const pct=(n,d)=>d?((n/d)*100).toFixed(1)+'%':'—';
-  const col=(v)=>v>=0?'var(--green)':'var(--red)';
+  const col=v=>v>=0?'var(--green)':'var(--red)';
+  document.getElementById('br-p-dc').textContent=fmtN(dc);
   document.getElementById('br-p-inc').textContent=fmtN(pi);
   document.getElementById('br-p-inc').style.color=col(pi);
-  document.getElementById('br-p-pct').textContent=pct(pi,dc);
+  document.getElementById('br-p-pct').textContent=dc?((pi/dc)*100).toFixed(1)+'%':'—';
   document.getElementById('br-p-pct').style.color=col(pi);
 }
 
 function saveBudgetRow(){
   const workType=document.getElementById('br-work').value.trim();
-  if(!workType){alert('Введіть вид робіт');return;}
+  if(!workType){alert('Введіть назву статті');return;}
   if(!state.budgets)state.budgets={};
   if(!state.budgets[curBudgetSiteId])state.budgets[curBudgetSiteId]={rows:[]};
   const rows=state.budgets[curBudgetSiteId].rows;
+  const items=[];
+  const dcR=+document.getElementById('br-dc-r').value||0, pcR=+document.getElementById('br-pc-r').value||0;
+  if(dcR||pcR) items.push({type:'Роботи',dcPrice:dcR,planCost:pcR});
+  const dcM=+document.getElementById('br-dc-m').value||0, pcM=+document.getElementById('br-pc-m').value||0;
+  if(dcM||pcM) items.push({type:'Матеріали',dcPrice:dcM,planCost:pcM});
+  if(document.getElementById('br-mech-on').checked){
+    const dcMech=+document.getElementById('br-dc-mech').value||0, pcMech=+document.getElementById('br-pc-mech').value||0;
+    if(dcMech||pcMech) items.push({type:'Механізми',dcPrice:dcMech,planCost:pcMech});
+  }
   const data={
     id:editingBudgetRowId||uid(),
     workType,
-    executor:document.getElementById('br-executor').value||'',
-    dcPrice:+document.getElementById('br-dc').value||0,
-    planCost:+document.getElementById('br-plan-cost').value||0,
+    executor:document.getElementById('br-executor').value.trim()||'',
+    items,
     startDate:document.getElementById('br-start-date').value||'',
     endDate:document.getElementById('br-end-date').value||'',
   };
@@ -1415,8 +1487,8 @@ function downloadBudgetTemplate(){
   ws['!cols']=[{wch:32},{wch:26},{wch:20},{wch:24},{wch:22},{wch:24},{wch:30}];
 
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,wsInfo,'Інформація');
   XLSX.utils.book_append_sheet(wb,ws,'Бюджет');
+  XLSX.utils.book_append_sheet(wb,wsInfo,'Інформація');
   const fname=site?`budget_${site.name.replace(/[^a-zA-Zа-яА-Я0-9]/g,'_').slice(0,30)}.xlsx`:'budget_template.xlsx';
   XLSX.writeFile(wb,fname);
 }
@@ -1473,11 +1545,12 @@ function importBudgetExcel(siteId, input){
         const row=raw[i];
         const workType=colMap.workType>=0?String(row[colMap.workType]||'').trim():'';
         if(!workType)continue; // skip empty
+        const flatDC=colMap.dcPrice>=0?(+String(row[colMap.dcPrice]).replace(/[^\d.]/g,'')||0):0;
+        const flatPC=colMap.planCost>=0?(+String(row[colMap.planCost]).replace(/[^\d.]/g,'')||0):0;
         parsed.push({
           workType,
           executor:  colMap.executor>=0  ? String(row[colMap.executor]||'').trim()  : '',
-          dcPrice:   colMap.dcPrice>=0   ? (+String(row[colMap.dcPrice]).replace(/[^\d.]/g,'')||0) : 0,
-          planCost:  colMap.planCost>=0  ? (+String(row[colMap.planCost]).replace(/[^\d.]/g,'')||0) : 0,
+          items:     flatDC||flatPC ? [{type:'Роботи',dcPrice:flatDC,planCost:flatPC}] : [],
           startDate: colMap.startDate>=0 ? _parseDateStr(row[colMap.startDate]) : '',
           endDate:   colMap.endDate>=0   ? _parseDateStr(row[colMap.endDate])   : '',
           notes:     colMap.notes>=0     ? String(row[colMap.notes]||'').trim()  : '',
