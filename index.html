@@ -1796,7 +1796,7 @@ function renderDashboard(){
   const sitesCount=sites.length;
 
   // 2. Сума договорів з замовниками = сума contractPrice по всіх об'єктах
-  const totalContractPrice=sites.reduce((a,s)=>a+(+s.contractPrice||0),0);
+  const totalContractPrice=sites.reduce((a,s)=>a+(+s.amountGross||0),0);
 
   // 3. Планові витрати + 4. Плановий прибуток — з бюджетів
   let planCost=0, planIncome=0;
