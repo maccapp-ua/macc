@@ -2106,7 +2106,7 @@ function renderGanttInto(container, compact){
     const left=px(mCur.toISOString().slice(0,10));
     const mw=Math.round((mNext-mCur)/86400000)*PPD;
     const label=mCur.toLocaleDateString('uk',{month:'short'});
-    monthHtml+=`<div style="position:absolute;left:${left}px;width:${mw}px;height:100%;display:flex;align-items:center;padding-left:5px;font-size:9px;font-weight:700;color:rgba(255,255,255,.8);border-right:1px solid rgba(251,146,60,.4);box-sizing:border-box;overflow:hidden;white-space:nowrap;text-transform:uppercase">${label}</div>`;
+    monthHtml+=`<div style="position:absolute;left:${left}px;width:${mw}px;height:100%;display:flex;align-items:center;padding-left:5px;font-size:9px;font-weight:700;color:#fff;border-right:1px solid rgba(251,146,60,.4);box-sizing:border-box;overflow:hidden;white-space:nowrap;text-transform:uppercase">${label}</div>`;
     if(left>0) gridOverlay+=`<div style="position:absolute;left:${left}px;top:0;bottom:0;width:1px;background:rgba(251,146,60,.3);z-index:1;pointer-events:none"></div>`;
     mCur.setMonth(mCur.getMonth()+1);
   }
@@ -2118,7 +2118,7 @@ function renderGanttInto(container, compact){
     while(wCur<maxD){
       const left=px(wCur.toISOString().slice(0,10));
       const d=wCur.getDate();
-      weekHtml+=`<div style="position:absolute;left:${left}px;height:100%;display:flex;align-items:center;padding-left:2px;font-size:8px;color:rgba(255,255,255,.35);border-left:1px solid rgba(120,120,120,.22);box-sizing:border-box;white-space:nowrap">${PPD>=12?d:''}</div>`;
+      weekHtml+=`<div style="position:absolute;left:${left}px;height:100%;display:flex;align-items:center;padding-left:2px;font-size:8px;color:#fff;border-left:1px solid rgba(120,120,120,.22);box-sizing:border-box;white-space:nowrap">${PPD>=12?d:''}</div>`;
       gridOverlay+=`<div class="gl-week" style="position:absolute;left:${left}px;top:0;bottom:0;width:1px;background:rgba(110,110,110,.22);z-index:0;pointer-events:none"></div>`;
       wCur.setDate(wCur.getDate()+7);
     }
@@ -2134,7 +2134,7 @@ function renderGanttInto(container, compact){
         const left=px(dCur.toISOString().slice(0,10));
         const d=dCur.getDate();
         // show number only if enough space (>=20px/day)
-        dayHtml+=`<div style="position:absolute;left:${left}px;height:100%;display:flex;align-items:center;padding-left:1px;font-size:7px;color:rgba(255,255,255,.2);border-left:1px solid rgba(140,140,140,.1);box-sizing:border-box;white-space:nowrap">${PPD>=22?d:''}</div>`;
+        dayHtml+=`<div style="position:absolute;left:${left}px;height:100%;display:flex;align-items:center;padding-left:1px;font-size:7px;color:rgba(255,255,255,.75);border-left:1px solid rgba(140,140,140,.1);box-sizing:border-box;white-space:nowrap">${PPD>=22?d:''}</div>`;
         gridOverlay+=`<div class="gl-day" style="position:absolute;left:${left}px;top:0;bottom:0;width:1px;background:rgba(140,140,140,.1);z-index:0;pointer-events:none"></div>`;
       }
       dCur.setDate(dCur.getDate()+1);
