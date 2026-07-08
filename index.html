@@ -110,34 +110,32 @@ select.form-input option{background:var(--bg3)}
 .tag-chip{display:inline-flex;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(169,116,230,.15);color:var(--violet);border:1px solid rgba(169,116,230,.25)}
 
 /* ── GANTT ── */
-.gantt-wrap{display:flex;overflow:hidden;border:1px solid var(--border);border-radius:var(--radius);background:var(--card)}
-.gantt-left{width:260px;min-width:260px;border-right:1px solid var(--border);overflow:hidden;flex-shrink:0}
-.gantt-right{flex:1;overflow-x:auto;overflow-y:hidden;position:relative}
-.gantt-header-row{display:flex;background:var(--bg2);border-bottom:2px solid var(--border);height:36px}
-.gantt-header-left{width:260px;min-width:260px;display:flex;align-items:center;padding:0 14px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-right:1px solid var(--border);flex-shrink:0}
-.gantt-months{position:relative;height:36px;min-width:100%}
-.gantt-month-cell{position:absolute;top:0;height:100%;border-left:1px solid var(--border);display:flex;align-items:center;padding-left:8px;font-size:10px;font-weight:700;color:var(--text3);white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
-.gantt-body{display:flex;flex-direction:column}
-.gantt-row{display:flex;height:38px;border-bottom:1px solid var(--border)}
-.gantt-row:last-child{border-bottom:none}
-.gantt-row:hover{background:var(--bg3)}
-.gantt-row.site-row{background:rgba(240,180,41,.04);height:44px}
-.gantt-row.site-row:hover{background:rgba(240,180,41,.08)}
-.gantt-cell-left{width:260px;min-width:260px;display:flex;align-items:center;padding:0 12px;border-right:1px solid var(--border);flex-shrink:0;overflow:hidden}
-.gantt-cell-name{font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gantt-cell-name.site{font-size:12px;font-weight:700;color:var(--text)}
-.gantt-cell-name.sub{color:var(--text3);font-size:10px;padding-left:14px}
-.gantt-cell-right{position:relative;flex:1;min-width:0}
-.gantt-grid-line{position:absolute;top:0;bottom:0;width:1px;background:var(--border);opacity:.4}
-.gantt-bar{position:absolute;top:50%;transform:translateY(-50%);height:20px;border-radius:4px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;min-width:4px}
-.gantt-bar.site{height:26px;background:linear-gradient(90deg,var(--accent),#e8960a);color:#1a1000;border-radius:6px}
-.gantt-bar.work{height:18px;background:linear-gradient(90deg,#0ea5e9,#38bdf8);opacity:.85}
-.gantt-bar.task-done{height:16px;background:linear-gradient(90deg,#16a34a,#4ade80);opacity:.8}
-.gantt-bar.task-progress{height:16px;background:linear-gradient(90deg,#7c3aed,#a78bfa);opacity:.85}
-.gantt-bar.task-todo{height:16px;background:linear-gradient(90deg,#475569,#64748b);opacity:.8}
-.gantt-bar.task-overdue{height:16px;background:linear-gradient(90deg,#dc2626,#f87171);opacity:.9}
-.gantt-today{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.7;z-index:2}
-.gantt-today-label{position:absolute;top:2px;font-size:8px;font-weight:700;color:var(--red);white-space:nowrap;transform:translateX(-50%)}
+.gantt-wrap{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);overflow:hidden}
+.gantt-month-cell{position:absolute;top:0;height:100%;border-left:1px solid rgba(255,255,255,.08);display:flex;align-items:center;padding-left:8px;font-size:9px;font-weight:700;color:#fff;white-space:nowrap;text-transform:uppercase;letter-spacing:.05em;opacity:.7}
+.gantt-row{display:flex;height:34px;border-bottom:1px solid rgba(255,255,255,.05)}
+.gantt-row.site-row{height:40px;background:rgba(240,180,41,.04)}
+.gantt-row:hover{background:rgba(255,255,255,.03)}
+.gantt-cell-left{width:260px;min-width:260px;display:flex;align-items:center;padding:0 12px;border-right:1px solid rgba(255,255,255,.06);flex-shrink:0;overflow:hidden}
+.gantt-cell-name{font-size:11px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt-cell-name.site{font-size:12px;font-weight:700;color:#fff}
+.gantt-cell-name.sub{color:rgba(255,255,255,.6);font-size:10px;padding-left:16px}
+.gantt-grid-line{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.07)}
+.gantt-bar{position:absolute;top:50%;transform:translateY(-50%);height:14px;border-radius:3px;display:flex;align-items:center;padding:0 6px;font-size:9px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;min-width:6px;cursor:grab;user-select:none;transition:filter .1s}
+.gantt-bar:hover{filter:brightness(1.15)}
+.gantt-bar:active{cursor:grabbing}
+.gantt-bar.site{height:18px;background:linear-gradient(90deg,#c98a00,var(--accent));color:#1a0f00;border-radius:5px;font-size:10px}
+.gantt-bar.work{background:linear-gradient(90deg,#0369a1,#38bdf8)}
+.gantt-bar.task-done{background:linear-gradient(90deg,#15803d,#4ade80)}
+.gantt-bar.task-progress{background:linear-gradient(90deg,#6d28d9,#a78bfa)}
+.gantt-bar.task-todo{background:linear-gradient(90deg,#334155,#64748b)}
+.gantt-bar.task-overdue{background:linear-gradient(90deg,#b91c1c,#f87171)}
+.gantt-handle{position:absolute;top:0;bottom:0;width:6px;cursor:ew-resize;opacity:0;background:rgba(255,255,255,.4);transition:opacity .15s}
+.gantt-handle.left{left:0;border-radius:3px 0 0 3px}
+.gantt-handle.right{right:0;border-radius:0 3px 3px 0}
+.gantt-bar:hover .gantt-handle{opacity:1}
+.gantt-today{position:absolute;top:0;bottom:0;width:1px;background:#f87171;opacity:.8;z-index:3;pointer-events:none}
+.gantt-today-label{position:absolute;top:3px;font-size:8px;font-weight:700;color:#f87171;white-space:nowrap;transform:translateX(-50%);pointer-events:none}
+.gantt-tooltip{position:fixed;background:#1a2a3e;border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:11px;color:#fff;pointer-events:none;z-index:999;display:none}
 /* ── EMPTY STATE ── */
 .empty{text-align:center;padding:60px 20px;color:var(--text3)}
 .empty-icon{font-size:44px;margin-bottom:14px}
@@ -356,6 +354,12 @@ select.form-input option{background:var(--bg3)}
         <div class="form-group"><label class="form-label">Ціна витрат (план), грн</label>
           <input class="form-input" type="number" id="br-plan-cost" placeholder="0" oninput="calcBudgetRow()"></div>
       </div>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">Дата початку робіт</label>
+          <input class="form-input" type="date" id="br-start-date"></div>
+        <div class="form-group"><label class="form-label">Дата завершення робіт</label>
+          <input class="form-input" type="date" id="br-end-date"></div>
+      </div>
       <!-- preview -->
       <div id="br-preview" style="margin-top:14px;padding:12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);display:none">
         <div style="font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Розрахунок (план)</div>
@@ -518,7 +522,10 @@ select.form-input option{background:var(--bg3)}
             <option value="done">Виконано</option>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">Строк виконання</label>
+        <div class="form-group"><label class="form-label">Дата початку</label>
+          <input class="form-input" type="date" id="task-start-date">
+        </div>
+        <div class="form-group"><label class="form-label">Дата завершення</label>
           <input class="form-input" type="date" id="task-deadline">
         </div>
         <div class="form-group"><label class="form-label">Пріоритет</label>
@@ -1292,6 +1299,8 @@ function openBudgetRowModal(siteId,rowId){
   document.getElementById('br-work').value=r?.workType||'';
   document.getElementById('br-dc').value=r?.dcPrice||'';
   document.getElementById('br-plan-cost').value=r?.planCost||'';
+  document.getElementById('br-start-date').value=r?.startDate||'';
+  document.getElementById('br-end-date').value=r?.endDate||'';
   calcBudgetRow();
   document.getElementById('modal-brow').classList.add('open');
 }
@@ -1322,6 +1331,8 @@ function saveBudgetRow(){
     workType,
     dcPrice:+document.getElementById('br-dc').value||0,
     planCost:+document.getElementById('br-plan-cost').value||0,
+    startDate:document.getElementById('br-start-date').value||'',
+    endDate:document.getElementById('br-end-date').value||'',
   };
   if(editingBudgetRowId){const i=rows.findIndex(x=>x.id===editingBudgetRowId);if(i>=0)rows[i]=data;}
   else rows.push(data);
@@ -1887,10 +1898,49 @@ function showMgr(ovId,title,list,inputId,placeholder,addFn){
 // ══════════════════════════════════════════════════════════════
 //  GANTT
 // ══════════════════════════════════════════════════════════════
+// ── Gantt drag ────────────────────────────────────────────────
+const G_PPD=28; // px per day
+let _gDrag=null;
+function _gAddDays(ds,n){if(!ds)return '';const d=new Date(ds);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function _gBarDown(e,type,sid,rid,field){
+  e.preventDefault();e.stopPropagation();
+  let sd='',ed='';
+  if(type==='site'){const s=(state.sites||[]).find(x=>x.id===sid);sd=s?.signDate||'';ed=s?.deadline||'';}
+  else if(type==='work'){const r=((state.budgets||{})[sid]||{rows:[]}).rows.find(x=>x.id===rid);const s=(state.sites||[]).find(x=>x.id===sid);sd=r?.startDate||s?.signDate||'';ed=r?.endDate||s?.deadline||'';}
+  else if(type==='task'){const t=(state.tasks||[]).find(x=>x.id===rid);sd=t?.startDate||t?.deadline||'';ed=t?.deadline||'';}
+  _gDrag={type,sid,rid,field,x0:e.clientX,sd0:sd,ed0:ed};
+  const tip=document.getElementById('gantt-tip');if(tip)tip.style.display='block';
+  document.addEventListener('mousemove',_gMove);document.addEventListener('mouseup',_gUp);
+}
+function _gMove(e){
+  if(!_gDrag)return;
+  const {type,sid,rid,field,x0,sd0,ed0}=_gDrag;
+  const days=Math.round((e.clientX-x0)/G_PPD);
+  let nsd=sd0,ned=ed0;
+  if(field==='move'){nsd=_gAddDays(sd0,days);ned=_gAddDays(ed0,days);}
+  else if(field==='left'){nsd=_gAddDays(sd0,days);if(nsd>=ned)return;}
+  else if(field==='right'){ned=_gAddDays(ed0,days);if(ned<=nsd)return;}
+  // apply to state
+  if(type==='site'){const s=(state.sites||[]).find(x=>x.id===sid);if(s){s.signDate=nsd;s.deadline=ned;}}
+  else if(type==='work'){const rows=((state.budgets||{})[sid]||{rows:[]}).rows;const r=rows.find(x=>x.id===rid);if(r){r.startDate=nsd;r.endDate=ned;}}
+  else if(type==='task'){const t=(state.tasks||[]).find(x=>x.id===rid);if(t){t.startDate=nsd;t.deadline=ned;}}
+  _gDrag.x0=e.clientX;_gDrag.sd0=nsd;_gDrag.ed0=ned;
+  // update tooltip
+  const tip=document.getElementById('gantt-tip');
+  if(tip){tip.style.display='block';tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-30)+'px';tip.textContent=`${nsd||'?'} → ${ned||'?'}`;}
+  renderGantt();
+}
+function _gUp(){
+  if(_gDrag){save();}
+  _gDrag=null;
+  const tip=document.getElementById('gantt-tip');if(tip)tip.style.display='none';
+  document.removeEventListener('mousemove',_gMove);document.removeEventListener('mouseup',_gUp);
+}
+
 function renderGantt(){
   const el=document.getElementById('main-content');
   const sites=state.sites||[];
-  const PX_PER_DAY=28;
+  const PX_PER_DAY=G_PPD;
 
   // visible sites
   const vis=ganttSiteFilter?sites.filter(s=>s.id===ganttSiteFilter):sites;
@@ -1949,46 +1999,54 @@ function renderGantt(){
     const siteTasks=(state.tasks||[]).filter(t=>t.siteId===s.id);
     const rowCount=1+budgetRows.length+siteTasks.length;
 
-    // site header row (left)
-    leftRows+=`<div class="gantt-row site-row">
-      <div class="gantt-cell-left">
-        <div style="display:flex;flex-direction:column;overflow:hidden">
-          <div class="gantt-cell-name site">${esc(s.name)}</div>
-          <div style="font-size:9px;color:var(--text3);margin-top:1px">${sd?fmtD(sd):''} → ${ed?fmtD(ed):'?'}</div>
-        </div>
-      </div>
-    </div>`;
-    // site bar (right)
-    rightRows+=`<div class="gantt-row site-row" style="position:relative">
-      ${gridLines}
-      ${sL!=null&&sW?`<div class="gantt-bar site" style="left:${sL}px;width:${sW}px" title="${esc(s.name)}">${esc(s.name)}</div>`:''}
-      ${todayLine}
-    </div>`;
+    function bar(cls,left,width,label,ondown){
+      if(left==null||!width)return'';
+      return`<div class="gantt-bar ${cls}" style="left:${left}px;width:${Math.max(6,width)}px" onmousedown="${ondown}">
+        <span class="gantt-handle left" onmousedown="event.stopPropagation();${ondown.replace("'move'","'left'")}"></span>
+        ${Math.max(6,width)>30?`<span style="overflow:hidden;text-overflow:ellipsis;flex:1">${esc(label)}</span>`:''}
+        <span class="gantt-handle right" onmousedown="event.stopPropagation();${ondown.replace("'move'","'right'")}"></span>
+      </div>`;
+    }
+
+    // site row
+    leftRows+=`<div class="gantt-row site-row"><div class="gantt-cell-left">
+      <div style="display:flex;flex-direction:column;overflow:hidden">
+        <div class="gantt-cell-name site">${esc(s.name)}</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:1px">${sd?fmtD(sd):''} → ${ed?fmtD(ed):'?'}</div>
+      </div></div></div>`;
+    rightRows+=`<div class="gantt-row site-row" style="position:relative">${gridLines}
+      ${bar('site',sL,sW,s.name,`_gBarDown(event,'site','${s.id}',null,'move')`)}
+      ${todayLine}</div>`;
 
     // work type rows
     budgetRows.forEach(r=>{
       if(!r.workType)return;
-      leftRows+=`<div class="gantt-row">
-        <div class="gantt-cell-left"><div class="gantt-cell-name sub">⚙ ${esc(r.workType)}</div></div>
-      </div>`;
-      rightRows+=`<div class="gantt-row" style="position:relative">
-        ${gridLines}
-        ${sL!=null&&sW?`<div class="gantt-bar work" style="left:${sL}px;width:${sW}px" title="${esc(r.workType)}">${esc(r.workType)}</div>`:''}
+      const rsd=r.startDate||sd, red=r.endDate||ed;
+      const rL=rsd?px(rsd):null, rR=red?px(red):null;
+      const rW=(rL!=null&&rR!=null)?Math.max(6,rR-rL):0;
+      leftRows+=`<div class="gantt-row"><div class="gantt-cell-left">
+        <div class="gantt-cell-name sub">⚙ ${esc(r.workType)}</div>
+        ${rsd?`<div style="font-size:8px;color:rgba(255,255,255,.3);margin-top:1px;padding-left:16px">${fmtD(rsd)}→${fmtD(red)}</div>`:''}
+      </div></div>`;
+      rightRows+=`<div class="gantt-row" style="position:relative">${gridLines}
+        ${bar('work',rL,rW,r.workType,`_gBarDown(event,'work','${s.id}','${r.id}','move')`)}
       </div>`;
     });
 
     // task rows
     siteTasks.forEach(t=>{
-      const tPx=t.deadline?px(t.deadline):null;
-      const overdue=t.deadline&&new Date(t.deadline)<new Date()&&t.status!=='done';
+      const tsd=t.startDate||t.deadline, ted=t.deadline;
+      const tL=tsd?px(tsd):null, tR=ted?px(ted):null;
+      const tW=(tL!=null&&tR!=null)?Math.max(6,tR-tL):20;
+      const overdue=ted&&new Date(ted)<new Date()&&t.status!=='done';
       const cls=overdue?'task-overdue':t.status==='done'?'task-done':t.status==='progress'?'task-progress':'task-todo';
       const icon=t.status==='done'?'✓':t.status==='progress'?'▶':'○';
-      leftRows+=`<div class="gantt-row">
-        <div class="gantt-cell-left"><div class="gantt-cell-name sub">${icon} ${esc(t.name)}</div></div>
-      </div>`;
-      rightRows+=`<div class="gantt-row" style="position:relative">
-        ${gridLines}
-        ${tPx!=null?`<div class="gantt-bar ${cls}" style="left:${Math.max(0,tPx-40)}px;width:80px" title="${esc(t.name)}${t.deadline?' — '+fmtD(t.deadline):''}">${esc(t.name)}</div>`:''}
+      leftRows+=`<div class="gantt-row"><div class="gantt-cell-left">
+        <div class="gantt-cell-name sub">${icon} ${esc(t.name)}</div>
+        ${tsd?`<div style="font-size:8px;color:rgba(255,255,255,.3);margin-top:1px;padding-left:16px">${fmtD(tsd)}→${fmtD(ted)}</div>`:''}
+      </div></div>`;
+      rightRows+=`<div class="gantt-row" style="position:relative">${gridLines}
+        ${bar(cls,tL,tW,t.name,`_gBarDown(event,'task','${t.siteId}','${t.id}','move')`)}
       </div>`;
     });
   });
@@ -2000,37 +2058,35 @@ function renderGantt(){
 
   const siteOptions=sites.map(s=>`<option value="${s.id}"${ganttSiteFilter===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
 
+  // ensure tooltip exists
+  if(!document.getElementById('gantt-tip')){
+    const tip=document.createElement('div');tip.id='gantt-tip';tip.className='gantt-tooltip';document.body.appendChild(tip);
+  }
+
   el.innerHTML=`
     <div class="page-header">
       <h1 class="page-title">📅 Діаграма Ганта</h1>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <select class="form-input" style="width:220px;height:34px;font-size:12px;padding:4px 10px" onchange="ganttSiteFilter=this.value;renderGantt()">
           <option value="">Всі об'єкти</option>
           ${siteOptions}
         </select>
+        <span style="font-size:10px;color:var(--text3)">Перетягуйте лінії для зміни дат</span>
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:16px;height:8px;border-radius:3px;background:var(--accent);display:inline-block"></span>Об'єкт</span>
-      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:16px;height:8px;border-radius:3px;background:#38bdf8;display:inline-block"></span>Вид робіт</span>
-      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:16px;height:8px;border-radius:3px;background:#a78bfa;display:inline-block"></span>Задача в роботі</span>
-      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:16px;height:8px;border-radius:3px;background:#4ade80;display:inline-block"></span>Виконано</span>
-      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:16px;height:8px;border-radius:3px;background:#f87171;display:inline-block"></span>Прострочено</span>
-      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:2px;height:12px;background:var(--red);display:inline-block"></span>Сьогодні</span>
+    <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+      ${[['var(--accent)','Об\'єкт'],['#38bdf8','Вид робіт'],['#a78bfa','В роботі'],['#4ade80','Виконано'],['#f87171','Прострочено']].map(([c,l])=>`<span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:18px;height:6px;border-radius:2px;background:${c};display:inline-block"></span>${l}</span>`).join('')}
+      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:1px;height:12px;background:#f87171;display:inline-block"></span>Сьогодні</span>
     </div>
-    <div class="gantt-wrap" style="max-height:calc(100vh - 180px);overflow:hidden">
-      <div style="display:flex;flex-direction:column;width:100%;overflow:hidden">
-        <!-- header -->
-        <div style="display:flex;border-bottom:2px solid var(--border);background:var(--bg2);flex-shrink:0">
-          <div style="width:260px;min-width:260px;padding:0 14px;display:flex;align-items:center;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-right:1px solid var(--border);height:36px;flex-shrink:0">Об'єкт / Робота / Задача</div>
-          <div style="flex:1;overflow-x:hidden">
-            <div style="position:relative;height:36px;width:${totalPx}px">${monthsHtml}</div>
-          </div>
+    <div class="gantt-wrap" style="height:calc(100vh - 200px)">
+      <div style="display:flex;flex-direction:column;height:100%">
+        <div style="display:flex;background:var(--bg2);border-bottom:1px solid var(--border2);flex-shrink:0;height:34px">
+          <div style="width:260px;min-width:260px;display:flex;align-items:center;padding:0 14px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);border-right:1px solid rgba(255,255,255,.07);flex-shrink:0">Назва</div>
+          <div style="flex:1;overflow:hidden"><div style="position:relative;height:34px;width:${totalPx}px">${monthsHtml}</div></div>
         </div>
-        <!-- body (scroll together) -->
         <div style="display:flex;flex:1;overflow:hidden">
-          <div style="width:260px;min-width:260px;overflow-y:auto;flex-shrink:0;border-right:1px solid var(--border)" id="gantt-left">${leftRows}</div>
-          <div style="flex:1;overflow:auto" id="gantt-right"><div style="width:${totalPx}px">${rightRows}</div></div>
+          <div style="width:260px;min-width:260px;overflow-y:auto;flex-shrink:0;border-right:1px solid rgba(255,255,255,.07)" id="gantt-left">${leftRows}</div>
+          <div style="flex:1;overflow:auto" id="gantt-right"><div style="width:${totalPx}px;position:relative">${rightRows}</div></div>
         </div>
       </div>
     </div>`;
@@ -2353,6 +2409,7 @@ function openTaskModal(id){
     +(ctOpts?`<optgroup label="Підрядники">${ctOpts}</optgroup>`:'');
   document.getElementById('task-name').value=t?.name||'';
   document.getElementById('task-status').value=t?.status||'todo';
+  document.getElementById('task-start-date').value=t?.startDate||'';
   document.getElementById('task-deadline').value=t?.deadline||'';
   document.getElementById('task-priority').value=t?.priority||'normal';
   document.getElementById('task-note').value=t?.note||'';
@@ -2370,6 +2427,7 @@ function saveTask(){
     name,
     executorId:document.getElementById('task-executor').value||'',
     status:document.getElementById('task-status').value||'todo',
+    startDate:document.getElementById('task-start-date').value||'',
     deadline:document.getElementById('task-deadline').value||'',
     priority:document.getElementById('task-priority').value||'normal',
     note:document.getElementById('task-note').value.trim()||'',
