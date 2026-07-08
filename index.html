@@ -141,6 +141,40 @@ select.form-input option{background:var(--bg3)}
 .empty-icon{font-size:44px;margin-bottom:14px}
 .empty h3{font-size:15px;color:var(--text2);margin-bottom:8px}
 .empty p{font-size:12px;margin-bottom:18px}
+
+/* ── MOBILE BOTTOM NAV ── */
+#mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:300;height:58px;padding-bottom:env(safe-area-inset-bottom)}
+.mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:8.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:6px 2px;transition:.15s;-webkit-tap-highlight-color:transparent}
+.mob-nav-btn.active{color:var(--accent)}
+.mob-nav-btn svg{width:20px;height:20px;flex-shrink:0}
+#mob-more-overlay{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.55)}
+#mob-more-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border2);border-radius:16px 16px 0 0;z-index:401;padding:16px 12px calc(env(safe-area-inset-bottom) + 70px)}
+.mob-more-item{width:100%;display:flex;align-items:center;gap:14px;padding:13px 10px;border:none;background:none;cursor:pointer;color:var(--text2);font-size:14px;font-weight:600;border-radius:8px;-webkit-tap-highlight-color:transparent}
+.mob-more-item:active{background:var(--bg3)}
+.mob-more-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(240,180,41,.12);border:1px solid rgba(240,180,41,.2);flex-shrink:0}
+
+/* ── MOBILE OVERRIDES ── */
+@media(max-width:640px){
+  .topbar{display:none!important}
+  .topbar-wrap{display:none!important}
+  .main{margin-left:0!important;padding:14px 12px 74px!important}
+  #mob-nav{display:flex}
+  .modal-overlay{align-items:flex-end!important}
+  .modal{width:100vw!important;max-width:100vw!important;border-radius:16px 16px 0 0!important;max-height:92vh!important;margin:0}
+  .form-row2,.form-row3{grid-template-columns:1fr!important}
+  .page-header{flex-direction:column;align-items:flex-start}
+  .page-header>div:last-child{width:100%;flex-wrap:wrap}
+  .gantt-cell-left{width:150px!important;min-width:150px!important}
+  .filter-bar{overflow-x:auto;flex-wrap:nowrap;padding:8px 10px}
+  .metrics{gap:6px}
+  .metric{min-width:130px;padding:10px 12px}
+  .metric-value{font-size:16px}
+  .card{margin-bottom:10px}
+  .btn{padding:8px 12px;min-height:38px}
+  .btn.sm{padding:6px 10px;min-height:34px}
+  .tbl th{padding:6px 8px}
+  .tbl td{padding:8px 8px}
+}
 </style>
 </head>
 <body>
@@ -166,6 +200,53 @@ select.form-input option{background:var(--bg3)}
     </div>
   </div>
 </nav>
+
+<!-- ── MOBILE BOTTOM NAV ── -->
+<div id="mob-nav">
+  <button class="mob-nav-btn" id="mob-dashboard" onclick="navigate('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    Дашборд
+  </button>
+  <button class="mob-nav-btn" id="mob-sites" onclick="navigate('sites')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21V12h6v9"/></svg>
+    Об'єкти
+  </button>
+  <button class="mob-nav-btn" id="mob-budgets" onclick="navigate('budgets')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Бюджети
+  </button>
+  <button class="mob-nav-btn" id="mob-cashflow" onclick="navigate('cashflow')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.8 9A2 2 0 0 0 13 8h-2a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-2a2 2 0 0 1-1.8-1"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="18"/></svg>
+    Потоки
+  </button>
+  <button class="mob-nav-btn" id="mob-more" onclick="openMobMore()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+    Ще
+  </button>
+</div>
+
+<!-- ── MOBILE MORE SHEET ── -->
+<div id="mob-more-overlay" onclick="closeMobMore()">
+  <div id="mob-more-sheet" onclick="event.stopPropagation()">
+    <div style="width:40px;height:4px;border-radius:2px;background:var(--border2);margin:0 auto 16px"></div>
+    <button class="mob-more-item" onclick="closeMobMore();navigate('tasks')">
+      <span class="mob-more-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+      Задачі
+    </button>
+    <button class="mob-more-item" onclick="closeMobMore();navigate('meetings')">
+      <span class="mob-more-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+      Наради
+    </button>
+    <button class="mob-more-item" onclick="closeMobMore();navigate('executors')">
+      <span class="mob-more-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      Виконавці
+    </button>
+    <button class="mob-more-item" onclick="closeMobMore();navigate('service')">
+      <span class="mob-more-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><circle cx="12" cy="12" r="9"/></svg></span>
+      Сервіс
+    </button>
+  </div>
+</div>
 
 <div class="main" id="main-content"></div>
 
@@ -683,7 +764,18 @@ function navigate(page){
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
   const nb=document.getElementById('nav-'+page);
   if(nb)nb.classList.add('active');
+  // mobile bottom nav active state
+  document.querySelectorAll('.mob-nav-btn').forEach(b=>b.classList.remove('active'));
+  const mb=document.getElementById('mob-'+page);
+  if(mb)mb.classList.add('active');
+  else document.getElementById('mob-more')?.classList.add('active');
   render();
+}
+function openMobMore(){
+  document.getElementById('mob-more-overlay').style.display='block';
+}
+function closeMobMore(){
+  document.getElementById('mob-more-overlay').style.display='none';
 }
 function render(){
   if(curPage==='sites')       {if(curSiteDetailId)renderSiteDetail();else renderSites();}
