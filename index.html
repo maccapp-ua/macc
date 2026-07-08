@@ -1867,7 +1867,8 @@ function renderTasksPage(){
       </select>
       <select class="form-input" id="tasks-filter-exec" onchange="renderTasksBody()" style="min-width:160px;height:30px;font-size:11px;padding:4px 8px">
         <option value="">Всі виконавці</option>
-        ${executors.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}
+        ${executors.length?`<optgroup label="Виконавці">${executors.map(e=>`<option value="exec_${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>`:''}
+        ${(state.contractors||[]).length?`<optgroup label="Підрядники">${(state.contractors||[]).map(c=>`<option value="cont_${c.id}">${esc(c.name)}</option>`).join('')}</optgroup>`:''}
       </select>
       <button class="subtab active" data-ts="all"      onclick="setTaskFilter('all')">Всі</button>
       <button class="subtab"        data-ts="todo"     onclick="setTaskFilter('todo')">Не почато</button>
@@ -1892,6 +1893,12 @@ function renderTasksPage(){
   renderTasksBody();
 }
 
+function resolveTaskExecutor(id){
+  if(!id) return null;
+  if(id.startsWith('exec_')) return (state.executors||[]).find(x=>x.id===id.slice(5))||null;
+  if(id.startsWith('cont_')){const c=(state.contractors||[]).find(x=>x.id===id.slice(5));return c?{name:c.name}:null;}
+  return (state.executors||[]).find(x=>x.id===id)||null; // backward compat
+}
 function renderTasksBody(){
   const el=document.getElementById('all-tasks-table');
   if(!el)return;
@@ -1903,7 +1910,7 @@ function renderTasksBody(){
 
   let tasks=[...(state.tasks||[])];
   if(filterSite) tasks=tasks.filter(t=>t.siteId===filterSite);
-  if(filterExec) tasks=tasks.filter(t=>t.executorId===filterExec);
+  if(filterExec) tasks=tasks.filter(t=>t.executorId===filterExec||('exec_'+t.executorId)===filterExec);
   if(activeTaskFilter==='overdue') tasks=tasks.filter(t=>isOverdue(t.deadline)&&t.status!=='done');
   else if(activeTaskFilter!=='all') tasks=tasks.filter(t=>(t.status||'todo')===activeTaskFilter);
 
@@ -1964,7 +1971,7 @@ function renderTasksBody(){
 
 function renderTaskRow(t, showSite){
   const site=(state.sites||[]).find(s=>s.id===t.siteId)||null;
-  const ex=(state.executors||[]).find(e=>e.id===t.executorId)||null;
+  const ex=resolveTaskExecutor(t.executorId);
   const od=isOverdue(t.deadline)&&t.status!=='done';
   const pr=t.priority||'normal';
   const st=t.status||'todo';
@@ -2003,7 +2010,11 @@ function openTaskModal(id){
   siteSel.innerHTML='<option value="">— оберіть об\'єкт —</option>'+(state.sites||[]).map(s=>`<option value="${s.id}"${t?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
   // executor select
   const exSel=document.getElementById('task-executor');
-  exSel.innerHTML='<option value="">— не призначено —</option>'+(state.executors||[]).map(e=>`<option value="${e.id}"${t?.executorId===e.id?' selected':''}>${esc(e.name)}</option>`).join('');
+  const exOpts=(state.executors||[]).map(e=>`<option value="exec_${e.id}"${t?.executorId==='exec_'+e.id?' selected':''}>${esc(e.name)}${e.position?' — '+e.position:''}</option>`).join('');
+  const ctOpts=(state.contractors||[]).map(c=>`<option value="cont_${c.id}"${t?.executorId==='cont_'+c.id?' selected':''}>${esc(c.name)}</option>`).join('');
+  exSel.innerHTML='<option value="">— не призначено —</option>'
+    +(exOpts?`<optgroup label="Виконавці">${exOpts}</optgroup>`:'')
+    +(ctOpts?`<optgroup label="Підрядники">${ctOpts}</optgroup>`:'');
   document.getElementById('task-name').value=t?.name||'';
   document.getElementById('task-status').value=t?.status||'todo';
   document.getElementById('task-deadline').value=t?.deadline||'';
@@ -2047,7 +2058,7 @@ function exportTasksExcel(){
   const header=['Об\'єкт','Задача','Виконавець','Строк виконання','Пріоритет','Статус','Примітка'];
   const rows=[header,...tasks.map(t=>{
     const site=(state.sites||[]).find(s=>s.id===t.siteId);
-    const ex=(state.executors||[]).find(e=>e.id===t.executorId);
+    const ex=resolveTaskExecutor(t.executorId);
     return[site?.name||'',t.name||'',ex?.name||'',t.deadline||'',
       PR_LABEL_XL[t.priority||'normal'],ST_LABEL_XL[t.status||'todo'],t.note||''];
   })];
