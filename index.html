@@ -109,6 +109,35 @@ select.form-input option{background:var(--bg3)}
 .filter-label{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
 .tag-chip{display:inline-flex;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(169,116,230,.15);color:var(--violet);border:1px solid rgba(169,116,230,.25)}
 
+/* ── GANTT ── */
+.gantt-wrap{display:flex;overflow:hidden;border:1px solid var(--border);border-radius:var(--radius);background:var(--card)}
+.gantt-left{width:260px;min-width:260px;border-right:1px solid var(--border);overflow:hidden;flex-shrink:0}
+.gantt-right{flex:1;overflow-x:auto;overflow-y:hidden;position:relative}
+.gantt-header-row{display:flex;background:var(--bg2);border-bottom:2px solid var(--border);height:36px}
+.gantt-header-left{width:260px;min-width:260px;display:flex;align-items:center;padding:0 14px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-right:1px solid var(--border);flex-shrink:0}
+.gantt-months{position:relative;height:36px;min-width:100%}
+.gantt-month-cell{position:absolute;top:0;height:100%;border-left:1px solid var(--border);display:flex;align-items:center;padding-left:8px;font-size:10px;font-weight:700;color:var(--text3);white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+.gantt-body{display:flex;flex-direction:column}
+.gantt-row{display:flex;height:38px;border-bottom:1px solid var(--border)}
+.gantt-row:last-child{border-bottom:none}
+.gantt-row:hover{background:var(--bg3)}
+.gantt-row.site-row{background:rgba(240,180,41,.04);height:44px}
+.gantt-row.site-row:hover{background:rgba(240,180,41,.08)}
+.gantt-cell-left{width:260px;min-width:260px;display:flex;align-items:center;padding:0 12px;border-right:1px solid var(--border);flex-shrink:0;overflow:hidden}
+.gantt-cell-name{font-size:11px;font-weight:600;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gantt-cell-name.site{font-size:12px;font-weight:700;color:var(--text)}
+.gantt-cell-name.sub{color:var(--text3);font-size:10px;padding-left:14px}
+.gantt-cell-right{position:relative;flex:1;min-width:0}
+.gantt-grid-line{position:absolute;top:0;bottom:0;width:1px;background:var(--border);opacity:.4}
+.gantt-bar{position:absolute;top:50%;transform:translateY(-50%);height:20px;border-radius:4px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;min-width:4px}
+.gantt-bar.site{height:26px;background:linear-gradient(90deg,var(--accent),#e8960a);color:#1a1000;border-radius:6px}
+.gantt-bar.work{height:18px;background:linear-gradient(90deg,#0ea5e9,#38bdf8);opacity:.85}
+.gantt-bar.task-done{height:16px;background:linear-gradient(90deg,#16a34a,#4ade80);opacity:.8}
+.gantt-bar.task-progress{height:16px;background:linear-gradient(90deg,#7c3aed,#a78bfa);opacity:.85}
+.gantt-bar.task-todo{height:16px;background:linear-gradient(90deg,#475569,#64748b);opacity:.8}
+.gantt-bar.task-overdue{height:16px;background:linear-gradient(90deg,#dc2626,#f87171);opacity:.9}
+.gantt-today{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.7;z-index:2}
+.gantt-today-label{position:absolute;top:2px;font-size:8px;font-weight:700;color:var(--red);white-space:nowrap;transform:translateX(-50%)}
 /* ── EMPTY STATE ── */
 .empty{text-align:center;padding:60px 20px;color:var(--text3)}
 .empty-icon{font-size:44px;margin-bottom:14px}
@@ -129,6 +158,7 @@ select.form-input option{background:var(--bg3)}
   <button class="nav-item" id="nav-executors" onclick="navigate('executors')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Виконавці</button>
   <button class="nav-item" id="nav-tasks" onclick="navigate('tasks')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>Задачі</button>
   <button class="nav-item" id="nav-meetings" onclick="navigate('meetings')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>Наради</button>
+  <button class="nav-item" id="nav-gantt" onclick="navigate('gantt')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="10" x2="15" y2="10"/><line x1="3" y1="14" x2="18" y2="14"/><line x1="3" y1="18" x2="12" y2="18"/></svg></span>Діаграма Ганта</button>
   <div style="flex:1"></div>
   <button class="nav-item" id="nav-service" onclick="navigate('service')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><circle cx="12" cy="12" r="9"/></svg></span>Сервіс</button>
 </nav>
@@ -553,6 +583,7 @@ let editingMeetingId=null, curMeetingDetailId=null;
 let curSubActsSiteId=null, curSubActsSubId=null;
 let editingTaskId=null;
 let activeTaskFilter='all';
+let ganttSiteFilter='';
 let taskSort='site'; // 'site' | 'deadline'
 let meetingFilter={status:'',site:'',month:'',search:''};
 const MTG_STATUS={planned:'📅 Запланована',done:'✅ Проведена',cancelled:'❌ Скасована'};
@@ -635,6 +666,7 @@ function render(){
   else if(curPage==='tasks')       renderTasksPage();
   else if(curPage==='dashboard')   renderDashboard();
   else if(curPage==='service')     renderService();
+  else if(curPage==='gantt')       renderGantt();
 }
 function closeModal(name){document.getElementById('modal-'+name).classList.remove('open')}
 
@@ -1852,6 +1884,166 @@ function showMgr(ovId,title,list,inputId,placeholder,addFn){
 // ══════════════════════════════════════════════════════════════
 //  ДАШБОРД
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+//  GANTT
+// ══════════════════════════════════════════════════════════════
+function renderGantt(){
+  const el=document.getElementById('main-content');
+  const sites=state.sites||[];
+  const PX_PER_DAY=28;
+
+  // visible sites
+  const vis=ganttSiteFilter?sites.filter(s=>s.id===ganttSiteFilter):sites;
+
+  // compute date range
+  let minD=null,maxD=null;
+  vis.forEach(s=>{
+    if(s.signDate){const d=new Date(s.signDate);if(!minD||d<minD)minD=d;}
+    if(s.deadline){const d=new Date(s.deadline);if(!maxD||d>maxD)maxD=d;}
+  });
+  if(!minD){minD=new Date();minD.setDate(1);}
+  if(!maxD){maxD=new Date(minD);maxD.setMonth(maxD.getMonth()+6);}
+  // pad
+  minD=new Date(minD);minD.setDate(1);
+  maxD=new Date(maxD);maxD.setMonth(maxD.getMonth()+1);maxD.setDate(0);
+  const totalDays=Math.max(1,Math.round((maxD-minD)/86400000));
+  const totalPx=totalDays*PX_PER_DAY;
+
+  function px(dateStr){
+    if(!dateStr)return null;
+    const d=new Date(dateStr);
+    const days=Math.round((d-minD)/86400000);
+    return Math.max(0,Math.min(totalPx,days*PX_PER_DAY));
+  }
+
+  // month header cells
+  let monthsHtml='';
+  let cur=new Date(minD);
+  while(cur<=maxD){
+    const left=px(cur.toISOString().slice(0,10));
+    const label=cur.toLocaleDateString('uk',{month:'short',year:'2-digit'}).replace(' р.','');
+    monthsHtml+=`<div class="gantt-month-cell" style="left:${left}px">${label}</div>`;
+    cur.setMonth(cur.getMonth()+1);
+  }
+
+  // grid lines (month starts)
+  let gridLines='';
+  cur=new Date(minD);
+  while(cur<=maxD){
+    const left=px(cur.toISOString().slice(0,10));
+    gridLines+=`<div class="gantt-grid-line" style="left:${left}px"></div>`;
+    cur.setMonth(cur.getMonth()+1);
+  }
+
+  // today line
+  const todayPx=px(new Date().toISOString().slice(0,10));
+  const todayLine=todayPx!=null?`<div class="gantt-today" style="left:${todayPx}px"><div class="gantt-today-label" style="left:${todayPx}px">Сьогодні</div></div>`:'';
+
+  // build rows
+  let leftRows='', rightRows='';
+  vis.forEach(s=>{
+    const sd=s.signDate,ed=s.deadline;
+    const sL=sd?px(sd):null, sR=ed?px(ed):null;
+    const sW=(sL!=null&&sR!=null)?Math.max(4,sR-sL):0;
+    const budgetRows=((state.budgets||{})[s.id]||{rows:[]}).rows||[];
+    const siteTasks=(state.tasks||[]).filter(t=>t.siteId===s.id);
+    const rowCount=1+budgetRows.length+siteTasks.length;
+
+    // site header row (left)
+    leftRows+=`<div class="gantt-row site-row">
+      <div class="gantt-cell-left">
+        <div style="display:flex;flex-direction:column;overflow:hidden">
+          <div class="gantt-cell-name site">${esc(s.name)}</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:1px">${sd?fmtD(sd):''} → ${ed?fmtD(ed):'?'}</div>
+        </div>
+      </div>
+    </div>`;
+    // site bar (right)
+    rightRows+=`<div class="gantt-row site-row" style="position:relative">
+      ${gridLines}
+      ${sL!=null&&sW?`<div class="gantt-bar site" style="left:${sL}px;width:${sW}px" title="${esc(s.name)}">${esc(s.name)}</div>`:''}
+      ${todayLine}
+    </div>`;
+
+    // work type rows
+    budgetRows.forEach(r=>{
+      if(!r.workType)return;
+      leftRows+=`<div class="gantt-row">
+        <div class="gantt-cell-left"><div class="gantt-cell-name sub">⚙ ${esc(r.workType)}</div></div>
+      </div>`;
+      rightRows+=`<div class="gantt-row" style="position:relative">
+        ${gridLines}
+        ${sL!=null&&sW?`<div class="gantt-bar work" style="left:${sL}px;width:${sW}px" title="${esc(r.workType)}">${esc(r.workType)}</div>`:''}
+      </div>`;
+    });
+
+    // task rows
+    siteTasks.forEach(t=>{
+      const tPx=t.deadline?px(t.deadline):null;
+      const overdue=t.deadline&&new Date(t.deadline)<new Date()&&t.status!=='done';
+      const cls=overdue?'task-overdue':t.status==='done'?'task-done':t.status==='progress'?'task-progress':'task-todo';
+      const icon=t.status==='done'?'✓':t.status==='progress'?'▶':'○';
+      leftRows+=`<div class="gantt-row">
+        <div class="gantt-cell-left"><div class="gantt-cell-name sub">${icon} ${esc(t.name)}</div></div>
+      </div>`;
+      rightRows+=`<div class="gantt-row" style="position:relative">
+        ${gridLines}
+        ${tPx!=null?`<div class="gantt-bar ${cls}" style="left:${Math.max(0,tPx-40)}px;width:80px" title="${esc(t.name)}${t.deadline?' — '+fmtD(t.deadline):''}">${esc(t.name)}</div>`:''}
+      </div>`;
+    });
+  });
+
+  if(!vis.length){
+    el.innerHTML=`<div class="page-header"><h1 class="page-title">📅 Діаграма Ганта</h1></div><div class="empty"><div class="empty-icon">📅</div><h3>Об'єктів ще немає</h3><p>Додайте об'єкти з датами початку та завершення</p></div>`;
+    return;
+  }
+
+  const siteOptions=sites.map(s=>`<option value="${s.id}"${ganttSiteFilter===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+
+  el.innerHTML=`
+    <div class="page-header">
+      <h1 class="page-title">📅 Діаграма Ганта</h1>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="form-input" style="width:220px;height:34px;font-size:12px;padding:4px 10px" onchange="ganttSiteFilter=this.value;renderGantt()">
+          <option value="">Всі об'єкти</option>
+          ${siteOptions}
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:16px;height:8px;border-radius:3px;background:var(--accent);display:inline-block"></span>Об'єкт</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:16px;height:8px;border-radius:3px;background:#38bdf8;display:inline-block"></span>Вид робіт</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:16px;height:8px;border-radius:3px;background:#a78bfa;display:inline-block"></span>Задача в роботі</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:16px;height:8px;border-radius:3px;background:#4ade80;display:inline-block"></span>Виконано</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:16px;height:8px;border-radius:3px;background:#f87171;display:inline-block"></span>Прострочено</span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:2px;height:12px;background:var(--red);display:inline-block"></span>Сьогодні</span>
+    </div>
+    <div class="gantt-wrap" style="max-height:calc(100vh - 180px);overflow:hidden">
+      <div style="display:flex;flex-direction:column;width:100%;overflow:hidden">
+        <!-- header -->
+        <div style="display:flex;border-bottom:2px solid var(--border);background:var(--bg2);flex-shrink:0">
+          <div style="width:260px;min-width:260px;padding:0 14px;display:flex;align-items:center;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-right:1px solid var(--border);height:36px;flex-shrink:0">Об'єкт / Робота / Задача</div>
+          <div style="flex:1;overflow-x:hidden">
+            <div style="position:relative;height:36px;width:${totalPx}px">${monthsHtml}</div>
+          </div>
+        </div>
+        <!-- body (scroll together) -->
+        <div style="display:flex;flex:1;overflow:hidden">
+          <div style="width:260px;min-width:260px;overflow-y:auto;flex-shrink:0;border-right:1px solid var(--border)" id="gantt-left">${leftRows}</div>
+          <div style="flex:1;overflow:auto" id="gantt-right"><div style="width:${totalPx}px">${rightRows}</div></div>
+        </div>
+      </div>
+    </div>`;
+
+  // sync vertical scroll
+  const gl=document.getElementById('gantt-left');
+  const gr=document.getElementById('gantt-right');
+  if(gl&&gr){
+    gr.addEventListener('scroll',()=>{gl.scrollTop=gr.scrollTop;});
+    gl.addEventListener('scroll',()=>{gr.scrollTop=gl.scrollTop;});
+  }
+}
+
 function applyTheme(t){
   document.body.classList.toggle('light-theme', t==='light');
   localStorage.setItem('macc_theme', t);
