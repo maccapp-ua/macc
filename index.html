@@ -1263,13 +1263,21 @@ function renderBudgetDetail(){
         r.items.forEach(it=>{
           const icolor=ITEM_STYLE[it.type]||'var(--text3)';
           const iicon=ITEM_ICON[it.type]||'';
+          const idc=+it.dcPrice||0, ipc=+it.planCost||0;
+          const ipi=idc-ipc;
           tbody+=`<tr onclick="openBudgetRowModal('${s.id}','${r.id}')" style="cursor:pointer;background:rgba(255,255,255,.03)">
-            <td></td>
-            <td style="font-size:11px;color:${icolor};padding-left:22px;padding-top:1px;padding-bottom:5px;border-top:none">${iicon} ${it.type}</td>
             <td style="border-top:none"></td>
-            <td class="r mono" style="font-size:11px;color:var(--text2);padding-top:1px;padding-bottom:5px;border-top:none">${it.dcPrice?fmtN(it.dcPrice):'—'}</td>
-            <td class="r mono" style="font-size:11px;color:var(--text2);padding-top:1px;padding-bottom:5px;border-top:none">${it.planCost?fmtN(it.planCost):'—'}</td>
-            <td colspan="7" style="border-top:none"></td>
+            <td style="font-size:11px;color:${icolor};padding-left:22px;padding-top:2px;padding-bottom:5px;border-top:none">${iicon} ${it.type}</td>
+            <td style="border-top:none"></td>
+            <td class="r mono" style="font-size:11px;color:var(--text2);padding-top:2px;padding-bottom:5px;border-top:none">${idc?fmtN(idc):'—'}</td>
+            <td class="r mono" style="font-size:11px;color:var(--red);padding-top:2px;padding-bottom:5px;border-top:none">${ipc?fmtN(ipc):'—'}</td>
+            <td class="r mono" style="font-size:11px;color:${ipi>=0?'var(--green)':'var(--red)'};font-weight:600;padding-top:2px;padding-bottom:5px;border-top:none">${idc?fmtN(ipi):'—'}</td>
+            <td class="r" style="font-size:11px;color:${ipi>=0?'var(--green)':'var(--red)'};padding-top:2px;padding-bottom:5px;border-top:none">${pct(ipi,idc)}</td>
+            <td class="r mono" style="font-size:11px;color:var(--text3);padding-top:2px;padding-bottom:5px;border-top:none">—</td>
+            <td class="r mono" style="font-size:11px;color:var(--text3);padding-top:2px;padding-bottom:5px;border-top:none">—</td>
+            <td class="r" style="font-size:11px;color:var(--text3);padding-top:2px;padding-bottom:5px;border-top:none">—</td>
+            <td class="r mono" style="font-size:11px;color:var(--text3);padding-top:2px;padding-bottom:5px;border-top:none">—</td>
+            <td style="border-top:none"></td>
           </tr>`;
         });
       }
