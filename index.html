@@ -1260,6 +1260,9 @@ function renderBudgetDetail(){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn sm" onclick="exportBudgetExcel('${s.id}')" title="Excel">📥 Excel</button>
         <button class="btn sm" onclick="exportBudgetPDF('${s.id}')" title="PDF">🖨 PDF</button>
+        <button class="btn sm" onclick="downloadBudgetTemplate()" style="color:var(--green);border-color:rgba(74,222,128,.4)" title="Завантажити шаблон">📋 Шаблон</button>
+        <button class="btn sm" onclick="document.getElementById('budget-import-file').click()" style="color:#38bdf8;border-color:rgba(56,189,248,.4)" title="Імпорт з Excel">📤 Імпорт Excel</button>
+        <input type="file" id="budget-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importBudgetExcel('${s.id}',this)">
         <button class="btn primary" onclick="openBudgetRowModal('${s.id}',null)">+ Додати рядок</button>
       </div>
     </div>
@@ -1339,6 +1342,170 @@ function deleteBudgetRow(siteId,rowId){
   if(!confirm('Видалити рядок?'))return;
   if(state.budgets[siteId])state.budgets[siteId].rows=state.budgets[siteId].rows.filter(r=>r.id!==rowId);
   save();renderBudgetDetail();
+}
+
+// ── Budget Excel template & import ───────────────────────────
+const BUDGET_COLS=[
+  {key:'workType',   label:'Вид робіт *'},
+  {key:'dcPrice',    label:'Договірна ціна, грн'},
+  {key:'planCost',   label:'Планова собівартість, грн'},
+  {key:'startDate',  label:'Дата початку (РРРР-ММ-ДД)'},
+  {key:'endDate',    label:'Дата завершення (РРРР-ММ-ДД)'},
+  {key:'notes',      label:'Примітки'},
+];
+
+function downloadBudgetTemplate(){
+  if(!window.XLSX){alert('Бібліотека XLSX не завантажена');return;}
+  // header row
+  const ws_data=[BUDGET_COLS.map(c=>c.label)];
+  // 3 empty example rows
+  ws_data.push(['Фундаментні роботи','450000','320000','2025-03-01','2025-05-15','']);
+  ws_data.push(['Каркас будівлі','','','','','']);
+  ws_data.push(['Оздоблювальні роботи','','','','','']);
+
+  const ws=XLSX.utils.aoa_to_sheet(ws_data);
+  // column widths
+  ws['!cols']=[{wch:30},{wch:22},{wch:28},{wch:22},{wch:24},{wch:30}];
+  // style header (xlsx-full supports basic styles)
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Бюджет');
+  XLSX.writeFile(wb,'budget_template.xlsx');
+}
+
+function _parseDateStr(v){
+  if(!v)return'';
+  // already ISO
+  if(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v.trim()))return v.trim();
+  // DD.MM.YYYY
+  if(typeof v==='string'&&/^\d{2}\.\d{2}\.\d{4}$/.test(v.trim())){
+    const[d,m,y]=v.trim().split('.');return`${y}-${m}-${d}`;
+  }
+  // Excel serial date number
+  if(typeof v==='number'){
+    const d=new Date(Math.round((v-25569)*86400000));
+    return d.toISOString().slice(0,10);
+  }
+  // try parse
+  const d=new Date(v);
+  return isNaN(d)?''  :d.toISOString().slice(0,10);
+}
+
+function importBudgetExcel(siteId, input){
+  const file=input.files[0];
+  input.value=''; // reset so same file can be picked again
+  if(!file)return;
+  if(!window.XLSX){alert('Бібліотека XLSX не завантажена');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(raw.length<2){alert('Файл порожній або немає рядків даних');return;}
+
+      // find column mapping by header name (case-insensitive, partial match)
+      const headerRow=raw[0].map(h=>String(h).toLowerCase().trim());
+      function findCol(keywords){
+        return headerRow.findIndex(h=>keywords.some(k=>h.includes(k)));
+      }
+      const colMap={
+        workType: findCol(['вид робіт','вид роб','work']),
+        dcPrice:  findCol(['договірна','доход','дц','dc price','dc']),
+        planCost: findCol(['собівартість','план','cost','витрат']),
+        startDate:findCol(['початку','start']),
+        endDate:  findCol(['завершення','end','кінець']),
+        notes:    findCol(['примітк','note','коментар']),
+      };
+
+      // parse data rows
+      const parsed=[];
+      for(let i=1;i<raw.length;i++){
+        const row=raw[i];
+        const workType=colMap.workType>=0?String(row[colMap.workType]||'').trim():'';
+        if(!workType)continue; // skip empty
+        parsed.push({
+          workType,
+          dcPrice:   colMap.dcPrice>=0  ? (+String(row[colMap.dcPrice]).replace(/[^\d.]/g,'')||0) : 0,
+          planCost:  colMap.planCost>=0  ? (+String(row[colMap.planCost]).replace(/[^\d.]/g,'')||0) : 0,
+          startDate: colMap.startDate>=0 ? _parseDateStr(row[colMap.startDate]) : '',
+          endDate:   colMap.endDate>=0   ? _parseDateStr(row[colMap.endDate])   : '',
+          notes:     colMap.notes>=0     ? String(row[colMap.notes]||'').trim()  : '',
+        });
+      }
+
+      if(!parsed.length){alert('Не знайдено жодного рядку з видом робіт');return;}
+      _showImportPreview(siteId, parsed);
+    }catch(err){alert('Помилка читання файлу: '+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function _showImportPreview(siteId, rows){
+  document.getElementById('import-preview-popup')?.remove();
+  const site=(state.sites||[]).find(s=>s.id===siteId);
+
+  const tableRows=rows.map((r,i)=>`<tr>
+    <td style="font-size:11px;color:var(--text)">${esc(r.workType)}</td>
+    <td class="r" style="font-size:11px">${r.dcPrice?fmtN(r.dcPrice):'—'}</td>
+    <td class="r" style="font-size:11px">${r.planCost?fmtN(r.planCost):'—'}</td>
+    <td style="font-size:11px;color:var(--text3)">${r.startDate||'—'}</td>
+    <td style="font-size:11px;color:var(--text3)">${r.endDate||'—'}</td>
+    <td style="font-size:11px;color:var(--text3)">${esc(r.notes||'')}</td>
+  </tr>`).join('');
+
+  const p=document.createElement('div');
+  p.id='import-preview-popup';
+  p.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:4000;display:flex;align-items:center;justify-content:center;padding:20px';
+  p.innerHTML=`
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;max-width:860px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.5)">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">📤 Імпорт бюджету</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Об'єкт: <b style="color:var(--accent)">${esc(site?.name||siteId)}</b> · ${rows.length} рядків знайдено</div>
+        </div>
+        <button onclick="document.getElementById('import-preview-popup').remove()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:0 4px">&times;</button>
+      </div>
+      <div style="overflow:auto;flex:1;padding:0">
+        <table class="tbl" style="min-width:700px">
+          <thead><tr>
+            <th>Вид робіт</th><th class="r">Договірна ціна</th><th class="r">План. собівартість</th>
+            <th>Дата початку</th><th>Дата завершення</th><th>Примітки</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+      <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:space-between;align-items:center;flex-shrink:0">
+        <div style="display:flex;gap:10px;align-items:center">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+            <input type="radio" name="imp-mode" value="append" checked style="accent-color:var(--accent)"> Додати до існуючих
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+            <input type="radio" name="imp-mode" value="replace" style="accent-color:var(--accent)"> Замінити всі рядки
+          </label>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="document.getElementById('import-preview-popup').remove()" style="padding:8px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text3);font-size:12px;cursor:pointer">Скасувати</button>
+          <button onclick="_confirmImport('${siteId}')" style="padding:8px 20px;background:var(--accent);border:none;border-radius:7px;color:#1a0f00;font-size:12px;font-weight:700;cursor:pointer">✓ Імпортувати</button>
+        </div>
+      </div>
+    </div>`;
+  p.dataset.rows=JSON.stringify(rows);
+  document.body.appendChild(p);
+}
+
+function _confirmImport(siteId){
+  const p=document.getElementById('import-preview-popup');
+  if(!p)return;
+  const rows=JSON.parse(p.dataset.rows||'[]');
+  const mode=p.querySelector('input[name="imp-mode"]:checked')?.value||'append';
+  if(!state.budgets)state.budgets={};
+  if(!state.budgets[siteId])state.budgets[siteId]={rows:[]};
+  const newRows=rows.map(r=>({id:uid(),...r}));
+  if(mode==='replace') state.budgets[siteId].rows=newRows;
+  else state.budgets[siteId].rows=[...state.budgets[siteId].rows,...newRows];
+  save();
+  p.remove();
+  renderBudgetDetail();
 }
 
 // ══════════════════════════════════════════════════════════════
