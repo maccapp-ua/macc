@@ -105,13 +105,13 @@ select.form-input option{background:var(--bg3)}
 
 <nav class="topbar">
   <div class="logo">MACC<span>Management Accounting</span></div>
-  <button class="nav-item active" id="nav-sites"       onclick="navigate('sites')">Об'єкти</button>
-  <button class="nav-item"        id="nav-budgets"     onclick="navigate('budgets')">Бюджети об'єктів</button>
-  <button class="nav-item"        id="nav-executors"   onclick="navigate('executors')">Виконавці та підрядники</button>
-  <button class="nav-item"        id="nav-cashflow"    onclick="navigate('cashflow')">Грошові потоки</button>
-  <button class="nav-item"        id="nav-meetings"    onclick="navigate('meetings')">Наради</button>
-  <button class="nav-item"        id="nav-tasks"       onclick="navigate('tasks')">Задачі</button>
-  <button class="nav-item"        id="nav-dashboard"   onclick="navigate('dashboard')">Дашборд</button>
+  <button class="nav-item"        id="nav-dashboard"   onclick="navigate('dashboard')">📋 Дашборд</button>
+  <button class="nav-item active" id="nav-sites"       onclick="navigate('sites')">🏗 Об'єкти</button>
+  <button class="nav-item"        id="nav-budgets"     onclick="navigate('budgets')">📊 Бюджети об'єктів</button>
+  <button class="nav-item"        id="nav-cashflow"    onclick="navigate('cashflow')">💰 Грошові потоки</button>
+  <button class="nav-item"        id="nav-executors"   onclick="navigate('executors')">👷 Виконавці та підрядники</button>
+  <button class="nav-item"        id="nav-tasks"       onclick="navigate('tasks')">✅ Задачі</button>
+  <button class="nav-item"        id="nav-meetings"    onclick="navigate('meetings')">🗣 Наради</button>
 </nav>
 
 <div class="main" id="main-content"></div>
@@ -665,11 +665,11 @@ function renderSites(){
       </div>
     </div>
     <div class="metrics">
-      <div class="metric" style="--mc:var(--accent)"><div class="metric-label">Всього об'єктів</div><div class="metric-value">${sites.length}</div></div>
-      <div class="metric" style="--mc:var(--text3)"><div class="metric-label">Сума договорів</div><div class="metric-value" style="font-size:15px">${fmtN(totAmount)}</div></div>
-      <div class="metric" style="--mc:var(--green)"><div class="metric-label">Отримано (з грош. потоків)</div><div class="metric-value" style="font-size:15px">${fmtN(totIncome)}</div></div>
-      <div class="metric" style="--mc:var(--red)"><div class="metric-label">Витрачено (з грош. потоків)</div><div class="metric-value" style="font-size:15px">${fmtN(totExpense)}</div></div>
-      <div class="metric" style="--mc:${totIncome-totExpense>=0?'var(--amber)':'var(--red)'}"><div class="metric-label">Баланс</div><div class="metric-value" style="font-size:15px;color:${totIncome-totExpense>=0?'var(--accent)':'var(--red)'}">${fmtN(totIncome-totExpense)}</div></div>
+      <div class="metric" style="--mc:var(--accent)"><div class="metric-label">🏗 Всього об'єктів</div><div class="metric-value">${sites.length}</div></div>
+      <div class="metric" style="--mc:var(--text3)"><div class="metric-label">📄 Сума договорів</div><div class="metric-value" style="font-size:15px">${fmtN(totAmount)}</div></div>
+      <div class="metric" style="--mc:var(--green)"><div class="metric-label">💵 Отримано</div><div class="metric-value" style="font-size:15px">${fmtN(totIncome)}</div></div>
+      <div class="metric" style="--mc:var(--red)"><div class="metric-label">💸 Витрачено</div><div class="metric-value" style="font-size:15px">${fmtN(totExpense)}</div></div>
+      <div class="metric" style="--mc:${totIncome-totExpense>=0?'var(--amber)':'var(--red)'}"><div class="metric-label">⚖ Баланс</div><div class="metric-value" style="font-size:15px;color:${totIncome-totExpense>=0?'var(--accent)':'var(--red)'}">${fmtN(totIncome-totExpense)}</div></div>
     </div>
     <div class="card">
       <div style="overflow-x:auto">
@@ -1390,8 +1390,8 @@ function renderContractorDetail(){
       </div>
       <div class="card" style="display:flex;flex-direction:column;gap:10px">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px">Статистика</div>
-        <div class="metric" style="--mc:var(--accent)"><div class="metric-label">Проєктів</div><div class="metric-value">${projects.length}</div></div>
-        <div class="metric" style="--mc:var(--green)"><div class="metric-label">Загальна сума договорів</div><div class="metric-value" style="font-size:15px">${fmtN(totAmount)}</div></div>
+        <div class="metric" style="--mc:var(--accent)"><div class="metric-label">🏗 Проєктів</div><div class="metric-value">${projects.length}</div></div>
+        <div class="metric" style="--mc:var(--green)"><div class="metric-label">📄 Загальна сума договорів</div><div class="metric-value" style="font-size:15px">${fmtN(totAmount)}</div></div>
       </div>
     </div>
     <div class="card" style="overflow-x:auto">
@@ -1815,23 +1815,23 @@ function renderDashboard(){
     <div class="page-header"><h1 class="page-title">📋 Дашборд</h1></div>
     <div class="metrics" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
       <div class="metric" style="--mc:var(--accent)">
-        <div class="metric-label">Всього об'єктів</div>
+        <div class="metric-label">🏗 Всього об'єктів</div>
         <div class="metric-value">${sitesCount}</div>
       </div>
       <div class="metric" style="--mc:#38bdf8">
-        <div class="metric-label">Сума договорів з замовниками</div>
+        <div class="metric-label">📄 Сума договорів з замовниками</div>
         <div class="metric-value" style="font-size:15px">${fmtN(totalContractPrice)}</div>
       </div>
       <div class="metric" style="--mc:var(--red)">
-        <div class="metric-label">Планові витрати</div>
+        <div class="metric-label">📉 Планові витрати</div>
         <div class="metric-value" style="font-size:15px">${fmtN(planCost)}</div>
       </div>
       <div class="metric" style="--mc:var(--green)">
-        <div class="metric-label">Плановий прибуток</div>
+        <div class="metric-label">📈 Плановий прибуток</div>
         <div class="metric-value" style="font-size:15px">${fmtN(planIncome)}</div>
       </div>
       <div class="metric" style="--mc:#f97316">
-        <div class="metric-label">Фактичні витрати</div>
+        <div class="metric-label">💸 Фактичні витрати</div>
         <div class="metric-value" style="font-size:15px">${fmtN(factExp)}</div>
       </div>
     </div>`;
@@ -1886,10 +1886,10 @@ function renderTasksPage(){
       </div>
     </div>
     <div class="metrics">
-      <div class="metric" style="--mc:var(--text3)"><div class="metric-label">Не почато</div><div class="metric-value">${totTodo}</div></div>
-      <div class="metric" style="--mc:#0ea5e9"><div class="metric-label">В роботі</div><div class="metric-value">${totProgress}</div></div>
-      <div class="metric" style="--mc:var(--green)"><div class="metric-label">Виконано</div><div class="metric-value">${totDone}</div></div>
-      <div class="metric" style="--mc:var(--red)"><div class="metric-label">Прострочено</div><div class="metric-value">${totOverdue}</div></div>
+      <div class="metric" style="--mc:var(--text3)"><div class="metric-label">⏳ Не почато</div><div class="metric-value">${totTodo}</div></div>
+      <div class="metric" style="--mc:#0ea5e9"><div class="metric-label">🔧 В роботі</div><div class="metric-value">${totProgress}</div></div>
+      <div class="metric" style="--mc:var(--green)"><div class="metric-label">✅ Виконано</div><div class="metric-value">${totDone}</div></div>
+      <div class="metric" style="--mc:var(--red)"><div class="metric-label">⚠ Прострочено</div><div class="metric-value">${totOverdue}</div></div>
     </div>
     <div class="filter-bar" style="gap:6px;flex-wrap:wrap">
       <select class="form-input" id="tasks-filter-site" onchange="renderTasksBody()" style="min-width:180px;height:30px;font-size:11px;padding:4px 8px">
@@ -2181,10 +2181,10 @@ function renderMeetings(){
       </div>
     </div>
     <div class="metrics">
-      <div class="metric" style="--mc:#0ea5e9"><div class="metric-label">Заплановано</div><div class="metric-value">${totPlanned}</div></div>
-      <div class="metric" style="--mc:var(--green)"><div class="metric-label">Проведено</div><div class="metric-value">${totDone}</div></div>
-      <div class="metric" style="--mc:var(--text3)"><div class="metric-label">Скасовано</div><div class="metric-value">${totCancelled}</div></div>
-      <div class="metric" style="--mc:var(--accent)"><div class="metric-label">Всього</div><div class="metric-value">${all.length}</div></div>
+      <div class="metric" style="--mc:#0ea5e9"><div class="metric-label">📅 Заплановано</div><div class="metric-value">${totPlanned}</div></div>
+      <div class="metric" style="--mc:var(--green)"><div class="metric-label">✅ Проведено</div><div class="metric-value">${totDone}</div></div>
+      <div class="metric" style="--mc:var(--text3)"><div class="metric-label">❌ Скасовано</div><div class="metric-value">${totCancelled}</div></div>
+      <div class="metric" style="--mc:var(--accent)"><div class="metric-label">🗣 Всього</div><div class="metric-value">${all.length}</div></div>
     </div>
     ${filterBar}
     <div class="card" style="overflow-x:auto">
