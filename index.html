@@ -1791,19 +1791,50 @@ function renderDashboard(){
   const el=document.getElementById('main-content');
   const sites=state.sites||[];
   const cfs=state.cashflows||[];
-  const totInc=cfs.filter(r=>r.type==='income').reduce((a,r)=>a+(+r.amount||0),0);
-  const totExp=cfs.filter(r=>r.type==='expense').reduce((a,r)=>a+(+r.amount||0),0);
+
+  // 1. Кількість об'єктів
+  const sitesCount=sites.length;
+
+  // 2. Сума договорів з замовниками = сума contractPrice по всіх об'єктах
+  const totalContractPrice=sites.reduce((a,s)=>a+(+s.contractPrice||0),0);
+
+  // 3. Планові витрати + 4. Плановий прибуток — з бюджетів
+  let planCost=0, planIncome=0;
+  sites.forEach(s=>{
+    const rows=((state.budgets||{})[s.id]||{rows:[]}).rows||[];
+    rows.forEach(r=>{
+      planCost  +=(+r.planCost ||0);
+      planIncome+=(+r.dcPrice  ||0)-(+r.planCost||0);
+    });
+  });
+
+  // 5. Фактичні витрати — всі витрати з грошових потоків
+  const factExp=cfs.filter(c=>c.type==='expense').reduce((a,c)=>a+(+c.amount||0),0);
+
   el.innerHTML=`
     <div class="page-header"><h1 class="page-title">📋 Дашборд</h1></div>
-    <div class="metrics">
-      <div class="metric" style="--mc:var(--accent)"><div class="metric-label">Всього об'єктів</div><div class="metric-value">${sites.length}</div></div>
-      <div class="metric" style="--mc:var(--green)"><div class="metric-label">В роботі</div><div class="metric-value">${sites.filter(s=>s.status==='active').length}</div></div>
-      <div class="metric" style="--mc:var(--blue)"><div class="metric-label">Завершено</div><div class="metric-value">${sites.filter(s=>s.status==='done').length}</div></div>
-      <div class="metric" style="--mc:var(--green)"><div class="metric-label">Всього доходи</div><div class="metric-value" style="font-size:15px">${fmtN(totInc)}</div></div>
-      <div class="metric" style="--mc:var(--red)"><div class="metric-label">Всього витрати</div><div class="metric-value" style="font-size:15px">${fmtN(totExp)}</div></div>
-      <div class="metric" style="--mc:${totInc-totExp>=0?'var(--amber)':'var(--red)'}"><div class="metric-label">Загальний баланс</div><div class="metric-value" style="font-size:15px;color:${totInc-totExp>=0?'var(--accent)':'var(--red)'}">${fmtN(totInc-totExp)}</div></div>
-    </div>
-    <div class="empty" style="margin-top:30px"><div class="empty-icon">🚧</div><h3>Дашборд в розробці</h3><p>Тут будуть аналітичні графіки та зведені показники</p></div>`;
+    <div class="metrics" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+      <div class="metric" style="--mc:var(--accent)">
+        <div class="metric-label">Всього об'єктів</div>
+        <div class="metric-value">${sitesCount}</div>
+      </div>
+      <div class="metric" style="--mc:#38bdf8">
+        <div class="metric-label">Сума договорів з замовниками</div>
+        <div class="metric-value" style="font-size:15px">${fmtN(totalContractPrice)}</div>
+      </div>
+      <div class="metric" style="--mc:var(--red)">
+        <div class="metric-label">Планові витрати</div>
+        <div class="metric-value" style="font-size:15px">${fmtN(planCost)}</div>
+      </div>
+      <div class="metric" style="--mc:var(--green)">
+        <div class="metric-label">Плановий прибуток</div>
+        <div class="metric-value" style="font-size:15px">${fmtN(planIncome)}</div>
+      </div>
+      <div class="metric" style="--mc:#f97316">
+        <div class="metric-label">Фактичні витрати</div>
+        <div class="metric-value" style="font-size:15px">${fmtN(factExp)}</div>
+      </div>
+    </div>`;
 }
 
 // ══════════════════════════════════════════════════════════════
