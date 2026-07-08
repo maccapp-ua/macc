@@ -2000,20 +2000,45 @@ const G_PALETTE=[
 function ganttExportPDF(){
   const wrap=document.getElementById('gantt-print-wrap');
   if(!wrap){alert('Графік не знайдено');return;}
-  const W=wrap.scrollWidth,H=wrap.scrollHeight;
-  // use browser print with landscape
-  const win=window.open('','_blank','width=1200,height=800');
+  const win=window.open('','_blank','width=1400,height=900');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Діаграма Ганта</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{background:#162030;color:#fff;font-family:system-ui,sans-serif}
-    @page{size:A3 landscape;margin:10mm}
+    body{background:#fff;color:#111;font-family:system-ui,sans-serif}
+    @page{size:A3 landscape;margin:8mm}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    /* force dark text on white bg */
+    div,span{color:#111 !important}
+    /* keep bar backgrounds but darken labels */
+    [style*="gantt-bar"],[class*="gantt-bar"]{color:#fff !important}
+    /* site name gold */
+    .gantt-site-name{color:#b8860b !important;font-weight:800}
+    /* sub names dark */
+    .gantt-sub-name{color:#222 !important;font-weight:600}
+    /* header rows */
+    .gantt-hdr{background:#f0f0f0 !important;color:#222 !important}
+    .gantt-hdr *{color:#222 !important}
+    /* row alternating */
+    .gantt-row{border-bottom:1px solid #ddd}
+    .gantt-row.site-row{background:#fdf6e3 !important}
+    /* today line stays red */
+    .gantt-today-line{background:#e00 !important;opacity:.7}
+    /* grid lines */
+    .gl-year{background:rgba(139,0,30,.5) !important}
+    .gl-month{background:rgba(200,100,20,.4) !important}
+    .gl-week{background:rgba(100,100,100,.2) !important}
+    .gl-day{background:rgba(180,180,180,.15) !important}
   </style></head><body>`);
-  win.document.write(wrap.outerHTML);
-  win.document.write('</body></html>');
+  // clone and patch for print
+  const clone=wrap.cloneNode(true);
+  clone.style.height='auto';
+  clone.style.overflow='visible';
+  clone.querySelectorAll('#gantt-left,#gantt-right,#gantt-header').forEach(el=>{
+    el.style.overflow='visible';el.style.height='auto';
+  });
+  win.document.body.appendChild(clone);
   win.document.close();
-  setTimeout(()=>{win.focus();win.print();},600);
+  setTimeout(()=>{win.focus();win.print();},700);
 }
 
 function renderGanttInto(container, compact){
@@ -2086,17 +2111,33 @@ function renderGanttInto(container, compact){
     mCur.setMonth(mCur.getMonth()+1);
   }
 
-  // week ticks (every Sunday) — only if zoom >= 8px/day
-  if(PPD>=8){
+  // week ticks (every Sunday)
+  if(PPD>=6){
     let wCur=new Date(minD);
-    // advance to first Sunday
     while(wCur.getDay()!==0)wCur.setDate(wCur.getDate()+1);
     while(wCur<maxD){
       const left=px(wCur.toISOString().slice(0,10));
       const d=wCur.getDate();
-      weekHtml+=`<div style="position:absolute;left:${left}px;height:100%;display:flex;align-items:center;padding-left:2px;font-size:8px;color:rgba(255,255,255,.35);border-left:1px solid rgba(120,120,120,.25);box-sizing:border-box;white-space:nowrap">${PPD>=14?d:''}</div>`;
-      gridOverlay+=`<div style="position:absolute;left:${left}px;top:0;bottom:0;width:1px;background:rgba(100,100,100,.18);z-index:0;pointer-events:none"></div>`;
+      weekHtml+=`<div style="position:absolute;left:${left}px;height:100%;display:flex;align-items:center;padding-left:2px;font-size:8px;color:rgba(255,255,255,.35);border-left:1px solid rgba(120,120,120,.22);box-sizing:border-box;white-space:nowrap">${PPD>=12?d:''}</div>`;
+      gridOverlay+=`<div class="gl-week" style="position:absolute;left:${left}px;top:0;bottom:0;width:1px;background:rgba(110,110,110,.22);z-index:0;pointer-events:none"></div>`;
       wCur.setDate(wCur.getDate()+7);
+    }
+  }
+
+  // day ticks — only if zoom >= 16px/day (otherwise too dense)
+  let dayHtml='';
+  if(PPD>=16){
+    let dCur=new Date(minD);
+    while(dCur<maxD){
+      const dow=dCur.getDay(); // 0=Sun already covered by week
+      if(dow!==0){
+        const left=px(dCur.toISOString().slice(0,10));
+        const d=dCur.getDate();
+        // show number only if enough space (>=20px/day)
+        dayHtml+=`<div style="position:absolute;left:${left}px;height:100%;display:flex;align-items:center;padding-left:1px;font-size:7px;color:rgba(255,255,255,.2);border-left:1px solid rgba(140,140,140,.1);box-sizing:border-box;white-space:nowrap">${PPD>=22?d:''}</div>`;
+        gridOverlay+=`<div class="gl-day" style="position:absolute;left:${left}px;top:0;bottom:0;width:1px;background:rgba(140,140,140,.1);z-index:0;pointer-events:none"></div>`;
+      }
+      dCur.setDate(dCur.getDate()+1);
     }
   }
 
@@ -2140,7 +2181,7 @@ function renderGanttInto(container, compact){
 
     // site row — gold bar (no gridLines per-row — overlay handles it)
     leftRows+=`<div class="gantt-row site-row" style="${rh}"><div class="gantt-cell-left" style="flex-direction:column;align-items:flex-start;justify-content:center;gap:1px">
-      <div class="gantt-cell-name site" style="color:#fff;font-size:${compact?11:14}px">${esc(s.name)}</div>
+      <div class="gantt-cell-name site gantt-site-name" style="color:#f0b429;font-size:${compact?11:14}px">${esc(s.name)}</div>
       <div style="font-size:9px;color:rgba(255,255,255,.4)">${sd?fmtD(sd):'—'} → ${ed?fmtD(ed):'—'}</div>
     </div></div>`;
     rightRows+=`<div class="gantt-row site-row" style="${rh};position:relative">
@@ -2221,7 +2262,8 @@ function renderGanttInto(container, compact){
           <div style="width:${totalPx}px">
             <div style="position:relative;height:18px;border-bottom:1px solid rgba(139,0,30,.3)">${yearHtml}</div>
             <div style="position:relative;height:15px;border-bottom:1px solid rgba(251,146,60,.2)">${monthHtml}</div>
-            <div style="position:relative;height:13px">${weekHtml}</div>
+            <div style="position:relative;height:13px;border-bottom:1px solid rgba(120,120,120,.15)">${weekHtml}</div>
+            ${PPD>=16?`<div style="position:relative;height:11px">${dayHtml}</div>`:''}
           </div>
         </div>
       </div>
