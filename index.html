@@ -142,6 +142,34 @@ select.form-input option{background:var(--bg3)}
 .empty h3{font-size:15px;color:var(--text2);margin-bottom:8px}
 .empty p{font-size:12px;margin-bottom:18px}
 
+/* ── PROCUREMENT / PROZORRO ── */
+.pz-cpv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:4px}
+.pz-cpv-btn{display:flex;flex-direction:column;padding:10px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);cursor:pointer;text-decoration:none;transition:.15s;gap:3px}
+.pz-cpv-btn:hover{border-color:var(--accent);background:var(--card)}
+.pz-cpv-code{font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--accent);text-transform:uppercase}
+.pz-cpv-label{font-size:11px;font-weight:600;color:var(--text2);line-height:1.3}
+.pz-status-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.pz-status-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;text-decoration:none;border:1px solid;transition:.15s}
+.pz-st-enq{color:#38bdf8;border-color:rgba(56,189,248,.35);background:rgba(56,189,248,.08)}
+.pz-st-enq:hover{background:rgba(56,189,248,.18)}
+.pz-st-tend{color:var(--green);border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.08)}
+.pz-st-tend:hover{background:rgba(74,222,128,.18)}
+.pz-st-pre{color:var(--amber);border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.08)}
+.pz-st-pre:hover{background:rgba(251,191,36,.18)}
+.pz-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:640px){.pz-form-grid{grid-template-columns:1fr}}
+.pz-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:8px 10px;outline:none;transition:.15s}
+.pz-input:focus{border-color:var(--accent)}
+.pz-input[type=number]{-moz-appearance:textfield}
+.pz-select{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:8px 10px;outline:none}
+.tender-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:8px;transition:.15s}
+.tender-card:hover{border-color:var(--border2)}
+.tender-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pz-filter-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.pz-tab{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border2);background:none;color:var(--text3);transition:.15s}
+.pz-tab:hover{color:var(--text);border-color:var(--accent)}
+.pz-tab.active{background:var(--accent);color:#0f1621;border-color:var(--accent)}
+
 /* ── MOBILE BOTTOM NAV ── */
 #mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:300;height:58px;padding-bottom:env(safe-area-inset-bottom)}
 .mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:8.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:6px 2px;transition:.15s;-webkit-tap-highlight-color:transparent}
@@ -190,6 +218,8 @@ select.form-input option{background:var(--bg3)}
   <button class="nav-item" id="nav-executors" onclick="navigate('executors')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Виконавці</button>
   <button class="nav-item" id="nav-tasks" onclick="navigate('tasks')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>Задачі</button>
   <button class="nav-item" id="nav-meetings" onclick="navigate('meetings')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>Наради</button>
+  <div class="nav-section-label">Тендери</div>
+  <button class="nav-item" id="nav-procurement" onclick="navigate('procurement')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>Prozorro</button>
   <div style="flex:1"></div>
   <button class="nav-item" id="nav-service" onclick="navigate('service')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><circle cx="12" cy="12" r="9"/></svg></span>Сервіс</button>
   <div style="padding:12px 14px 14px;border-top:1px solid var(--border);margin-top:4px">
@@ -239,6 +269,10 @@ select.form-input option{background:var(--bg3)}
     <button class="mob-more-item" onclick="closeMobMore();navigate('executors')">
       <span class="mob-more-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
       Виконавці
+    </button>
+    <button class="mob-more-item" onclick="closeMobMore();navigate('procurement')">
+      <span class="mob-more-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+      Prozorro
     </button>
     <button class="mob-more-item" onclick="closeMobMore();navigate('service')">
       <span class="mob-more-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><circle cx="12" cy="12" r="9"/></svg></span>
@@ -678,7 +712,8 @@ let state={
   cfCounterparties:[],
   budgets:{},
   meetings:[],
-  tasks:[]
+  tasks:[],
+  tenders:[]
 };
 let curPage='dashboard';
 let editingSiteId=null, editingContractorId=null, editingExecutorId=null, editingCFId=null, editingBudgetRowId=null;
@@ -786,6 +821,7 @@ function render(){
   else if(curPage==='dashboard')   renderDashboard();
   else if(curPage==='service')     renderService();
   else if(curPage==='gantt')       renderGantt();
+  else if(curPage==='procurement') renderProcurement();
 }
 function closeModal(name){document.getElementById('modal-'+name).classList.remove('open')}
 
@@ -3528,6 +3564,227 @@ function exportCashflowPDF(){
     <tfoot><tr><td colspan="7">РАЗОМ (${rows.length} записів) · Доходи: ${fmtN(totInc)} · Витрати: ${fmtN(totExp)}</td><td class="r" style="color:${totInc-totExp>=0?'green':'red'}">${fmtN(totInc-totExp)}</td><td></td></tr></tfoot>
   </table>`;
   printPDF(`Грошові потоки — MACC`,html);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ЗАКУПІВЛІ · PROZORRO
+// ══════════════════════════════════════════════════════════════
+const PZ_CPV=[
+  {code:'45000000-7',label:'Будівельні роботи'},
+  {code:'45100000-8',label:'Підготовчі роботи на майданчику'},
+  {code:'45200000-9',label:'Зведення будівель та споруд'},
+  {code:'45300000-0',label:'Будівельно-монтажні роботи'},
+  {code:'45400000-1',label:'Завершальні будівельні роботи'},
+];
+const PZ_STATUSES=[
+  {key:'active.enquiries',label:'Період уточнень',cls:'pz-st-enq'},
+  {key:'active.tendering',label:'Подання пропозицій',cls:'pz-st-tend'},
+  {key:'active.pre-qualification',label:'Прекваліфікація',cls:'pz-st-pre'},
+];
+const PZ_METHODS=[
+  {key:'aboveThreshold',label:'Відкриті торги'},
+  {key:'aboveThresholdEU',label:'Відкриті торги з особливостями'},
+  {key:'belowMarket',label:'Тендер'},
+  {key:'simple.defense',label:'Переговорна для потреб оборони'},
+];
+const TENDER_ST={
+  watch:{l:'Стежу',c:'#38bdf8'},
+  applied:{l:'Подав',c:'var(--amber)'},
+  won:{l:'Виграв',c:'var(--green)'},
+  lost:{l:'Відмова',c:'var(--text3)'},
+};
+let tenderFilter='all';
+let editingTenderId=null;
+
+function pzUrl(status,cpv){
+  const codes=cpv||PZ_CPV.map(c=>c.code).join(',');
+  return 'https://prozorro.gov.ua/search/tender?cpvCodes='+encodeURIComponent(codes)+'&status='+status;
+}
+function pzMethodUrl(method){
+  const codes=PZ_CPV.map(c=>c.code).join(',');
+  return 'https://prozorro.gov.ua/search/tender?cpvCodes='+encodeURIComponent(codes)+'&procurementMethodType='+method;
+}
+function setTenderFilter(f){tenderFilter=f;renderProcurement();}
+function saveTender(){
+  const g=id=>document.getElementById(id);
+  const name=(g('t-name').value||'').trim();
+  if(!name){alert('Вкажіть назву тендера');return;}
+  const data={
+    name,
+    customer:(g('t-customer').value||'').trim(),
+    link:(g('t-link').value||'').trim(),
+    amount:parseFloat(g('t-amount').value)||0,
+    deadline:g('t-deadline').value||'',
+    status:g('t-status').value||'watch',
+    note:(g('t-note').value||'').trim(),
+    cpv:(g('t-cpv').value||'').trim(),
+  };
+  if(!state.tenders)state.tenders=[];
+  if(editingTenderId){
+    const t=state.tenders.find(x=>x.id===editingTenderId);
+    if(t)Object.assign(t,data);
+    editingTenderId=null;
+  }else{
+    data.id='tnd_'+Date.now();
+    state.tenders.unshift(data);
+  }
+  save();renderProcurement();
+}
+function editTender(id){
+  editingTenderId=id;
+  renderProcurement();
+  setTimeout(()=>{
+    const c=document.getElementById('tender-form-card');
+    if(c)c.scrollIntoView({behavior:'smooth',block:'center'});
+    const n=document.getElementById('t-name');
+    if(n)n.focus();
+  },50);
+}
+function cancelEditTender(){editingTenderId=null;renderProcurement();}
+function deleteTender(id){
+  if(!confirm('Видалити тендер із воронки?'))return;
+  if(editingTenderId===id)editingTenderId=null;
+  state.tenders=(state.tenders||[]).filter(x=>x.id!==id);
+  save();renderProcurement();
+}
+function setTenderStatus(id,s){
+  const t=(state.tenders||[]).find(x=>x.id===id);
+  if(t){t.status=s;save();renderProcurement();}
+}
+
+function renderProcurement(){
+  const el=document.getElementById('main-content');if(!el)return;
+
+  // ─ швидкий пошук по CPV і статусах ─
+  const cpvLinks=PZ_CPV.map(c=>`
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.06em">${c.code}</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">${c.label}</div>
+      ${PZ_STATUSES.map(s=>`<a href="${pzUrl(s.key,c.code)}" target="_blank" rel="noopener" class="pz-status-btn ${s.cls}" style="font-size:10px;padding:4px 10px">${s.label} ↗</a>`).join('')}
+    </div>`).join('');
+
+  const methodLinks=PZ_METHODS.map(m=>`
+    <a href="${pzMethodUrl(m.key)}" target="_blank" rel="noopener"
+       style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);text-decoration:none;color:var(--text2);font-size:12px;font-weight:600;transition:.15s"
+       onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      ${m.label}
+    </a>`).join('');
+
+  const allCodesLink=`<a href="${pzUrl('active.tendering')}" target="_blank" rel="noopener" class="btn primary" style="text-decoration:none">
+    🔍 Всі будівельні тендери (подання пропозицій) ↗</a>`;
+
+  // ─ форма воронки ─
+  const editing=editingTenderId?(state.tenders||[]).find(t=>t.id===editingTenderId):null;
+  const ed=editing||{};
+  const escp=v=>String(v==null?'':v).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const cpvOpts=PZ_CPV.map(c=>`<option value="${c.code}" ${ed.cpv===c.code?'selected':''}>${c.code} — ${c.label}</option>`).join('');
+  const stOpts=Object.keys(TENDER_ST).map(k=>`<option value="${k}" ${k===(ed.status||'watch')?'selected':''}>${TENDER_ST[k].l}</option>`).join('');
+
+  const form=`<div class="card" id="tender-form-card" style="margin-bottom:14px">
+    <div class="card-head"><span class="card-title">${editing?'✏️ Редагувати тендер':'➕ Додати тендер у воронку'}</span></div>
+    <div class="card-body">
+      <div class="pz-form-grid" style="margin-bottom:10px">
+        <input id="t-name" class="pz-input" placeholder="Назва / об'єкт *" value="${escp(ed.name||'')}">
+        <input id="t-customer" class="pz-input" placeholder="Замовник" value="${escp(ed.customer||'')}">
+        <input id="t-link" class="pz-input" placeholder="Посилання на торги (URL)" value="${escp(ed.link||'')}">
+        <input id="t-amount" class="pz-input" type="number" placeholder="Очікувана вартість, грн" value="${ed.amount||''}">
+        <select id="t-cpv" class="pz-select"><option value="">— Код ДК 021:2015 —</option>${cpvOpts}</select>
+        <select id="t-status" class="pz-select">${stOpts}</select>
+        <input id="t-deadline" class="pz-input" type="date" title="Дедлайн подачі" value="${escp(ed.deadline||'')}">
+        <input id="t-note" class="pz-input" placeholder="Нотатка" value="${escp(ed.note||'')}">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn primary" onclick="saveTender()">${editing?'Зберегти зміни':'Додати до воронки'}</button>
+        ${editing?`<button class="btn" onclick="cancelEditTender()">Скасувати</button>`:''}
+      </div>
+    </div>
+  </div>`;
+
+  // ─ воронка ─
+  const all=state.tenders||[];
+  const counts={all:all.length};
+  Object.keys(TENDER_ST).forEach(k=>counts[k]=all.filter(t=>t.status===k).length);
+  const tabs=`<div class="pz-filter-tabs">
+    <button class="pz-tab ${tenderFilter==='all'?'active':''}" onclick="setTenderFilter('all')">Усі (${counts.all})</button>
+    ${Object.keys(TENDER_ST).map(k=>`<button class="pz-tab ${tenderFilter===k?'active':''}" onclick="setTenderFilter('${k}')">${TENDER_ST[k].l} (${counts[k]})</button>`).join('')}
+  </div>`;
+
+  const filtered=all.filter(t=>tenderFilter==='all'||t.status===tenderFilter);
+
+  let cards='';
+  if(!filtered.length){
+    cards=`<div class="empty" style="padding:30px"><div class="empty-icon">📋</div><h3>Тендерів немає</h3><p>Додайте тендер у воронку вище</p></div>`;
+  } else {
+    filtered.forEach(t=>{
+      const st=TENDER_ST[t.status]||TENDER_ST.watch;
+      const stOpts2=Object.keys(TENDER_ST).map(k=>`<option value="${k}" ${k===t.status?'selected':''}>${TENDER_ST[k].l}</option>`).join('');
+      cards+=`<div class="tender-card">
+        <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <div class="tender-status-dot" style="background:${st.c}"></div>
+              <span style="font-size:13px;font-weight:700;color:var(--text)">${esc(t.name)}</span>
+            </div>
+            ${t.customer?`<div style="font-size:11px;color:var(--text3);margin-bottom:2px">📍 ${esc(t.customer)}</div>`:''}
+            ${t.cpv?`<div style="font-size:10px;color:var(--accent);font-weight:600;margin-bottom:2px">ДК ${esc(t.cpv)}</div>`:''}
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px">
+              ${t.amount?`<span style="font-size:11px;color:var(--amber);font-weight:700">💰 ${fmtN(t.amount)} грн</span>`:''}
+              ${t.deadline?`<span style="font-size:11px;color:var(--text3)">⏰ ${t.deadline}</span>`:''}
+            </div>
+            ${t.note?`<div style="font-size:11px;color:var(--text3);margin-top:6px;font-style:italic">${esc(t.note)}</div>`:''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0">
+            <select onchange="setTenderStatus('${t.id}',this.value)" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:${st.c};font-size:11px;font-weight:700;padding:4px 8px;outline:none;cursor:pointer">${stOpts2}</select>
+            <div style="display:flex;gap:6px">
+              ${t.link?`<a href="${escp(t.link)}" target="_blank" rel="noopener" class="btn sm" style="text-decoration:none">↗ Торги</a>`:''}
+              <button class="btn sm" onclick="editTender('${t.id}')">✏️</button>
+              <button class="btn sm danger" onclick="deleteTender('${t.id}')">×</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
+  el.innerHTML=`
+    <div class="page-header">
+      <div><h1 class="page-title">🔍 Закупівлі · Prozorro</h1>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Моніторинг будівельних тендерів · ДК 021:2015 · Вся Україна</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-head"><span class="card-title">🚀 Швидкий пошук за кодами ДК 021:2015</span></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px 10px">
+          ${cpvLinks}
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-head"><span class="card-title">📋 За типом процедури (всі коди)</span></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin-bottom:12px">
+          ${methodLinks}
+        </div>
+        ${allCodesLink}
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-head"><span class="card-title">🎯 Воронка тендерів</span>
+        <div style="display:flex;gap:8px">
+          <span style="font-size:10px;color:var(--text3)">${all.length} тендерів</span>
+        </div>
+      </div>
+      <div class="card-body">
+        ${form}
+        ${tabs}
+        ${cards}
+      </div>
+    </div>`;
 }
 
 // ══════════════════════════════════════════════════════════════
