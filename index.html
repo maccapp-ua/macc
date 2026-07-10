@@ -455,6 +455,51 @@ select.form-input option{background:var(--bg3)}
   </div>
 </div>
 
+<!-- Переказ між рахунками -->
+<div class="modal-overlay" id="modal-transfer">
+  <div class="modal" style="width:460px">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-transfer-title">🔄 Переказ між рахунками</span>
+      <button class="modal-close" onclick="closeModal('transfer')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">Дата *</label>
+          <input class="form-input" type="date" id="tr-date"></div>
+        <div class="form-group"><label class="form-label">Сума відправлення, грн *</label>
+          <input class="form-input" type="number" id="tr-amount" placeholder="0" min="0" step="0.01" oninput="calcTransfer()"></div>
+      </div>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">З рахунку *</label>
+          <select class="form-input" id="tr-from">
+            <option value="bank">🏦 Банківський рахунок</option>
+            <option value="cash">💵 Каса (готівка)</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">На рахунок *</label>
+          <select class="form-input" id="tr-to">
+            <option value="cash">💵 Каса (готівка)</option>
+            <option value="bank">🏦 Банківський рахунок</option>
+          </select></div>
+      </div>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">% втрат при переказі</label>
+          <input class="form-input" type="number" id="tr-loss" placeholder="0" min="0" max="100" step="0.01" oninput="calcTransfer()"></div>
+        <div class="form-group"><label class="form-label">Отримано (після втрат)</label>
+          <input class="form-input" type="number" id="tr-received" placeholder="0" readonly style="opacity:.7"></div>
+      </div>
+      <datalist id="tr-cat-list"></datalist>
+      <div class="form-group"><label class="form-label">Категорія</label>
+        <input class="form-input" id="tr-category" list="tr-cat-list" placeholder="введіть або оберіть..."></div>
+      <div class="form-group"><label class="form-label">Примітки</label>
+        <textarea class="form-input" id="tr-notes" rows="2"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('transfer')">Скасувати</button>
+      <button class="btn primary" onclick="saveTransfer()" style="background:#8b5cf6;border-color:#8b5cf6">Зберегти переказ</button>
+    </div>
+  </div>
+</div>
+
 <!-- Рядок бюджету -->
 <div class="modal-overlay" id="modal-brow">
   <div class="modal" style="width:560px">
@@ -2153,15 +2198,34 @@ function renderCashflow(){
     rows.forEach(r=>{
       const site=sites.find(s=>s.id===r.siteId);
       const isInc=r.type==='income';
-      tbody+=`<tr onclick="openCFModal('${r.id}')">
+      const isTr=r.type==='transfer-out';
+      let typeBadge,amtStyle,amtText,clickFn,formLabel;
+      if(isTr){
+        const received=fmtN(r.transferReceived||0);
+        typeBadge=`<span class="badge" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3)">🔄 Переказ</span>`;
+        amtStyle='color:#a78bfa';
+        const fromL=CF_FORM_LABEL[r.form]||r.form;
+        const toL=CF_FORM_LABEL[r.transferTo]||r.transferTo;
+        amtText=`−${fmtN(r.amount)} → +${received}`;
+        formLabel=`${fromL} → ${toL}`;
+        clickFn=`openTransferModal('${r.id}')`;
+      } else {
+        typeBadge=`<span class="badge" style="${isInc?'background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.3)':'background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)'}">${isInc?'📈 Дохід':'📉 Розхід'}</span>`;
+        amtStyle=isInc?'color:var(--green)':'color:var(--red)';
+        amtText=`${isInc?'+':'-'}${fmtN(r.amount)}`;
+        formLabel=CF_FORM_LABEL[r.form]||r.form;
+        clickFn=`openCFModal('${r.id}')`;
+      }
+      if(r.transferRole==='in') return; // парний запис — не показуємо окремо
+      tbody+=`<tr onclick="${clickFn}">
         <td style="color:var(--text3);white-space:nowrap">${fmtD(r.date)}</td>
-        <td><span class="badge" style="${isInc?'background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.3)':'background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)'}">${isInc?'📈 Дохід':'📉 Розхід'}</span></td>
-        <td style="font-size:11px;color:var(--text3)">${CF_FORM_LABEL[r.form]||r.form}</td>
+        <td>${typeBadge}</td>
+        <td style="font-size:11px;color:var(--text3)">${formLabel}</td>
         <td style="font-size:11px">${esc(r.category||'—')}</td>
         <td>${site?`<span style="font-size:10px;color:var(--accent);font-weight:600">${esc(site.name)}</span>`:'<span style="color:var(--text3);font-size:10px">—</span>'}</td>
         <td>${esc(r.counterparty||'—')}</td>
-        <td class="r mono" style="font-size:13px;font-weight:700;${isInc?'color:var(--green)':'color:var(--red)'}">${isInc?'+':'-'}${fmtN(r.amount)}</td>
-        <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="deleteCF('${r.id}')">×</button></td>
+        <td class="r mono" style="font-size:13px;font-weight:700;${amtStyle}">${amtText}</td>
+        <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="${isTr?`deleteTransfer('${r.id}')`:`deleteCF('${r.id}')`}">×</button></td>
       </tr>`;
       if(r.notes)tbody+=`<tr><td colspan="8" style="padding:2px 10px 8px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border)">💬 ${esc(r.notes)}</td></tr>`;
     });
@@ -2182,6 +2246,7 @@ function renderCashflow(){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn" onclick="openCFModal(null,'income')" style="background:#22c55e;color:#fff;border-color:#22c55e">+ 📈 Дохід</button>
         <button class="btn" onclick="openCFModal(null,'expense')" style="background:#ef4444;color:#fff;border-color:#ef4444">+ 📉 Розхід</button>
+        <button class="btn" onclick="openTransferModal(null)" style="background:#8b5cf6;color:#fff;border-color:#8b5cf6">+ 🔄 Переказ</button>
         <button class="btn sm" onclick="manageCFCategories()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9">⚙ Категорії</button>
         <button class="btn sm" onclick="manageCFCounterparties()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9">⚙ Контрагенти</button>
         <button class="btn sm" onclick="exportCashflowExcel()" title="Excel">📥 Excel</button>
@@ -2305,6 +2370,77 @@ function addCFCP(){
   inp.value='';save();manageCFCounterparties();
 }
 function deleteCFCP(cp){state.cfCounterparties=(state.cfCounterparties||[]).filter(c=>c!==cp);save();manageCFCounterparties();}
+
+// ── Переказ між рахунками ─────────────────────────────────────
+let editingTransferId=null;
+
+function calcTransfer(){
+  const amt=+document.getElementById('tr-amount').value||0;
+  const loss=+document.getElementById('tr-loss').value||0;
+  const received=amt*(1-loss/100);
+  document.getElementById('tr-received').value=received?received.toFixed(2):'';
+}
+
+function openTransferModal(id){
+  editingTransferId=id||null;
+  const r=id?(state.cashflows||[]).find(x=>x.id===id):null;
+  document.getElementById('modal-transfer-title').textContent=id?'🔄 Редагувати переказ':'🔄 Переказ між рахунками';
+  document.getElementById('tr-date').value=r?.date||new Date().toISOString().slice(0,10);
+  document.getElementById('tr-amount').value=r?.amount||'';
+  document.getElementById('tr-from').value=r?.form||'bank';
+  document.getElementById('tr-to').value=r?.transferTo||'cash';
+  document.getElementById('tr-loss').value=r?.lossPercent||'';
+  document.getElementById('tr-category').value=r?.category||'';
+  document.getElementById('tr-notes').value=r?.notes||'';
+  const cats=[...new Set([...(state.cfCategories||[]),...(state.cashflows||[]).map(x=>x.category).filter(Boolean)])].sort();
+  document.getElementById('tr-cat-list').innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
+  calcTransfer();
+  document.getElementById('modal-transfer').classList.add('open');
+}
+
+function saveTransfer(){
+  const date=document.getElementById('tr-date').value;
+  const amount=+document.getElementById('tr-amount').value||0;
+  const fromForm=document.getElementById('tr-from').value;
+  const toForm=document.getElementById('tr-to').value;
+  const loss=+document.getElementById('tr-loss').value||0;
+  const received=+(amount*(1-loss/100)).toFixed(2);
+  const category=document.getElementById('tr-category').value.trim();
+  const notes=document.getElementById('tr-notes').value.trim();
+  if(!date){alert('Введіть дату');return;}
+  if(!amount){alert('Введіть суму');return;}
+  if(fromForm===toForm){alert('Рахунок відправника та отримувача не можуть співпадати');return;}
+  if(!state.cashflows)state.cashflows=[];
+  if(category&&!(state.cfCategories||[]).includes(category)){state.cfCategories=state.cfCategories||[];state.cfCategories.push(category);}
+  // якщо редагуємо — видаляємо старий переказ (out + in)
+  if(editingTransferId){
+    const old=state.cashflows.find(x=>x.id===editingTransferId);
+    if(old?.transferGroupId) state.cashflows=state.cashflows.filter(x=>x.transferGroupId!==old.transferGroupId);
+    else state.cashflows=state.cashflows.filter(x=>x.id!==editingTransferId);
+  }
+  const groupId=uid();
+  const outId=uid(), inId=uid();
+  state.cashflows.push({
+    id:outId, type:'transfer-out', form:fromForm,
+    transferTo:toForm, transferReceived:received, lossPercent:loss,
+    transferGroupId:groupId, transferRole:'out',
+    date, amount, category, notes,
+  });
+  state.cashflows.push({
+    id:inId, type:'income', form:toForm,
+    transferGroupId:groupId, transferRole:'in',
+    date, amount:received, category, notes,
+  });
+  save();closeModal('transfer');renderCashflow();
+}
+
+function deleteTransfer(id){
+  if(!confirm('Видалити переказ (обидва записи)?'))return;
+  const r=state.cashflows.find(x=>x.id===id);
+  if(r?.transferGroupId) state.cashflows=state.cashflows.filter(x=>x.transferGroupId!==r.transferGroupId);
+  else state.cashflows=state.cashflows.filter(x=>x.id!==id);
+  save();renderCashflow();
+}
 
 function showMgr(ovId,title,list,inputId,placeholder,addFn){
   const html=`<div style="padding:18px;min-width:320px">
