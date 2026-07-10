@@ -48,7 +48,13 @@ TARGET_METHOD_TYPES = {
     "aboveThresholdUA.defense",  # Переговорна (UA)
 }
 
-CPV_PREFIXES = ("45",)      # будівельні роботи ДК 021:2015
+CPV_IDS = {
+    "45000000-7", "45000000",  # Будівельні роботи
+    "45100000-8", "45100000",  # Підготовчі роботи на майданчику
+    "45200000-9", "45200000",  # Зведення будівель та споруд
+    "45300000-0", "45300000",  # Будівельно-монтажні роботи
+    "45400000-1", "45400000",  # Завершальні будівельні роботи
+}
 MIN_AMOUNT   = 200_000.0    # грн
 
 MAX_PAGES        = int(os.environ.get("MAX_PAGES", "80"))
@@ -151,7 +157,7 @@ def matches(t):
     cpv_ok = False
     for it in t.get("items", []) or []:
         cid = ((it.get("classification") or {}).get("id") or "")
-        if cid.startswith(CPV_PREFIXES):
+        if cid in CPV_IDS:
             cpv_ok = True
             break
     return cpv_ok
@@ -185,7 +191,7 @@ def to_record(t):
     for it in t.get("items", []) or []:
         cid = ((it.get("classification") or {}).get("id") or "")
         cdesc = ((it.get("classification") or {}).get("description") or "")
-        if cid.startswith(CPV_PREFIXES):
+        if cid in CPV_IDS:
             cpv_label = f"{cid} {cdesc}".strip()
             break
 
