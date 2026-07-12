@@ -27,7 +27,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ── SIDEBAR NAV ── */
 .topbar{display:flex;flex-direction:column;width:220px;min-height:100vh;background:var(--bg2);border-right:1px solid var(--border);padding:0;position:fixed;top:0;left:0;z-index:100;overflow-y:auto}
-.logo{display:flex;align-items:center;gap:11px;padding:14px 18px 13px;border-bottom:1px solid var(--border)}
+.logo{display:flex;align-items:center;gap:10px;padding:12px 18px 11px;border-bottom:1px solid var(--border)}
 .logo-text{display:flex;flex-direction:column}
 .logo-text b{font-size:15px;font-weight:800;letter-spacing:.07em;color:var(--accent);line-height:1.1}
 .logo-text span{font-size:9px;font-weight:400;color:var(--text3);letter-spacing:.05em;margin-top:1px}
@@ -212,30 +212,7 @@ select.form-input option{background:var(--bg3)}
 
 <nav class="topbar">
   <div class="logo">
-    <svg width="42" height="42" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      <!-- Outer white ring -->
-      <circle cx="50" cy="50" r="49" fill="white"/>
-      <!-- Navy fill -->
-      <circle cx="50" cy="50" r="44" fill="#1a2d5a"/>
-      <!-- White arc -->
-      <path d="M24 46 A27 27 0 0 1 76 46" stroke="white" stroke-width="7" stroke-linecap="round" fill="none"/>
-      <!-- White head -->
-      <circle cx="50" cy="51" r="7.5" fill="white"/>
-      <!-- White body Y-shape -->
-      <path d="M50 58 L50 88" stroke="white" stroke-width="8" stroke-linecap="round" fill="none"/>
-      <path d="M50 63 L30 50" stroke="white" stroke-width="8" stroke-linecap="round" fill="none"/>
-      <path d="M50 63 L70 50" stroke="white" stroke-width="8" stroke-linecap="round" fill="none"/>
-      <!-- Left wing (4 feathers) -->
-      <path d="M30 50 Q14 45 10 30 Q20 39 30 50Z" fill="#e8a020"/>
-      <path d="M27 60 Q9 58 8 43 Q18 50 27 60Z" fill="#e8a020"/>
-      <path d="M26 71 Q8 73 10 57 Q18 62 26 71Z" fill="#e8a020"/>
-      <path d="M28 81 Q12 87 17 71 Q22 74 28 81Z" fill="#e8a020"/>
-      <!-- Right wing (4 feathers) -->
-      <path d="M70 50 Q86 45 90 30 Q80 39 70 50Z" fill="#e8a020"/>
-      <path d="M73 60 Q91 58 92 43 Q82 50 73 60Z" fill="#e8a020"/>
-      <path d="M74 71 Q92 73 90 57 Q82 62 74 71Z" fill="#e8a020"/>
-      <path d="M72 81 Q88 87 83 71 Q78 74 72 81Z" fill="#e8a020"/>
-    </svg>
+    <img src="logo.png" alt="Pshenya PM" width="40" height="40" style="border-radius:50%;flex-shrink:0">
     <div class="logo-text"><b>MACC</b><span>Management Accounting</span></div>
   </div>
   <div class="nav-section-label">Головне</div>
