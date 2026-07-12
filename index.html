@@ -212,23 +212,29 @@ select.form-input option{background:var(--bg3)}
 
 <nav class="topbar">
   <div class="logo">
-    <svg width="38" height="42" viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <!-- Arc -->
-      <path d="M18 44 A34 34 0 0 1 82 44" stroke="#1a2d5a" stroke-width="11" stroke-linecap="round" fill="none"/>
-      <!-- Head -->
-      <circle cx="50" cy="50" r="10" fill="#1a2d5a"/>
-      <!-- Body + arms (Y shape) -->
-      <path d="M50 60 L50 95 M50 65 L28 50 M50 65 L72 50" stroke="#1a2d5a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <!-- Left wing feathers -->
-      <path d="M28 50 Q10 42 6 28 Q16 36 28 50Z" fill="#f0b429"/>
-      <path d="M24 58 Q4 54 2 40 Q13 46 24 58Z" fill="#f0b429"/>
-      <path d="M22 68 Q3 68 4 54 Q13 58 22 68Z" fill="#f0b429"/>
-      <path d="M24 78 Q6 82 10 68 Q17 70 24 78Z" fill="#f0b429"/>
-      <!-- Right wing feathers -->
-      <path d="M72 50 Q90 42 94 28 Q84 36 72 50Z" fill="#f0b429"/>
-      <path d="M76 58 Q96 54 98 40 Q87 46 76 58Z" fill="#f0b429"/>
-      <path d="M78 68 Q97 68 96 54 Q87 58 78 68Z" fill="#f0b429"/>
-      <path d="M76 78 Q94 82 90 68 Q83 70 76 78Z" fill="#f0b429"/>
+    <svg width="42" height="42" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <!-- Outer white ring -->
+      <circle cx="50" cy="50" r="49" fill="white"/>
+      <!-- Navy fill -->
+      <circle cx="50" cy="50" r="44" fill="#1a2d5a"/>
+      <!-- White arc -->
+      <path d="M24 46 A27 27 0 0 1 76 46" stroke="white" stroke-width="7" stroke-linecap="round" fill="none"/>
+      <!-- White head -->
+      <circle cx="50" cy="51" r="7.5" fill="white"/>
+      <!-- White body Y-shape -->
+      <path d="M50 58 L50 88" stroke="white" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <path d="M50 63 L30 50" stroke="white" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <path d="M50 63 L70 50" stroke="white" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <!-- Left wing (4 feathers) -->
+      <path d="M30 50 Q14 45 10 30 Q20 39 30 50Z" fill="#e8a020"/>
+      <path d="M27 60 Q9 58 8 43 Q18 50 27 60Z" fill="#e8a020"/>
+      <path d="M26 71 Q8 73 10 57 Q18 62 26 71Z" fill="#e8a020"/>
+      <path d="M28 81 Q12 87 17 71 Q22 74 28 81Z" fill="#e8a020"/>
+      <!-- Right wing (4 feathers) -->
+      <path d="M70 50 Q86 45 90 30 Q80 39 70 50Z" fill="#e8a020"/>
+      <path d="M73 60 Q91 58 92 43 Q82 50 73 60Z" fill="#e8a020"/>
+      <path d="M74 71 Q92 73 90 57 Q82 62 74 71Z" fill="#e8a020"/>
+      <path d="M72 81 Q88 87 83 71 Q78 74 72 81Z" fill="#e8a020"/>
     </svg>
     <div class="logo-text"><b>MACC</b><span>Management Accounting</span></div>
   </div>
