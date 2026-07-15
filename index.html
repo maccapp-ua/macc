@@ -3204,15 +3204,54 @@ function saveTask(){
     note:document.getElementById('task-note').value.trim()||'',
   };
   if(!state.tasks)state.tasks=[];
-  if(editingTaskId){const i=state.tasks.findIndex(x=>x.id===editingTaskId);if(i>=0)state.tasks[i]=data;}
+  const isEdit=!!editingTaskId;
+  if(isEdit){const i=state.tasks.findIndex(x=>x.id===editingTaskId);if(i>=0)state.tasks[i]=data;}
   else state.tasks.push(data);
   save();closeModal('task');renderTasksBody();
+  if(data.executorId) sendTaskEmail(data, isEdit);
 }
 
 function deleteTask(id){
   if(!confirm('Видалити задачу?'))return;
   state.tasks=(state.tasks||[]).filter(x=>x.id!==id);
   save();renderTasksBody();
+}
+
+function sendTaskEmail(task, isEdit){
+  const ex=(state.executors||[]).find(e=>e.id===task.executorId);
+  if(!ex||!ex.email)return;
+  const site=(state.sites||[]).find(s=>s.id===task.siteId)||null;
+  const MANAGER_EMAIL='pshenya1972@gmail.com';
+  const PR_LABEL={urgent:'Терміново',high:'Високий',normal:'Звичайний'};
+  const ST_LABEL={todo:'Не почато',progress:'В роботі',done:'Виконано'};
+
+  const confirmSubj=encodeURIComponent('✅ Готовий: '+task.name);
+  const confirmBody=encodeURIComponent('Підтверджую готовність до виконання задачі "'+task.name+'".\n\nВиконавець: '+(ex.name||ex.email));
+  const confirmLink='mailto:'+MANAGER_EMAIL+'?subject='+confirmSubj+'&body='+confirmBody;
+
+  const propSubj=encodeURIComponent('✏️ Пропозиція: '+task.name);
+  const propBody=encodeURIComponent('Моя пропозиція по редагуванню задачі "'+task.name+'":\n\n[Введіть вашу пропозицію тут]\n\nВиконавець: '+(ex.name||ex.email));
+  const propLink='mailto:'+MANAGER_EMAIL+'?subject='+propSubj+'&body='+propBody;
+
+  const subject=encodeURIComponent((isEdit?'[Оновлення задачі] ':'[Нова задача] ')+task.name);
+  const body=encodeURIComponent(
+    (isEdit?'Задачу оновлено':'Вам призначено нову задачу')+'\n\n'+
+    'Задача: '+task.name+'\n'+
+    "Об'єкт: "+(site?site.name:'Загальні питання')+'\n'+
+    'Строк виконання: '+(task.deadline||'не вказано')+'\n'+
+    'Пріоритет: '+(PR_LABEL[task.priority||'normal'])+'\n'+
+    'Статус: '+(ST_LABEL[task.status||'todo'])+'\n'+
+    (task.note?'Примітка: '+task.note+'\n':'')+
+    '\n─────────────────────────────\n'+
+    'ЩОБ ВІДПОВІСТИ, НАТИСНІТЬ ОДНЕ З ПОСИЛАНЬ:\n\n'+
+    '✅ ПІДТВЕРДИТИ ГОТОВНІСТЬ:\n'+confirmLink+'\n\n'+
+    '✏️ ВНЕСТИ ПРОПОЗИЦІЮ ПРО РЕДАГУВАННЯ:\n'+propLink+'\n'+
+    '─────────────────────────────\n'+
+    '\n— MACC\n'+MANAGER_EMAIL
+  );
+  const to=encodeURIComponent(ex.email);
+  const from=encodeURIComponent(MANAGER_EMAIL);
+  window.open('https://mail.google.com/mail/?view=cm&fs=1&to='+to+'&su='+subject+'&body='+body+'&authuser='+from,'_blank');
 }
 
 function exportTasksExcel(){
