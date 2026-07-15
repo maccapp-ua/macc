@@ -686,9 +686,9 @@ select.form-input option{background:var(--bg3)}
       <button class="modal-close" onclick="closeModal('task')">×</button>
     </div>
     <div class="modal-body">
-      <div class="form-group"><label class="form-label">Об'єкт *</label>
+      <div class="form-group"><label class="form-label">Об'єкт</label>
         <select class="form-input" id="task-site">
-          <option value="">— оберіть об'єкт —</option>
+          <option value="">🗂 Загальні питання (без об'єкту)</option>
         </select>
       </div>
       <div class="form-group"><label class="form-label">Задача *</label>
@@ -3071,34 +3071,45 @@ function renderTasksBody(){
 
   let html='<thead><tr><th>Задача</th><th>Виконавець</th><th>Дедлайн</th><th>Пріоритет</th><th>Статус</th><th></th></tr></thead><tbody>';
 
-  if(taskSort==='site'){
-    // group by site
-    const bySite={};const siteOrder=[];
-    tasks.forEach(t=>{
-      const key=t.siteId||'_';
-      if(!bySite[key]){bySite[key]=[];siteOrder.push(key);}
-      bySite[key].push(t);
+  function sortGrp(grp){
+    grp.sort((a,b)=>{
+      if(a.status==='done'&&b.status!=='done')return 1;
+      if(a.status!=='done'&&b.status==='done')return -1;
+      const po={urgent:0,high:1,normal:2};
+      return(po[a.priority||'normal'])-(po[b.priority||'normal']);
     });
-    siteOrder.forEach(key=>{
-      const site=(state.sites||[]).find(s=>s.id===key)||null;
-      const grp=bySite[key];
-      grp.sort((a,b)=>{
-        if(a.status==='done'&&b.status!=='done')return 1;
-        if(a.status!=='done'&&b.status==='done')return -1;
-        const po={urgent:0,high:1,normal:2};
-        return(po[a.priority||'normal'])-(po[b.priority||'normal']);
-      });
-      html+=`<tr><td colspan="6" style="padding:8px 14px;background:rgba(240,180,41,.06);border-top:2px solid rgba(240,180,41,.35);border-bottom:1px solid var(--border)">
-        <span style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.07em">
-          🏗 ${esc(site?site.name:'Без об\'єкту')}
-        </span>
+  }
+  function renderSiteGroup(key,grp,isGeneral){
+    sortGrp(grp);
+    if(isGeneral){
+      html+=`<tr><td colspan="6" style="padding:8px 14px;background:rgba(139,92,246,.1);border-top:2px solid #8b5cf6;border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.07em">🗂 Загальні питання</span>
         <span style="font-size:10px;color:var(--text3);margin-left:8px">${grp.length} задач</span>
       </td></tr>`;
-      grp.forEach(t=>{ html+=renderTaskRow(t,false); });
+    } else {
+      const site=(state.sites||[]).find(s=>s.id===key)||null;
+      html+=`<tr><td colspan="6" style="padding:8px 14px;background:rgba(240,180,41,.06);border-top:2px solid rgba(240,180,41,.35);border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.07em">🏗 ${esc(site?site.name:'')}</span>
+        <span style="font-size:10px;color:var(--text3);margin-left:8px">${grp.length} задач</span>
+      </td></tr>`;
+    }
+    grp.forEach(t=>{ html+=renderTaskRow(t,false); });
+  }
+
+  if(taskSort==='site'){
+    const generalTasks=tasks.filter(t=>!t.siteId||!(state.sites||[]).find(s=>s.id===t.siteId));
+    const bySite={};const siteOrder=[];
+    tasks.filter(t=>t.siteId&&(state.sites||[]).find(s=>s.id===t.siteId)).forEach(t=>{
+      if(!bySite[t.siteId]){bySite[t.siteId]=[];siteOrder.push(t.siteId);}
+      bySite[t.siteId].push(t);
     });
+    if(generalTasks.length) renderSiteGroup('_',generalTasks,true);
+    siteOrder.forEach(key=>renderSiteGroup(key,bySite[key],false));
   } else {
-    // sort by deadline
-    tasks.sort((a,b)=>{
+    const generalTasks=tasks.filter(t=>!t.siteId||!(state.sites||[]).find(s=>s.id===t.siteId));
+    const siteTasks=tasks.filter(t=>t.siteId&&(state.sites||[]).find(s=>s.id===t.siteId));
+    if(generalTasks.length) renderSiteGroup('_',generalTasks,true);
+    siteTasks.sort((a,b)=>{
       if(a.status==='done'&&b.status!=='done')return 1;
       if(a.status!=='done'&&b.status==='done')return -1;
       if(!a.deadline&&!b.deadline)return 0;
@@ -3106,7 +3117,7 @@ function renderTasksBody(){
       return a.deadline<b.deadline?-1:1;
     });
     let prevDone=false;
-    tasks.forEach(t=>{
+    siteTasks.forEach(t=>{
       if(t.status==='done'&&!prevDone){
         html+=`<tr><td colspan="6" style="padding:6px 14px;background:var(--bg3);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;border-top:1px solid var(--border)">✓ Виконані задачі</td></tr>`;
         prevDone=true;
@@ -3177,7 +3188,6 @@ function openTaskModal(id){
 function saveTask(){
   const siteId=document.getElementById('task-site').value;
   const name=document.getElementById('task-name').value.trim();
-  if(!siteId){alert('Оберіть об\'єкт');return;}
   if(!name){alert('Введіть назву задачі');return;}
   const data={
     id:editingTaskId||uid(),
