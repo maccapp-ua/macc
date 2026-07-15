@@ -3218,7 +3218,15 @@ function deleteTask(id){
 }
 
 function sendTaskEmail(task, isEdit){
-  const ex=(state.executors||[]).find(e=>e.id===task.executorId);
+  const rawId=task.executorId||'';
+  let ex=null;
+  if(rawId.startsWith('exec_')){
+    ex=(state.executors||[]).find(e=>e.id===rawId.slice(5));
+  } else if(rawId.startsWith('cont_')){
+    ex=(state.contractors||[]).find(c=>c.id===rawId.slice(5));
+  } else {
+    ex=(state.executors||[]).find(e=>e.id===rawId);
+  }
   if(!ex||!ex.email)return;
   const site=(state.sites||[]).find(s=>s.id===task.siteId)||null;
   const MANAGER_EMAIL='pshenya1972@gmail.com';
