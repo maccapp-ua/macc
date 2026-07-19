@@ -818,8 +818,6 @@ function save(){
 function load(){
   const savedTheme=localStorage.getItem('macc_theme')||'dark';
   document.body.classList.toggle('light-theme', savedTheme==='light');
-  const savedPage=localStorage.getItem('macc_page');
-  if(savedPage) curPage=savedPage;
   const loc=localStorage.getItem('macc_state');
   if(loc){try{const d=JSON.parse(loc);if(d)applyState(d);}catch(e){}}
   fetch(`${FB_URL}/data.json`).then(r=>r.json()).then(d=>{
@@ -844,7 +842,6 @@ function applyState(d){
 // ══════════════════════════════════════════════════════════════
 function navigate(page){
   curPage=page;
-  localStorage.setItem('macc_page',page);
   curSiteDetailId=null;
   curBudgetSiteId=null;
   curContractorDetailId=null;
