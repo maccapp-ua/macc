@@ -70,6 +70,40 @@ FEED_LIMIT = 50
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": "MACCProzorroBot/1.0"})
 
+RETRY_DELAYS = [5, 15, 45]
+RESET_DAYS   = 7   # скидаємо offset кожні 7 днів → завжди є свіжі тендери
+
+
+def api_get(url, params=None, timeout=40):
+    """GET з retry (3 спроби) та обробкою 429."""
+    for attempt, delay in enumerate([0] + RETRY_DELAYS, 1):
+        if delay:
+            print(f"[retry] спроба {attempt}, чекаємо {delay}с…")
+            time.sleep(delay)
+        try:
+            r = SESSION.get(url, params=params, timeout=timeout)
+            if r.status_code == 429:
+                wait = int(r.headers.get("Retry-After", delay or 30))
+                print(f"[warn] 429, чекаємо {wait}с…")
+                time.sleep(wait)
+                continue
+            r.raise_for_status()
+            return r
+        except requests.exceptions.Timeout:
+            print(f"[warn] timeout")
+            if attempt > len(RETRY_DELAYS): raise
+        except requests.exceptions.ConnectionError as e:
+            print(f"[warn] connection: {e}")
+            if attempt > len(RETRY_DELAYS): raise
+        except requests.exceptions.HTTPError as e:
+            code = e.response.status_code if e.response is not None else 0
+            if code in (500, 502, 503, 504):
+                print(f"[warn] server error {code}")
+                if attempt > len(RETRY_DELAYS): raise
+            else:
+                raise
+    raise RuntimeError(f"api_get failed: {url}")
+
 
 def load_state():
     if STATE_PATH.exists():
@@ -80,6 +114,13 @@ def load_state():
 def save_state(state):
     DATA_DIR.mkdir(exist_ok=True)
     STATE_PATH.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+
+def should_reset(state):
+    last = state.get("last_reset")
+    if not last:
+        return True
+    return dt.date.today() >= dt.date.fromisoformat(last) + dt.timedelta(days=RESET_DAYS)
 
 
 def fetch_candidate_ids(offset):
@@ -97,13 +138,21 @@ def fetch_candidate_ids(offset):
 
     while pages < MAX_PAGES:
         try:
-            r = SESSION.get(url, params=params, timeout=40)
-            r.raise_for_status()
-            body = r.json()
+            r = api_get(url, params=params)
+        except requests.exceptions.HTTPError as e:
+            code = e.response.status_code if e.response is not None else 0
+            if code in (400, 404) and offset:
+                print(f"[warn] offset недійсний ({code}), скидаємо.")
+                params = dict(base_params)
+                offset = None
+                continue
+            print(f"[error] фід: {e}")
+            break
         except Exception as e:
-            print(f"[warn] фід: {e}")
+            print(f"[error] фід: {e}")
             break
 
+        body = r.json()
         data = body.get("data", [])
         if not data:
             break
@@ -129,8 +178,7 @@ def fetch_candidate_ids(offset):
 
 
 def fetch_tender(tid):
-    r = SESSION.get(f"{PROZORRO_FEED}/{tid}", timeout=40)
-    r.raise_for_status()
+    r = api_get(f"{PROZORRO_FEED}/{tid}")
     return r.json().get("data", {})
 
 
@@ -263,38 +311,55 @@ def update_feed(records):
 
 def main():
     state = load_state()
-    seen  = load_seen()
+    seen  = set()
 
-    ids, new_offset = fetch_candidate_ids(state.get("offset"))
-    print(f"[info] кандидатів (статус пройшов): {len(ids)}")
+    try:
+        if should_reset(state):
+            print(f"[info] скидання offset (раз на {RESET_DAYS} днів) — скануємо спочатку.")
+            state["offset"] = None
+            state["last_reset"] = dt.date.today().isoformat()
+        else:
+            seen = load_seen()
 
-    fresh_ids = [i for i in ids if i not in seen][:MAX_DETAIL_FETCH]
-    print(f"[info] нових для перевірки: {len(fresh_ids)}")
+        ids, new_offset = fetch_candidate_ids(state.get("offset"))
+        print(f"[info] кандидатів (статус пройшов): {len(ids)}")
 
-    matched = []
-    for i, tid in enumerate(fresh_ids, 1):
-        try:
-            t = fetch_tender(tid)
-            if matches(t):
-                matched.append(to_record(t))
-        except Exception as e:
-            print(f"[warn] tender {tid}: {e}")
-        seen.add(tid)
-        if i % 200 == 0:
-            print(f"[info] оброблено {i}/{len(fresh_ids)}…")
-        time.sleep(REQUEST_PAUSE)
+        fresh_ids = [i for i in ids if i not in seen][:MAX_DETAIL_FETCH]
+        print(f"[info] нових для перевірки: {len(fresh_ids)}")
 
-    print(f"[info] під критерії підійшло: {len(matched)}")
+        matched = []
+        for i, tid in enumerate(fresh_ids, 1):
+            try:
+                t = fetch_tender(tid)
+                if matches(t):
+                    matched.append(to_record(t))
+            except Exception as e:
+                print(f"[warn] tender {tid}: {e}")
+            seen.add(tid)
+            if i % 200 == 0:
+                print(f"[info] оброблено {i}/{len(fresh_ids)}…")
+            time.sleep(REQUEST_PAUSE)
 
-    if matched:
-        send_telegram(matched)
-        update_feed(matched)
+        print(f"[info] під критерії підійшло: {len(matched)}")
 
-    save_seen(seen)
-    if new_offset:
-        state["offset"] = new_offset
+        if matched:
+            try:
+                send_telegram(matched)
+            except Exception as e:
+                print(f"[warn] Telegram: {e}")
+            update_feed(matched)
+
+        if new_offset:
+            state["offset"] = new_offset
+
+    except Exception as e:
+        print(f"[error] несподівана помилка: {e}")
+        state["offset"] = None
+
+    finally:
+        save_seen(seen)
         save_state(state)
-    print("[done]")
+        print("[done]")
 
 
 if __name__ == "__main__":
