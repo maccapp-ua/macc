@@ -39,12 +39,25 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#1a1200}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.danger{color:var(--red)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:disabled:hover{background:var(--card2);border-color:var(--border)}
 .icon-btn{width:34px;height:34px;border-radius:6px;background:var(--card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text2)}
 .icon-btn:hover{background:var(--card);color:var(--accent)}
 select#currentUserSelect{min-width:140px}
 
 .main{padding:18px 20px 60px;max-width:1500px;margin:0 auto}
 .hint{font-size:11.5px;color:var(--text3);background:var(--bg3);border:1px dashed var(--border2);border-radius:6px;padding:8px 12px;margin-bottom:16px;line-height:1.5}
+
+/* ── PROJECT BAR ── */
+.project-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:9px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.project-pill{padding:6px 8px 6px 14px;border-radius:20px;font-size:12.5px;font-weight:700;background:var(--card2);border:1px solid var(--border);color:var(--text2);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:8px;transition:.15s}
+.project-pill:hover{border-color:var(--border2)}
+.project-pill.active{background:var(--accent);border-color:var(--accent);color:#1a1200}
+.project-pill .gear{opacity:.55;font-size:12px;padding:2px 3px;border-radius:4px}
+.project-pill .gear:hover{opacity:1;background:rgba(0,0,0,.12)}
+.project-bar-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-right:2px}
+.empty-projects{padding:40px 20px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg2);border:1px dashed var(--border2);border-radius:var(--radius);margin-bottom:16px}
+.empty-projects b{color:var(--text2)}
 
 /* ── STATS ── */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
@@ -60,6 +73,7 @@ select#currentUserSelect{min-width:140px}
 .toolbar input[type=text]{min-width:200px;flex:1}
 .toolbar select{min-width:130px}
 .chk-label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2);white-space:nowrap;padding:0 4px}
+.chk-label input[type=checkbox]{width:15px;height:15px;flex:none}
 
 /* ── BOARD ── */
 .board{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:start}
@@ -83,7 +97,9 @@ select#currentUserSelect{min-width:140px}
 .card.p-low{border-left-color:var(--green)}
 .card-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;word-break:break-word}
 .card-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
-.badge{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.badge{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;text-decoration:none;cursor:default}
+a.badge{cursor:pointer}
+a.badge:hover{filter:brightness(1.25)}
 .badge.assignee{background:var(--bg3);color:var(--text2)}
 .badge.deadline{background:var(--bg3);color:var(--text3)}
 .badge.deadline.overdue{background:rgba(248,113,113,.15);color:var(--red)}
@@ -178,9 +194,16 @@ select#currentUserSelect{min-width:140px}
   <button class="btn primary" onclick="openTaskModal(null)">+ Нова задача</button>
 </div>
 
-<div class="main">
-  <div class="hint">Файл працює автономно у браузері (без сервера). Щоб поділитися задачами з командою — тисніть <b>Експорт</b> і покладіть JSON-файл у спільну папку Google Drive, а колеги — <b>Імпорт</b>. Посилання на самі папки Google Drive зручно тримати у розділі "Корисні посилання" нижче або прямо у задачі.</div>
+<div class="project-bar" id="projectBar"></div>
 
+<div class="main">
+  <div class="hint">Файл працює автономно у браузері (без сервера). Щоб поділитися задачами з командою — тисніть <b>Експорт</b> і покладіть JSON-файл у спільну папку Google Drive, а колеги — <b>Імпорт</b>. Посилання на самі папки Google Drive зручно тримати у розділі "Корисні посилання" нижче або прямо у задачі. Кожен проєкт видно лише тим, кого ви туди додали як учасника — але це організаційне розмежування в межах файлу, а не захищений логін із паролем.</div>
+
+  <div class="empty-projects" id="emptyProjects" style="display:none">
+    У вас поки немає жодного проєкту з доступом.<br>Натисніть <b>«+ Проєкт»</b> вгорі, щоб створити перший і почати додавати задачі.
+  </div>
+
+  <div id="boardWrap">
   <div class="stats" id="stats"></div>
 
   <div class="toolbar">
@@ -208,6 +231,7 @@ select#currentUserSelect{min-width:140px}
       <button class="btn" style="padding:5px 10px;font-size:11.5px" onclick="addLink()">+ Додати</button>
     </h3>
     <div class="links-grid" id="linksGrid"></div>
+  </div>
   </div>
 </div>
 
@@ -255,7 +279,10 @@ select#currentUserSelect{min-width:140px}
     </div>
     <div class="field">
       <label>Посилання на Google Drive / документ</label>
-      <input type="text" id="f-drive" placeholder="https://drive.google.com/...">
+      <div class="add-row">
+        <input type="text" id="f-drive" placeholder="https://drive.google.com/..." oninput="syncDriveOpenBtn()">
+        <button class="btn" id="openDriveBtn" onclick="openDriveLink()" disabled>↗ Відкрити</button>
+      </div>
     </div>
 
     <div class="field">
@@ -305,6 +332,29 @@ select#currentUserSelect{min-width:140px}
   </div>
 </div>
 
+<!-- Project modal -->
+<div class="overlay" id="projectOverlay">
+  <div class="modal">
+    <h2><span id="projectModalTitle">Новий проєкт</span><span class="close" onclick="closeProjectModal()">✕</span></h2>
+    <div class="field">
+      <label>Назва проєкту</label>
+      <input type="text" id="p-name" placeholder="Наприклад: Тендер №123">
+    </div>
+    <div class="field">
+      <label>Учасники з доступом до проєкту</label>
+      <div id="projectMembersList" style="display:flex;flex-direction:column;gap:6px"></div>
+      <div class="empty-note" id="projectMembersEmpty" style="display:none">Спочатку додайте учасників команди через "⚙ Команда та посилання".</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" id="deleteProjectBtn" onclick="deleteCurrentProject()" style="display:none">🗑 Видалити проєкт</button>
+      <div class="right">
+        <button class="btn" onclick="closeProjectModal()">Скасувати</button>
+        <button class="btn primary" onclick="saveProject()">Зберегти</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const STORAGE_KEY = 'macc_team_tasks_v1';
 let state = null;
@@ -315,6 +365,8 @@ function defaultState(){
     tasks: [],
     members: [],
     links: [],
+    projects: [],
+    activeProjectId: null,
     currentUser: '',
     theme: 'dark'
   };
@@ -327,9 +379,18 @@ function load(){
     if(!state.tasks) state.tasks = [];
     if(!state.members) state.members = [];
     if(!state.links) state.links = [];
+    if(!state.projects) state.projects = [];
+    if(state.activeProjectId === undefined) state.activeProjectId = null;
     if(!state.theme) state.theme = 'dark';
   }catch(e){
     state = defaultState();
+  }
+  // one-time migration: tasks created before "projects" existed get a default project
+  if(state.projects.length === 0 && state.tasks.length > 0){
+    const legacy = {id: uid(), name: 'Загальні задачі', members: state.members.slice()};
+    state.projects.push(legacy);
+    state.tasks.forEach(t=>{ if(!t.projectId) t.projectId = legacy.id; });
+    state.activeProjectId = legacy.id;
   }
 }
 function save(){
@@ -376,6 +437,11 @@ function setCurrentUser(name){
 function esc(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+function normalizeUrl(url){
+  url = String(url||'').trim();
+  if(!url) return '';
+  return /^https?:\/\//i.test(url) ? url : 'https://' + url;
+}
 function initials(name){
   if(!name) return '?';
   return name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
@@ -404,6 +470,8 @@ const STATUS_LIST = ['todo','inprogress','review','done'];
 function renderAll(){
   applyTheme();
   renderMembersSelects();
+  renderProjectBar();
+  renderScopedFilters();
   renderLinks();
   renderBoard();
   renderStats();
@@ -412,10 +480,6 @@ function renderAll(){
 }
 
 function renderMembersSelects(){
-  const opts = '<option value="">— не призначено —</option>' + state.members.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
-  document.getElementById('f-assignee').innerHTML = opts;
-  const filterOpts = '<option value="">Усі виконавці</option>' + state.members.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
-  document.getElementById('filterAssignee').innerHTML = filterOpts;
   document.getElementById('currentUserSelect').innerHTML = state.members.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
 
   const list = document.getElementById('membersList');
@@ -426,6 +490,103 @@ function renderMembersSelects(){
     </div>`).join('') || '<div class="empty-note">Учасників ще немає</div>';
 }
 
+/* ── projects ── */
+function myProjects(){
+  return state.projects.filter(p => p.members.includes(state.currentUser));
+}
+function activeProject(){
+  return state.projects.find(p => p.id === state.activeProjectId) || null;
+}
+function selectProject(id){
+  state.activeProjectId = id;
+  save();
+  renderProjectBar();
+  renderScopedFilters();
+  renderBoard();
+  renderStats();
+}
+function renderProjectBar(){
+  const bar = document.getElementById('projectBar');
+  const mine = myProjects();
+  if(!mine.some(p => p.id === state.activeProjectId)){
+    state.activeProjectId = mine.length ? mine[0].id : null;
+    save();
+  }
+  const pills = mine.map(p => `
+    <div class="project-pill ${p.id===state.activeProjectId?'active':''}" onclick="selectProject('${p.id}')">
+      <span>${esc(p.name)}</span>
+      <span class="gear" onclick="event.stopPropagation(); openProjectModal('${p.id}')" title="Редагувати проєкт">⚙</span>
+    </div>`).join('');
+  bar.innerHTML = `<span class="project-bar-label">Проєкти:</span>` + pills +
+    `<button class="btn" style="padding:6px 12px;font-size:12.5px" onclick="openProjectModal(null)">+ Проєкт</button>`;
+
+  document.getElementById('emptyProjects').style.display = mine.length ? 'none' : 'block';
+  document.getElementById('boardWrap').style.display = mine.length ? '' : 'none';
+}
+function renderScopedFilters(){
+  const proj = activeProject();
+  const members = proj ? proj.members : [];
+  const filterOpts = '<option value="">Усі виконавці</option>' + members.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  document.getElementById('filterAssignee').innerHTML = filterOpts;
+  const assigneeOpts = '<option value="">— не призначено —</option>' + members.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  document.getElementById('f-assignee').innerHTML = assigneeOpts;
+}
+
+let editingProjectId = null;
+function openProjectModal(id){
+  editingProjectId = id;
+  const p = id ? state.projects.find(x=>x.id===id) : null;
+  document.getElementById('projectModalTitle').textContent = p ? 'Редагувати проєкт' : 'Новий проєкт';
+  document.getElementById('p-name').value = p ? p.name : '';
+  const wrap = document.getElementById('projectMembersList');
+  if(!state.members.length){
+    wrap.innerHTML = '';
+    document.getElementById('projectMembersEmpty').style.display = 'block';
+  }else{
+    document.getElementById('projectMembersEmpty').style.display = 'none';
+    wrap.innerHTML = state.members.map(m=>{
+      const checked = p ? p.members.includes(m) : (m === state.currentUser);
+      return `<label class="chk-label" style="justify-content:flex-start"><input type="checkbox" class="p-member-chk" value="${esc(m)}" ${checked?'checked':''}> ${esc(m)}</label>`;
+    }).join('');
+  }
+  document.getElementById('deleteProjectBtn').style.display = p ? 'inline-flex' : 'none';
+  document.getElementById('projectOverlay').classList.add('show');
+}
+function closeProjectModal(){
+  document.getElementById('projectOverlay').classList.remove('show');
+  editingProjectId = null;
+}
+function saveProject(){
+  const name = document.getElementById('p-name').value.trim();
+  if(!name){ alert('Вкажіть назву проєкту'); return; }
+  const members = Array.from(document.querySelectorAll('.p-member-chk:checked')).map(el=>el.value);
+  if(!members.length){ alert('Оберіть хоча б одного учасника з доступом до проєкту'); return; }
+  if(editingProjectId){
+    const p = state.projects.find(x=>x.id===editingProjectId);
+    p.name = name;
+    p.members = members;
+  }else{
+    const p = {id: uid(), name, members};
+    state.projects.push(p);
+    state.activeProjectId = p.id;
+  }
+  save();
+  closeProjectModal();
+  renderAll();
+}
+function deleteCurrentProject(){
+  if(!editingProjectId) return;
+  const p = state.projects.find(x=>x.id===editingProjectId);
+  const taskCount = state.tasks.filter(t=>t.projectId===editingProjectId).length;
+  if(!confirm(`Видалити проєкт "${p.name}"${taskCount?` разом з усіма його задачами (${taskCount})`:''}? Це незворотно.`)) return;
+  state.tasks = state.tasks.filter(t=>t.projectId!==editingProjectId);
+  state.projects = state.projects.filter(x=>x.id!==editingProjectId);
+  if(state.activeProjectId === editingProjectId) state.activeProjectId = null;
+  save();
+  closeProjectModal();
+  renderAll();
+}
+
 function renderLinks(){
   const grid = document.getElementById('linksGrid');
   if(!state.links.length){
@@ -434,7 +595,7 @@ function renderLinks(){
   }
   grid.innerHTML = state.links.map(l=>`
     <div class="link-item">
-      <a href="${esc(l.url)}" target="_blank" rel="noopener">🔗 ${esc(l.name)}</a>
+      <a href="${esc(normalizeUrl(l.url))}" target="_blank" rel="noopener">🔗 ${esc(l.name)}</a>
       <span class="del" onclick="removeLink('${l.id}')">✕</span>
     </div>`).join('');
 }
@@ -446,6 +607,7 @@ function getFilteredTasks(){
   const mine = document.getElementById('filterMine').checked;
   const overdueOnly = document.getElementById('filterOverdue').checked;
   return state.tasks.filter(t=>{
+    if(t.projectId !== state.activeProjectId) return false;
     if(q && !(t.title.toLowerCase().includes(q) || (t.desc||'').toLowerCase().includes(q))) return false;
     if(fa && t.assignee !== fa) return false;
     if(fp && t.priority !== fp) return false;
@@ -476,14 +638,14 @@ function cardHtml(t){
     <div class="card-meta">
       ${t.assignee ? `<span class="badge assignee"><span class="avatar">${esc(initials(t.assignee))}</span>${esc(t.assignee)}</span>` : ''}
       ${t.deadline ? `<span class="badge deadline ${dlClass}">📅 ${fmtDate(t.deadline)}</span>` : ''}
-      ${t.driveLink ? `<span class="badge drive">📁 Drive</span>` : ''}
+      ${t.driveLink ? `<a class="badge drive" href="${esc(normalizeUrl(t.driveLink))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📁 Drive</a>` : ''}
       ${sub.length ? `<span class="badge subtasks">☑ ${subDone}/${sub.length}</span>` : ''}
     </div>
   </div>`;
 }
 
 function renderStats(){
-  const tasks = state.tasks;
+  const tasks = state.tasks.filter(t => t.projectId === state.activeProjectId);
   const active = tasks.filter(t=>t.status!=='done').length;
   const overdue = tasks.filter(t=>deadlineClass(t.deadline,t.status)==='overdue').length;
   const soon = tasks.filter(t=>deadlineClass(t.deadline,t.status)==='soon').length;
@@ -526,6 +688,7 @@ let modalSubtasks = [];
 let modalComments = [];
 
 function openTaskModal(id){
+  if(!id && !state.activeProjectId){ alert('Спершу оберіть або створіть проєкт'); return; }
   editingTaskId = id;
   const overlay = document.getElementById('taskOverlay');
   if(id){
@@ -556,7 +719,17 @@ function openTaskModal(id){
   }
   renderSubtasks();
   renderComments();
+  syncDriveOpenBtn();
   overlay.classList.add('show');
+}
+function syncDriveOpenBtn(){
+  const url = document.getElementById('f-drive').value.trim();
+  document.getElementById('openDriveBtn').disabled = !url;
+}
+function openDriveLink(){
+  const url = normalizeUrl(document.getElementById('f-drive').value);
+  if(!url) return;
+  window.open(url, '_blank', 'noopener');
 }
 function closeTaskModal(){
   document.getElementById('taskOverlay').classList.remove('show');
@@ -616,6 +789,7 @@ function saveTask(){
     Object.assign(t, data);
   }else{
     data.id = uid();
+    data.projectId = state.activeProjectId;
     data.createdAt = new Date().toISOString();
     state.tasks.push(data);
   }
@@ -652,8 +826,9 @@ function addMember(){
   renderAll();
 }
 function removeMember(name){
-  if(!confirm(`Прибрати "${name}" зі списку учасників?`)) return;
+  if(!confirm(`Прибрати "${name}" зі списку учасників? Він також втратить доступ до всіх проєктів.`)) return;
   state.members = state.members.filter(m=>m!==name);
+  state.projects.forEach(p=>{ p.members = p.members.filter(m=>m!==name); });
   if(state.currentUser === name) state.currentUser = '';
   save();
   renderAll();
@@ -702,10 +877,14 @@ function importData(file){
         (incoming.members||[]).forEach(m=>{ if(!state.members.includes(m)) state.members.push(m); });
         const existingLinkUrls = new Set(state.links.map(l=>l.url));
         (incoming.links||[]).forEach(l=>{ if(!existingLinkUrls.has(l.url)) state.links.push(l); });
+        const existingProjIds = new Set(state.projects.map(p=>p.id));
+        (incoming.projects||[]).forEach(p=>{ if(!existingProjIds.has(p.id)) state.projects.push(p); else Object.assign(state.projects.find(x=>x.id===p.id), p); });
       }else{
         state.tasks = incoming.tasks;
         state.members = incoming.members || [];
         state.links = incoming.links || [];
+        state.projects = incoming.projects || [];
+        state.activeProjectId = null;
       }
       save();
       renderAll();
