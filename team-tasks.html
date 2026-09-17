@@ -213,7 +213,7 @@ a.badge:hover{filter:brightness(1.25)}
   <div class="hint">Дошка синхронізується між усіма учасниками в реальному часі: орієнтуйтеся на зелений індикатор <b>«Синхронізовано»</b> вгорі. Кнопки <b>Експорт</b> і <b>Імпорт</b> залишилися для резервної копії. Посилання на папки Google Drive можна тримати в розділі «Корисні посилання» або прямо у задачі.</div>
 
   <div class="empty-projects" id="emptyProjects" style="display:none">
-    У вас поки немає жодного проєкту з доступом.<br>Натисніть <b>«+ Проєкт»</b> вгорі, щоб створити перший і почати додавати задачі.
+    Ім’я додано, але вам ще не надали доступу до жодного проєкту.<br>Попросіть відповідального учасника відкрити проєкт і додати вас до списку учасників. Якщо ви створюєте новий проєкт — натисніть <b>«+ Проєкт»</b> вгорі.
   </div>
 
   <div id="boardWrap">
@@ -456,6 +456,12 @@ function applyCloudState(remote){
   ensureCurrentUser();
 }
 async function startCloudSync(){
+  if(location.protocol === 'file:'){
+    setSyncStatus('● Відкрийте вебпосилання', 'error');
+    renderAll();
+    ensureCurrentUser();
+    return;
+  }
   try{
     cloud = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
     const {data, error} = await cloud.from('team_state').select('data').eq('id','main').single();
