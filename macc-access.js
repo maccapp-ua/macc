@@ -83,6 +83,14 @@
   function topLevelChanges(before,after){
     const changed=[];['sites','contractors','executors','cashflows','budgets','meetings','tasks','tenders'].forEach(k=>{if(JSON.stringify(before?.[k]??null)!==JSON.stringify(after?.[k]??null))changed.push(k)});return changed;
   }
+  function auditChanges(before,after){
+    const changes=[];
+    const oldSites=new Map((before?.sites||[]).map(x=>[x.id,x]));
+    const newSites=new Map((after?.sites||[]).map(x=>[x.id,x]));
+    newSites.forEach((site,id)=>{if(!oldSites.has(id))changes.push('Додано об’єкт «'+(site.name||'без назви')+'»');else if(JSON.stringify(oldSites.get(id))!==JSON.stringify(site))changes.push('Змінено об’єкт «'+(site.name||'без назви')+'»');});
+    oldSites.forEach((site,id)=>{if(!newSites.has(id))changes.push('Видалено об’єкт «'+(site.name||'без назви')+'»');});
+    return changes;
+  }
   async function secureSave(){
     if(!profile||!['admin','editor'].includes(profile.role)){alert('У вас є лише доступ для перегляду.');return;}
     const payload=JSON.stringify(state);
@@ -92,7 +100,7 @@
     latestData=payload;
     const {error}=await db.from('macc_app_state').upsert({id:'main',data:state,updated_at:new Date().toISOString(),updated_by:session.user.id});
     if(error){console.error(error); alert('Зміни не вдалося синхронізувати: '+error.message);return;}
-    await db.from('macc_audit_log').insert({user_id:session.user.id,action:'Зміна даних сайту',details:{sections:topLevelChanges(previous,state)}});
+    const changes=auditChanges(previous,state);await db.from('macc_audit_log').insert({user_id:session.user.id,action:changes.length?changes.join('; '):'Зміна даних сайту',details:{sections:topLevelChanges(previous,state)}});
   }
   async function secureLoad(){
     const savedTheme=localStorage.getItem('macc_theme')||'dark';document.body.classList.toggle('light-theme',savedTheme==='light');
