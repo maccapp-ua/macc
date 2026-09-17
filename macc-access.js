@@ -50,6 +50,9 @@
       button.disabled=true; message.textContent='Зберігаємо пароль…';
       const {error}=await db.auth.updateUser({password});
       if(error){message.textContent='Не вдалося зберегти пароль: '+error.message;button.disabled=false;return;}
+      const {error:activationError}=await db.functions.invoke('manage-users',{body:{action:'activate_self'}});
+      if(activationError){message.textContent='Пароль збережено, але доступ не підтверджено: '+activationError.message;button.disabled=false;return;}
+      profile.active=true;profile.revoked_at=null;
       history.replaceState(null,'',location.pathname);
       overlay.remove(); addUserBox(); enableNavigation();
       await db.from('macc_access_log').insert({user_id:session.user.id,event:'login'});
@@ -57,7 +60,7 @@
     });
   }
   async function getProfile(){
-    const {data,error}=await db.from('macc_profiles').select('id,email,role,active').eq('id',session.user.id).maybeSingle();
+    const {data,error}=await db.from('macc_profiles').select('id,email,role,active,revoked_at').eq('id',session.user.id).maybeSingle();
     if(error)throw error; return data;
   }
   function addUserBox(){
@@ -140,8 +143,8 @@
     session=nextSession;
     if(!session){profile=null;showLogin();return;}
     try{profile=await getProfile();}catch(e){showLogin('Помилка перевірки доступу: '+e.message);return;}
-    if(!profile?.active){await db.auth.signOut();showLogin('Для цієї пошти доступ ще не підтверджено адміністратором.');return;}
-    if(location.hash.includes('type=recovery')){showPasswordSetup();return;}
+    if(location.hash.includes('type=recovery')||(!profile?.active&&!profile?.revoked_at)){showPasswordSetup();return;}
+    if(!profile?.active){await db.auth.signOut();showLogin('Для цієї пошти доступ закрито адміністратором.');return;}
     document.getElementById('macc-auth')?.remove();addUserBox();enableNavigation();
     await db.from('macc_access_log').insert({user_id:session.user.id,event:'login'});
     await secureLoad();
