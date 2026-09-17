@@ -125,7 +125,9 @@
     if(!email){out.textContent='Вкажіть пошту користувача.';return;}
     out.textContent='Створюємо запрошення…';
     const {data,error}=await db.functions.invoke('manage-users',{body:{action:'invite',email,role}});
-    out.textContent=error?('Помилка: '+error.message):(data?.message||'Запрошення надіслано.');if(!error)loadAccessData();
+    let reason=error?.message;
+    if(error?.context){try{const detail=await error.context.json();reason=detail.error||reason;}catch(e){}}
+    out.textContent=error?('Помилка: '+reason):(data?.message||'Запрошення надіслано.');if(!error)loadAccessData();
   }
   async function revoke(id,email){
     if(!confirm('Забрати доступ для '+email+'? Користувач буде примусово виведений із сайту.'))return;
