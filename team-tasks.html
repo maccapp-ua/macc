@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MACC — Задачі команди</title>
 <link rel="icon" type="image/png" href="logo.png">
+<link rel="manifest" href="team-tasks.webmanifest">
+<meta name="theme-color" content="#162030">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MACC Задачі">
+<link rel="apple-touch-icon" href="logo.png">
 <style>
 :root{
   --bg:#162030;--bg2:#1c2b3e;--bg3:#223348;--card:#263a52;--card2:#2c4260;
@@ -190,6 +196,7 @@ a.badge:hover{filter:brightness(1.25)}
   <button class="btn" onclick="openSettings()">⚙ Команда та посилання</button>
   <button class="btn" onclick="exportData()">⬇ Експорт</button>
   <button class="btn" onclick="document.getElementById('importFile').click()">⬆ Імпорт</button>
+  <button class="btn" id="installAppBtn" onclick="installApp()" hidden>⬇ Встановити застосунок</button>
   <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(this.files[0])">
   <button class="btn primary" onclick="openTaskModal(null)">+ Нова задача</button>
 </div>
@@ -907,6 +914,31 @@ document.addEventListener('DOMContentLoaded', ()=>{
   renderAll();
   ensureCurrentUser();
 });
+
+/* ── installable application / offline cache ── */
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  installPrompt = event;
+  document.getElementById('installAppBtn').hidden = false;
+});
+window.addEventListener('appinstalled', () => {
+  installPrompt = null;
+  document.getElementById('installAppBtn').hidden = true;
+});
+async function installApp(){
+  if(!installPrompt){
+    alert('На iPhone: натисніть «Поділитися» в Safari → «На початковий екран». На комп’ютері відкрийте сторінку в Chrome або Edge та скористайтеся кнопкою встановлення в адресному рядку.');
+    return;
+  }
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  document.getElementById('installAppBtn').hidden = true;
+}
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => navigator.serviceWorker.register('team-tasks-sw.js'));
+}
 </script>
 </body>
 </html>

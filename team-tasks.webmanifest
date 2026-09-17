@@ -1,0 +1,14 @@
+{
+  "name": "MACC — Задачі команди",
+  "short_name": "MACC Задачі",
+  "description": "Задачі, проєкти та дедлайни команди MACC.",
+  "start_url": "./team-tasks.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#162030",
+  "theme_color": "#162030",
+  "lang": "uk",
+  "icons": [
+    {"src": "logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
