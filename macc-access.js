@@ -154,7 +154,7 @@
   }
   window.maccToggleHistory=()=>{const card=document.getElementById('macc-history-card');if(card)card.style.display=card.style.display==='none'?'block':'none';};
   window.maccInviteUser=invite;window.maccRevokeUser=revoke;
-  window.maccSignOut=async()=>{if(session)await db.from('macc_access_log').insert({user_id:session.user.id,event:'logout'});await db.auth.signOut();};
+  window.maccSignOut=async()=>{sessionStorage.removeItem('macc_last_page');if(session)await db.from('macc_access_log').insert({user_id:session.user.id,event:'logout'});await db.auth.signOut();};
   async function activate(nextSession){
     session=nextSession;
     if(!session){profile=null;showLogin();return;}
@@ -164,12 +164,13 @@
     document.getElementById('macc-auth')?.remove();addUserBox();enableNavigation();
     await db.from('macc_access_log').insert({user_id:session.user.id,event:'login'});
     await secureLoad();
+    const rememberedPage=sessionStorage.getItem('macc_last_page');if(rememberedPage&&rememberedPage!==curPage)window.navigate(rememberedPage);
     db.channel('macc-main-state').on('postgres_changes',{event:'UPDATE',schema:'public',table:'macc_app_state',filter:'id=eq.main'},payload=>{if(payload.new.updated_by!==session.user.id){window.applyState(payload.new.data);latestData=JSON.stringify(state);window.render();applyReadOnly();}}).subscribe();
   }
   window.maccAccessBoot=async function(){
     if(booted)return;booted=true;
     originalRender=window.render;window.render=function(){originalRender();if(profile)applyReadOnly();};
-    originalNavigate=window.navigate;window.navigate=function(page){if(page==='access'){curPage='access';document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));document.getElementById('nav-access')?.classList.add('active');renderAccess();return;}originalNavigate(page);};
+    originalNavigate=window.navigate;window.navigate=function(page){sessionStorage.setItem('macc_last_page',page);if(page==='access'){curPage='access';document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));document.getElementById('nav-access')?.classList.add('active');renderAccess();return;}originalNavigate(page);};
     window.save=secureSave;
     const {data:{session:existing}}=await db.auth.getSession();await activate(existing);
     db.auth.onAuthStateChange((event,next)=>{if(event==='SIGNED_IN'||event==='SIGNED_OUT')setTimeout(()=>activate(next),0);});
