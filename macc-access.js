@@ -37,6 +37,25 @@
     const {error}=await db.auth.signInWithPassword({email,password});
     if(error){message.textContent='Не вдалося увійти: '+error.message;button.disabled=false;}
   }
+  function showPasswordSetup(){
+    authOverlay();
+    const overlay=document.getElementById('macc-auth');
+    overlay.innerHTML=`<form class="macc-auth-card" id="macc-password-form"><div class="macc-auth-logo"><img src="logo.png" width="42" height="42" style="border-radius:50%"><div><b>MACC</b><br><span>Management Accounting</span></div></div><h1>Створіть пароль</h1><p>Задайте пароль для наступних входів до закритого робочого простору MACC.</p><label for="macc-new-password">Новий пароль</label><input id="macc-new-password" type="password" required minlength="8" autocomplete="new-password"><label for="macc-new-password-repeat">Повторіть пароль</label><input id="macc-new-password-repeat" type="password" required minlength="8" autocomplete="new-password"><button id="macc-password-submit" type="submit">Зберегти пароль і відкрити сайт</button><div id="macc-password-message" class="macc-auth-message"></div></form>`;
+    document.getElementById('macc-password-form').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const password=document.getElementById('macc-new-password').value;
+      const repeat=document.getElementById('macc-new-password-repeat').value;
+      const message=document.getElementById('macc-password-message'), button=document.getElementById('macc-password-submit');
+      if(password!==repeat){message.textContent='Паролі не збігаються.';return;}
+      button.disabled=true; message.textContent='Зберігаємо пароль…';
+      const {error}=await db.auth.updateUser({password});
+      if(error){message.textContent='Не вдалося зберегти пароль: '+error.message;button.disabled=false;return;}
+      history.replaceState(null,'',location.pathname);
+      overlay.remove(); addUserBox(); enableNavigation();
+      await db.from('macc_access_log').insert({user_id:session.user.id,event:'login'});
+      await secureLoad();
+    });
+  }
   async function getProfile(){
     const {data,error}=await db.from('macc_profiles').select('id,email,role,active').eq('id',session.user.id).maybeSingle();
     if(error)throw error; return data;
@@ -120,6 +139,7 @@
     if(!session){profile=null;showLogin();return;}
     try{profile=await getProfile();}catch(e){showLogin('Помилка перевірки доступу: '+e.message);return;}
     if(!profile?.active){await db.auth.signOut();showLogin('Для цієї пошти доступ ще не підтверджено адміністратором.');return;}
+    if(location.hash.includes('type=recovery')){showPasswordSetup();return;}
     document.getElementById('macc-auth')?.remove();addUserBox();enableNavigation();
     await db.from('macc_access_log').insert({user_id:session.user.id,event:'login'});
     await secureLoad();
