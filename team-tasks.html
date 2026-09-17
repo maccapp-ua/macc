@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MACC Задачі">
 <link rel="apple-touch-icon" href="logo.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --bg:#162030;--bg2:#1c2b3e;--bg3:#223348;--card:#263a52;--card2:#2c4260;
@@ -50,6 +51,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 .icon-btn{width:34px;height:34px;border-radius:6px;background:var(--card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text2)}
 .icon-btn:hover{background:var(--card);color:var(--accent)}
 select#currentUserSelect{min-width:140px}
+.sync-status{font-size:11px;color:var(--text3);white-space:nowrap}
+.sync-status.ok{color:var(--green)}
+.sync-status.wait{color:var(--amber)}
+.sync-status.error{color:var(--red)}
 
 .main{padding:18px 20px 60px;max-width:1500px;margin:0 auto}
 .hint{font-size:11.5px;color:var(--text3);background:var(--bg3);border:1px dashed var(--border2);border-radius:6px;padding:8px 12px;margin-bottom:16px;line-height:1.5}
@@ -192,6 +197,7 @@ a.badge:hover{filter:brightness(1.25)}
     </div>
   </div>
   <select id="currentUserSelect" onchange="setCurrentUser(this.value)"></select>
+  <span class="sync-status wait" id="syncStatus">● Підключення…</span>
   <button class="icon-btn" title="Тема" onclick="toggleTheme()">🌓</button>
   <button class="btn" onclick="openSettings()">⚙ Команда та посилання</button>
   <button class="btn" onclick="exportData()">⬇ Експорт</button>
@@ -364,8 +370,13 @@ a.badge:hover{filter:brightness(1.25)}
 
 <script>
 const STORAGE_KEY = 'macc_team_tasks_v1';
+const SUPABASE_URL = 'https://wfdkprsszmvhqsycjwuh.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_e95XvrX-cpaj7-dITbc67g__KYosuXT';
 let state = null;
 let editingTaskId = null;
+let cloud = null;
+let cloudReady = false;
+let cloudSaveTimer = null;
 
 function defaultState(){
   return {
@@ -400,8 +411,78 @@ function load(){
     state.activeProjectId = legacy.id;
   }
 }
-function save(){
+function saveLocal(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+function sharedState(){
+  return {
+    tasks: state.tasks,
+    members: state.members,
+    links: state.links,
+    projects: state.projects
+  };
+}
+function setSyncStatus(text, kind=''){
+  const el = document.getElementById('syncStatus');
+  if(!el) return;
+  el.textContent = text;
+  el.className = `sync-status ${kind}`;
+}
+function save(){
+  saveLocal();
+  if(cloudReady) queueCloudSave();
+}
+function queueCloudSave(){
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(pushCloudState, 350);
+}
+async function pushCloudState(){
+  if(!cloud || !cloudReady) return;
+  setSyncStatus('● Синхронізація…', 'wait');
+  const {error} = await cloud.from('team_state').upsert({id:'main', data:sharedState()});
+  if(error){
+    console.error(error);
+    setSyncStatus('● Немає з’єднання', 'error');
+    return;
+  }
+  setSyncStatus('● Синхронізовано', 'ok');
+}
+function applyCloudState(remote){
+  const localPrefs = {currentUser:state.currentUser, activeProjectId:state.activeProjectId, theme:state.theme};
+  state = {...defaultState(), ...remote, ...localPrefs};
+  if(state.activeProjectId && !state.projects.some(p=>p.id===state.activeProjectId)) state.activeProjectId = null;
+  saveLocal();
+  renderAll();
+  ensureCurrentUser();
+}
+async function startCloudSync(){
+  try{
+    cloud = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+    const {data, error} = await cloud.from('team_state').select('data').eq('id','main').single();
+    if(error) throw error;
+    const remote = data && data.data ? data.data : {};
+    const remoteHasData = ['tasks','members','links','projects'].some(key => Array.isArray(remote[key]) && remote[key].length);
+    const localHasData = ['tasks','members','links','projects'].some(key => Array.isArray(state[key]) && state[key].length);
+    cloudReady = true;
+    if(!remoteHasData && localHasData) await pushCloudState();
+    else applyCloudState(remote);
+    setSyncStatus('● Синхронізовано', 'ok');
+    cloud.channel('macc-team-state')
+      .on('postgres_changes', {event:'UPDATE', schema:'public', table:'team_state', filter:'id=eq.main'}, payload => {
+        const incoming = payload.new.data;
+        if(JSON.stringify(incoming) !== JSON.stringify(sharedState())) applyCloudState(incoming);
+        setSyncStatus('● Синхронізовано', 'ok');
+      })
+      .subscribe(status => {
+        if(status === 'SUBSCRIBED') setSyncStatus('● Синхронізовано', 'ok');
+        if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setSyncStatus('● Немає з’єднання', 'error');
+      });
+  }catch(error){
+    console.error(error);
+    setSyncStatus('● Локальний режим', 'error');
+    renderAll();
+    ensureCurrentUser();
+  }
 }
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
@@ -912,7 +993,7 @@ if(state.members.length === 0){
 applyTheme();
 document.addEventListener('DOMContentLoaded', ()=>{
   renderAll();
-  ensureCurrentUser();
+  startCloudSync();
 });
 
 /* ── installable application / offline cache ── */

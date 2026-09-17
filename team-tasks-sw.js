@@ -1,4 +1,4 @@
-const CACHE = 'macc-team-tasks-v1';
+const CACHE = 'macc-team-tasks-v2';
 const APP_FILES = [
   './team-tasks.html',
   './team-tasks.webmanifest',
@@ -19,5 +19,13 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if(event.request.method !== 'GET') return;
-  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        const cached = response.clone();
+        caches.open(CACHE).then(cache => cache.put(event.request, cached));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
+  );
 });
