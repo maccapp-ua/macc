@@ -843,6 +843,9 @@ function applyState(d){
 //  NAVIGATION
 // ══════════════════════════════════════════════════════════════
 function navigate(page){
+  // Remember the current section only for this browser session.
+  // Closing the browser or signing out starts from the dashboard again.
+  try{sessionStorage.setItem('macc_last_page',page);}catch(_){}
   curPage=page;
   curSiteDetailId=null;
   curBudgetSiteId=null;
