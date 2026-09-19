@@ -18,6 +18,7 @@
   `;
   function esc(v){return String(v||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
   function roleLabel(role){return({admin:'Адміністратор',editor:'Редактор',viewer:'Перегляд'})[role]||role;}
+  window.maccCanManageProjects=()=>profile?.role==='admin';
   function authOverlay(){
     if(document.getElementById('macc-auth'))return;
     document.head.insertAdjacentHTML('beforeend',`<style>${css}</style>`);

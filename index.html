@@ -887,6 +887,7 @@ function closeModal(name){document.getElementById('modal-'+name).classList.remov
 function renderSites(){
   const el=document.getElementById('main-content');
   const sites=state.sites||[];
+  const canManageProjects=window.maccCanManageProjects?.()===true;
 
   // aggregate totals
   let totAmount=0, totIncome=0, totExpense=0;
@@ -898,7 +899,7 @@ function renderSites(){
 
   let tbody='';
   if(!sites.length){
-    tbody=`<tr><td colspan="8"><div class="empty"><div class="empty-icon">🏗️</div><h3>Об'єктів ще немає</h3><p>Натисніть «+ Новий об'єкт» щоб додати перший</p></div></td></tr>`;
+    tbody=`<tr><td colspan="8"><div class="empty"><div class="empty-icon">🏗️</div><h3>Об'єктів ще немає</h3><p>${canManageProjects?'Натисніть «+ Новий об’єкт», щоб додати перший':'Додавати об’єкти може лише адміністратор.'}</p></div></td></tr>`;
   } else {
     sites.forEach(s=>{
       const inc=siteIncome(s.id);
@@ -915,7 +916,7 @@ function renderSites(){
         <td class="r mono" style="color:var(--red)">${fmtN(exp)}</td>
         <td class="r mono" style="font-weight:700;color:${bal>=0?'var(--accent)':'var(--red)'}">${fmtN(bal)}</td>
         <td style="color:${dlColor};white-space:nowrap">${fmtD(s.deadline)}</td>
-        <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="deleteSite('${s.id}')">×</button></td>
+        <td onclick="event.stopPropagation()">${canManageProjects?`<button class="btn sm danger" title="Видалити об’єкт" onclick="deleteSite('${s.id}')">×</button>`:''}</td>
       </tr>`;
     });
   }
@@ -926,7 +927,7 @@ function renderSites(){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn sm" onclick="exportSitesExcel()" title="Вивантажити в Excel">📥 Excel</button>
         <button class="btn sm" onclick="exportSitesPDF()" title="Вивантажити в PDF">🖨 PDF</button>
-        <button class="btn primary" onclick="openSiteModal(null)">+ Новий об'єкт</button>
+        ${canManageProjects?'<button class="btn primary" onclick="openSiteModal(null)">+ Новий об’єкт</button>':''}
       </div>
     </div>
     <div class="metrics">
@@ -951,6 +952,7 @@ function renderSites(){
 }
 
 function openSiteModal(id){
+  if(!id&&window.maccCanManageProjects?.()!==true){alert('Нові об’єкти може додавати лише адміністратор.');return;}
   editingSiteId=id||null;
   const s=id?(state.sites||[]).find(x=>x.id===id):null;
   document.getElementById('modal-site-title').textContent=id?'Редагувати об\'єкт':'Новий об\'єкт';
@@ -966,6 +968,7 @@ function openSiteModal(id){
   document.getElementById('modal-site').classList.add('open');
 }
 function saveSite(){
+  if(!editingSiteId&&window.maccCanManageProjects?.()!==true){alert('Нові об’єкти може додавати лише адміністратор.');return;}
   const name=document.getElementById('s-name').value.trim();
   if(!name){alert('Введіть назву об\'єкту');return;}
   const data={
@@ -986,6 +989,7 @@ function saveSite(){
   if(curSiteDetailId===editingSiteId)renderSiteDetail();else{curSiteDetailId=null;renderSites();}
 }
 function deleteSite(id){
+  if(window.maccCanManageProjects?.()!==true){alert('Видаляти об’єкти може лише адміністратор.');return;}
   if(!confirm('Видалити об\'єкт?'))return;
   state.sites=state.sites.filter(x=>x.id!==id);
   save();curSiteDetailId=null;renderSites();
