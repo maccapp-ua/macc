@@ -1646,50 +1646,12 @@ const BUDGET_COLS=[
 ];
 
 function downloadBudgetTemplate(){
-  if(!window.XLSX){alert('Бібліотека XLSX не завантажена');return;}
-
-  // ── info sheet: object + site data ───────────────────────────
-  const site=curBudgetSiteId?(state.sites||[]).find(s=>s.id===curBudgetSiteId):null;
-  const subs=(site?.subContracts||[]).map(sc=>sc.name).filter(Boolean);
-  const contractors=(state.contractors||[]).map(c=>c.name).filter(Boolean);
-  const allExec=['СС (власне виконання)',...[...new Set([...subs,...contractors])].sort()];
-
-  const infoData=[
-    ['ІНФОРМАЦІЯ ПРО ОБ\'ЄКТ',''],
-    ['Назва об\'єкта', site?.name||''],
-    ['Замовник', site?.client||''],
-    ['Адреса', site?.address||''],
-    ['Тип договору', site?.contractType||''],
-    ['Дата підписання', site?.signDate||''],
-    ['Дедлайн', site?.deadline||''],
-    ['Сума договору (ДЦ), грн', site?.amountGross||''],
-    ['',''],
-    ['ВИКОНАВЦІ НА МАЙДАНЧИКУ',''],
-    ...allExec.map((e,i)=>[`${i+1}.`,e]),
-    ['',''],
-    ['ІНСТРУКЦІЯ ДЛЯ ЗАПОВНЕННЯ',''],
-    ['1. Перейдіть на аркуш "Бюджет"',''],
-    ['2. Заповніть кожен рядок — один рядок = один вид робіт або матеріал',''],
-    ['3. Виконавець: вкажіть "СС" або ім\'я підрядника зі списку вище',''],
-    ['4. Дати у форматі РРРР-ММ-ДД (напр. 2025-06-01)',''],
-    ['5. Збережіть файл і надішліть для імпорту',''],
-  ];
-  const wsInfo=XLSX.utils.aoa_to_sheet(infoData);
-  wsInfo['!cols']=[{wch:38},{wch:40}];
-
-  // ── budget sheet ──────────────────────────────────────────────
-  const ws_data=[BUDGET_COLS.map(c=>c.label)];
-  ws_data.push(['Фундаментні роботи','СС','450000','320000','2025-03-01','2025-05-15','приклад']);
-  ws_data.push(['Армування','Назва субпідрядника','','','','','']);
-  ws_data.push(['Оздоблювальні роботи','','','','','','']);
-  const ws=XLSX.utils.aoa_to_sheet(ws_data);
-  ws['!cols']=[{wch:32},{wch:26},{wch:20},{wch:24},{wch:22},{wch:24},{wch:30}];
-
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Бюджет');
-  XLSX.utils.book_append_sheet(wb,wsInfo,'Інформація');
-  const fname=site?`budget_${site.name.replace(/[^a-zA-Zа-яА-Я0-9]/g,'_').slice(0,30)}.xlsx`:'budget_template.xlsx';
-  XLSX.writeFile(wb,fname);
+  const link=document.createElement('a');
+  link.href='budget-template.xlsx';
+  link.download='шаблон бюджет.xlsx';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 function _parseDateStr(v){
