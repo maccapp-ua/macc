@@ -952,7 +952,7 @@ function renderSites(){
 }
 
 function openSiteModal(id){
-  if(!id&&window.maccCanManageProjects?.()!==true){alert('Нові об’єкти може додавати лише адміністратор.');return;}
+  if(window.maccCanManageProjects?.()!==true){alert('Основні дані об’єкта може змінювати лише адміністратор.');return;}
   editingSiteId=id||null;
   const s=id?(state.sites||[]).find(x=>x.id===id):null;
   document.getElementById('modal-site-title').textContent=id?'Редагувати об\'єкт':'Новий об\'єкт';
@@ -968,7 +968,7 @@ function openSiteModal(id){
   document.getElementById('modal-site').classList.add('open');
 }
 function saveSite(){
-  if(!editingSiteId&&window.maccCanManageProjects?.()!==true){alert('Нові об’єкти може додавати лише адміністратор.');return;}
+  if(window.maccCanManageProjects?.()!==true){alert('Основні дані об’єкта може змінювати лише адміністратор.');return;}
   const name=document.getElementById('s-name').value.trim();
   if(!name){alert('Введіть назву об\'єкту');return;}
   const data={
@@ -1005,6 +1005,7 @@ function renderSiteDetail(){
   const el=document.getElementById('main-content');
   const s=(state.sites||[]).find(x=>x.id===curSiteDetailId);
   if(!s){curSiteDetailId=null;renderSites();return;}
+  const canManageProjects=window.maccCanManageProjects?.()===true;
 
   // ensure arrays exist
   if(!s.subContracts)s.subContracts=[];
@@ -1099,10 +1100,7 @@ function renderSiteDetail(){
         <h1 class="page-title">${esc(s.name)}</h1>
         ${contractBadge(s.contractType)} ${statusBadge(s.status)}
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn sm" onclick="openSiteModal('${s.id}')">✏ Редагувати</button>
-        <button class="btn sm danger" onclick="deleteSite('${s.id}')">🗑 Видалити</button>
-      </div>
+      ${canManageProjects?`<div style="display:flex;gap:8px"><button class="btn sm" onclick="openSiteModal('${s.id}')">✏ Редагувати</button><button class="btn sm danger" onclick="deleteSite('${s.id}')">🗑 Видалити</button></div>`:''}
     </div>
 
     <!-- Загальна інформація -->
