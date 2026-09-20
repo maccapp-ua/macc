@@ -33,8 +33,9 @@
   function authOverlay(){
     if(document.getElementById('macc-auth'))return;
     document.head.insertAdjacentHTML('beforeend',`<style>${css}</style>`);
-    document.body.insertAdjacentHTML('beforeend',`<div id="macc-auth"><form class="macc-auth-card" id="macc-auth-form"><div class="macc-auth-logo"><img src="logo.png" width="42" height="42" style="border-radius:50%"><div><b>MACC</b><br><span>Management Accounting</span></div></div><h1>Вхід до робочого простору</h1><p>Доступ надає адміністратор команди. Увійдіть за вашою корпоративною поштою та паролем.</p><label for="macc-login-email">Електронна пошта</label><input id="macc-login-email" type="email" required autocomplete="email"><label for="macc-login-password">Пароль</label><input id="macc-login-password" type="password" required autocomplete="current-password"><button id="macc-login-submit" type="submit">Увійти</button><div id="macc-login-message" class="macc-auth-message"></div><p class="macc-auth-help">Немає доступу або забули пароль? Зверніться до адміністратора сайту.</p></form></div>`);
+    document.body.insertAdjacentHTML('beforeend',`<div id="macc-auth"><form class="macc-auth-card" id="macc-auth-form"><div class="macc-auth-logo"><img src="logo.png" width="42" height="42" style="border-radius:50%"><div><b>MACC</b><br><span>Management Accounting</span></div></div><h1>Вхід до робочого простору</h1><p>Доступ надає адміністратор команди. Увійдіть за вашою корпоративною поштою та паролем.</p><label for="macc-login-email">Електронна пошта</label><input id="macc-login-email" type="email" required autocomplete="email"><label for="macc-login-password">Пароль</label><input id="macc-login-password" type="password" required autocomplete="current-password"><button id="macc-login-submit" type="submit">Увійти</button><button id="macc-password-reset" type="button" style="margin-top:9px;background:transparent;color:#c7d4e3;border:1px solid #3f5f84">Забули пароль?</button><div id="macc-login-message" class="macc-auth-message"></div><p class="macc-auth-help">Відновлення пароля надійде на вказану пошту. Доступ мають лише запрошені адміністратором користувачі.</p></form></div>`);
     document.getElementById('macc-auth-form').addEventListener('submit',signIn);
+    document.getElementById('macc-password-reset').addEventListener('click',sendPasswordReset);
   }
   function showLogin(message=''){
     authOverlay(); document.getElementById('macc-auth').style.display='flex';
@@ -48,6 +49,15 @@
     button.disabled=true; message.textContent='Перевіряємо дані…';
     const {error}=await db.auth.signInWithPassword({email,password});
     if(error){message.textContent='Не вдалося увійти: '+error.message;button.disabled=false;}
+  }
+  async function sendPasswordReset(){
+    const email=document.getElementById('macc-login-email').value.trim();
+    const message=document.getElementById('macc-login-message'), button=document.getElementById('macc-password-reset');
+    if(!email){message.textContent='Спочатку введіть вашу електронну пошту.';return;}
+    button.disabled=true;message.textContent='Надсилаємо лист для відновлення…';
+    const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+    if(error){message.textContent='Не вдалося надіслати лист: '+error.message;button.disabled=false;return;}
+    message.textContent='Лист для встановлення нового пароля надіслано. Перевірте також папку «Спам».';
   }
   function showPasswordSetup(){
     authOverlay();
