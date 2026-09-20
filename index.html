@@ -888,7 +888,9 @@ function closeModal(name){document.getElementById('modal-'+name).classList.remov
 // ══════════════════════════════════════════════════════════════
 function renderSites(){
   const el=document.getElementById('main-content');
-  const sites=state.sites||[];
+  const allSites=state.sites||[];
+  const managerFilter=window.maccProjectFilterEmail||'';
+  const sites=managerFilter?allSites.filter(s=>s.projectManagerEmail===managerFilter):allSites;
   const canManageProjects=window.maccCanManageProjects?.()===true;
 
   // aggregate totals
@@ -925,8 +927,9 @@ function renderSites(){
 
   el.innerHTML=`
     <div class="page-header">
-      <h1 class="page-title">🏗 Об'єкти</h1>
+      <div><h1 class="page-title">🏗 ${managerFilter?'Проєкти керівника':'Об’єкти'}</h1>${managerFilter?`<div style="font-size:11px;color:var(--text3);margin-top:3px">${esc(window.maccProjectFilterLabel||managerFilter)}</div>`:''}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${managerFilter?'<button class="btn sm" onclick="maccClearProjectFilter()">Показати всі об’єкти</button>':''}
         <button class="btn sm" onclick="exportSitesExcel()" title="Вивантажити в Excel">📥 Excel</button>
         <button class="btn sm" onclick="exportSitesPDF()" title="Вивантажити в PDF">🖨 PDF</button>
         ${canManageProjects?'<button class="btn primary" onclick="openSiteModal(null)">+ Новий об’єкт</button>':''}
