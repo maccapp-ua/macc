@@ -326,6 +326,8 @@ select.form-input option{background:var(--bg3)}
             <option value="done">Завершено</option>
           </select></div>
       </div>
+      <div class="form-group"><label class="form-label">Керівник проєкту</label>
+        <select class="form-input" id="s-project-manager"><option value="">— Не призначено —</option></select></div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Дата підписання договору</label>
           <input class="form-input" type="date" id="s-sign-date"></div>
@@ -952,7 +954,7 @@ function renderSites(){
 }
 
 function openSiteModal(id){
-  if(window.maccCanManageProjects?.()!==true){alert('Основні дані об’єкта може змінювати лише адміністратор.');return;}
+  if(id?window.maccCanEditSite?.(id)!==true:window.maccCanManageProjects?.()!==true){alert('Основні дані об’єкта може змінювати лише адміністратор або призначений керівник проєкту.');return;}
   editingSiteId=id||null;
   const s=id?(state.sites||[]).find(x=>x.id===id):null;
   document.getElementById('modal-site-title').textContent=id?'Редагувати об\'єкт':'Новий об\'єкт';
@@ -962,13 +964,19 @@ function openSiteModal(id){
   document.getElementById('s-address').value=s?.address||'';
   document.getElementById('s-amount').value=s?.amountGross||'';
   document.getElementById('s-status').value=s?.status||'active';
+  const managers=[...(window.maccProjectManagers?.()||[])];
+  if(s?.projectManagerEmail&&!managers.some(m=>m.email===s.projectManagerEmail))managers.push({email:s.projectManagerEmail,full_name:s.projectManagerEmail});
+  const managerSelect=document.getElementById('s-project-manager');
+  managerSelect.innerHTML='<option value="">— Не призначено —</option>'+managers.map(m=>`<option value="${esc(m.email)}">${esc(m.full_name||m.email)}${m.position?' — '+esc(m.position):''}</option>`).join('');
+  managerSelect.value=s?.projectManagerEmail||'';
+  managerSelect.disabled=window.maccCanManageProjects?.()!==true;
   document.getElementById('s-sign-date').value=s?.signDate||'';
   document.getElementById('s-deadline').value=s?.deadline||'';
   document.getElementById('s-notes').value=s?.notes||'';
   document.getElementById('modal-site').classList.add('open');
 }
 function saveSite(){
-  if(window.maccCanManageProjects?.()!==true){alert('Основні дані об’єкта може змінювати лише адміністратор.');return;}
+  if(editingSiteId?window.maccCanEditSite?.(editingSiteId)!==true:window.maccCanManageProjects?.()!==true){alert('Основні дані об’єкта може змінювати лише адміністратор або призначений керівник проєкту.');return;}
   const name=document.getElementById('s-name').value.trim();
   if(!name){alert('Введіть назву об\'єкту');return;}
   const data={
@@ -979,6 +987,7 @@ function saveSite(){
     address:document.getElementById('s-address').value.trim(),
     amountGross:+document.getElementById('s-amount').value||0,
     status:document.getElementById('s-status').value,
+    projectManagerEmail:document.getElementById('s-project-manager').value,
     signDate:document.getElementById('s-sign-date').value,
     deadline:document.getElementById('s-deadline').value,
     notes:document.getElementById('s-notes').value.trim(),
@@ -1006,6 +1015,7 @@ function renderSiteDetail(){
   const s=(state.sites||[]).find(x=>x.id===curSiteDetailId);
   if(!s){curSiteDetailId=null;renderSites();return;}
   const canManageProjects=window.maccCanManageProjects?.()===true;
+  const canEditSite=window.maccCanEditSite?.(s.id)===true;
 
   // ensure arrays exist
   if(!s.subContracts)s.subContracts=[];
@@ -1100,7 +1110,7 @@ function renderSiteDetail(){
         <h1 class="page-title">${esc(s.name)}</h1>
         ${contractBadge(s.contractType)} ${statusBadge(s.status)}
       </div>
-      ${canManageProjects?`<div style="display:flex;gap:8px"><button class="btn sm" onclick="openSiteModal('${s.id}')">✏ Редагувати</button><button class="btn sm danger" onclick="deleteSite('${s.id}')">🗑 Видалити</button></div>`:''}
+      ${(canEditSite||canManageProjects)?`<div style="display:flex;gap:8px">${canEditSite?`<button class="btn sm" onclick="openSiteModal('${s.id}')">✏ Редагувати</button>`:''}${canManageProjects?`<button class="btn sm danger" onclick="deleteSite('${s.id}')">🗑 Видалити</button>`:''}</div>`:''}
     </div>
 
     <!-- Загальна інформація -->
@@ -1110,6 +1120,7 @@ function renderSiteDetail(){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px">
           <div>
             ${infoRow('Замовник', esc(s.client||'—'))}
+            ${infoRow('Керівник проєкту', esc(s.projectManagerEmail||'—'))}
             ${infoRow('Адреса', esc(s.address||'—'))}
             ${infoRow('Сума договору', `<b style="color:var(--accent)">${fmtN(s.amountGross)}</b> грн`)}
           </div>

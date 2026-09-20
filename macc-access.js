@@ -4,7 +4,7 @@
   const URL='https://wfdkprsszmvhqsycjwuh.supabase.co';
   const KEY='sb_publishable_e95XvrX-cpaj7-dITbc67g__KYosuXT';
   const db=window.supabase.createClient(URL,KEY);
-  let session=null, profile=null, originalRender=null, originalNavigate=null;
+  let session=null, profile=null, originalRender=null, originalNavigate=null, fullState=null, teamMembers=[];
   let booted=false, latestData='';
 
   const css=`
@@ -17,8 +17,16 @@
     #nav-access{display:none}.macc-access-note{font-size:12px;color:var(--text3);line-height:1.5}.macc-access-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.macc-access-grid .card{margin-bottom:0}@media(max-width:700px){.macc-access-grid{grid-template-columns:1fr}}
   `;
   function esc(v){return String(v||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-  function roleLabel(role){return({admin:'Адміністратор',editor:'Редактор',viewer:'Перегляд'})[role]||role;}
-  window.maccCanManageProjects=()=>profile?.role==='admin';
+  function roleLabel(role){return({admin:'Адміністратор',financial_analyst:'Фінансовий аналітик',accountant:'Бухгалтер',project_manager:'Керівник проєкту'})[role]||role;}
+  function roleOptions(selected){return[['financial_analyst','Фінансовий аналітик'],['accountant','Бухгалтер'],['project_manager','Керівник проєкту'],['admin','Адміністратор']].map(([value,label])=>`<option value="${value}"${value===selected?' selected':''}>${label}</option>`).join('');}
+  function isAdmin(){return profile?.role==='admin';}
+  function assignedSiteIds(data=fullState){return new Set((data?.sites||[]).filter(s=>String(s.projectManagerEmail||'').toLowerCase()===String(profile?.email||'').toLowerCase()).map(s=>s.id));}
+  function scopedState(data){if(profile?.role!=='project_manager')return data;const ids=assignedSiteIds(data),copy=JSON.parse(JSON.stringify(data||{}));copy.sites=(copy.sites||[]).filter(s=>ids.has(s.id));copy.cashflows=(copy.cashflows||[]).filter(x=>ids.has(x.siteId));copy.budgets=Object.fromEntries(Object.entries(copy.budgets||{}).filter(([id])=>ids.has(id)));copy.meetings=(copy.meetings||[]).filter(x=>!x.siteId||ids.has(x.siteId));copy.tasks=(copy.tasks||[]).filter(x=>!x.siteId||ids.has(x.siteId));return copy;}
+  function projectManagerMaySave(before,after){const ids=assignedSiteIds(before);for(const key of ['contractors','executors','cashflows','cfCategories','cfCounterparties','budgets','meetings','tasks','tenders'])if(JSON.stringify(before?.[key]??null)!==JSON.stringify(after?.[key]??null))return false;const oldSites=new Map((before?.sites||[]).map(s=>[s.id,s]));const newSites=new Map((after?.sites||[]).map(s=>[s.id,s]));if(oldSites.size!==newSites.size)return false;for(const [id,oldSite] of oldSites){const newSite=newSites.get(id);if(!newSite||(!ids.has(id)&&JSON.stringify(oldSite)!==JSON.stringify(newSite)))return false;}return true;}
+  function accountantMaySave(before,after){return ['sites','contractors','executors','cfCategories','cfCounterparties','budgets','meetings','tasks','tenders'].every(key=>JSON.stringify(before?.[key]??null)===JSON.stringify(after?.[key]??null));}
+  window.maccCanManageProjects=()=>isAdmin();
+  window.maccCanEditSite=(siteId)=>isAdmin()||(profile?.role==='project_manager'&&assignedSiteIds().has(siteId));
+  window.maccProjectManagers=()=>teamMembers.filter(m=>m.role==='project_manager'&&m.active&&!m.revoked_at);
   function authOverlay(){
     if(document.getElementById('macc-auth'))return;
     document.head.insertAdjacentHTML('beforeend',`<style>${css}</style>`);
@@ -64,6 +72,7 @@
     const {data,error}=await db.from('macc_profiles').select('id,email,role,active,revoked_at').eq('id',session.user.id).maybeSingle();
     if(error)throw error; return data;
   }
+  async function refreshTeamMembers(){const {data}=await db.from('macc_profiles').select('id,email,role,active,revoked_at,full_name,position,phone').order('invited_at',{ascending:false});if(data)teamMembers=data;return teamMembers;}
   function addUserBox(){
     let box=document.getElementById('macc-user-box');
     if(!box){box=document.createElement('div');box.id='macc-user-box';document.querySelector('.topbar').appendChild(box);}
@@ -77,9 +86,11 @@
     document.getElementById('nav-access').style.display=profile.role==='admin'?'flex':'none';
   }
   function applyReadOnly(){
-    const readOnly=profile.role==='viewer';
+    const role=profile?.role;const readOnly=role==='financial_analyst'||(role==='accountant'&&curPage!=='cashflow');
     document.querySelectorAll('#main-content button,#main-content input,#main-content select,#main-content textarea').forEach(el=>el.disabled=readOnly);
-    if(readOnly)document.querySelectorAll('#main-content .page-header').forEach(el=>{if(!el.querySelector('.macc-viewer-note'))el.insertAdjacentHTML('beforeend','<span class="macc-viewer-note" style="font-size:11px;color:var(--accent)">Режим перегляду</span>')});
+    if(role==='financial_analyst')document.querySelectorAll('#main-content button[onclick*="export"]').forEach(el=>el.disabled=false);
+    if(role==='project_manager'){document.querySelectorAll('.nav-item').forEach(el=>{const allowed=['nav-sites'].includes(el.id);if(!allowed)el.style.display='none';});if(curPage!=='sites'&&curPage!=='access')window.navigate('sites');}
+    if(readOnly)document.querySelectorAll('#main-content .page-header').forEach(el=>{if(!el.querySelector('.macc-viewer-note'))el.insertAdjacentHTML('beforeend',`<span class="macc-viewer-note" style="font-size:11px;color:var(--accent)">${role==='financial_analyst'?'Перегляд і вивантаження':'Редагування доступне лише в «Грошових потоках»'}</span>`)});
   }
   function topLevelChanges(before,after){
     const changed=[];['sites','contractors','executors','cashflows','budgets','meetings','tasks','tenders'].forEach(k=>{if(JSON.stringify(before?.[k]??null)!==JSON.stringify(after?.[k]??null))changed.push(k)});return changed;
@@ -93,13 +104,18 @@
     return changes;
   }
   async function secureSave(){
-    if(!profile||!['admin','editor'].includes(profile.role)){alert('У вас є лише доступ для перегляду.');return;}
-    const payload=JSON.stringify(state);
+    if(!profile){alert('Потрібен вхід до сайту.');return;}
+    const previous=fullState||{};let next=state;
+    if(profile.role==='financial_analyst'){alert('Фінансовий аналітик має доступ лише для перегляду та вивантаження.');window.applyState(scopedState(previous));window.render();return;}
+    if(profile.role==='accountant'&&!accountantMaySave(previous,next)){alert('Бухгалтер може змінювати лише дані у «Грошових потоках».');window.applyState(scopedState(previous));window.render();return;}
+    if(profile.role==='project_manager'){const merged=JSON.parse(JSON.stringify(previous));const visible=new Map((next.sites||[]).map(s=>[s.id,s]));merged.sites=(merged.sites||[]).map(s=>visible.has(s.id)?visible.get(s.id):s);next=merged;if(!projectManagerMaySave(previous,next)){alert('Керівник проєкту може змінювати дані лише у своїх призначених об’єктах.');window.applyState(scopedState(previous));window.render();return;}}
+    if(!isAdmin()&&profile.role!=='accountant'&&profile.role!=='project_manager'){alert('У вас немає права вносити зміни.');return;}
+    const payload=JSON.stringify(next);
     localStorage.setItem('macc_state',payload);
     if(payload===latestData)return;
-    const previous=latestData?JSON.parse(latestData):{};
     latestData=payload;
-    const {error}=await db.from('macc_app_state').upsert({id:'main',data:state,updated_at:new Date().toISOString(),updated_by:session.user.id});
+    fullState=next;
+    const {error}=await db.from('macc_app_state').upsert({id:'main',data:next,updated_at:new Date().toISOString(),updated_by:session.user.id});
     if(error){console.error(error); alert('Зміни не вдалося синхронізувати: '+error.message);return;}
     const changes=auditChanges(previous,state);await db.from('macc_audit_log').insert({user_id:session.user.id,action:changes.length?changes.join('; '):'Зміна даних сайту',details:{sections:topLevelChanges(previous,state)}});
   }
@@ -107,7 +123,7 @@
     const savedTheme=localStorage.getItem('macc_theme')||'dark';document.body.classList.toggle('light-theme',savedTheme==='light');
     const {data,error}=await db.from('macc_app_state').select('data,updated_at').eq('id','main').maybeSingle();
     if(error)throw error;
-    if(data?.data){window.applyState(data.data);latestData=JSON.stringify(state);localStorage.setItem('macc_state',latestData);}
+    if(data?.data){fullState=data.data;window.applyState(scopedState(data.data));latestData=JSON.stringify(data.data);localStorage.setItem('macc_state',JSON.stringify(state));}
     else if(profile.role==='admin'){
       const backup=await fetch('https://macc-d6e9b-default-rtdb.europe-west1.firebasedatabase.app/data.json').then(r=>r.ok?r.json():null).catch(()=>null);
       if(backup&&(backup.sites||backup.cashflows)){
@@ -121,7 +137,7 @@
   }
   function renderAccess(){
     const el=document.getElementById('main-content');
-    el.innerHTML=`<div class="page-header"><div><h1 class="page-title">🔐 Доступ команди</h1><div class="macc-access-note">Тут адміністратор надає або забирає доступ. Усі входи та зміни фіксуються.</div></div></div><div class="macc-access-grid"><div class="card"><div class="card-head"><span class="card-title">Запросити користувача</span></div><div class="card-body"><div class="form-group"><label class="form-label">Ім’я та прізвище</label><input id="invite-name" class="form-input" placeholder="Іван Петренко"></div><div class="form-group"><label class="form-label">Посада</label><input id="invite-position" class="form-input" placeholder="Напр. бухгалтер"></div><div class="form-group"><label class="form-label">Телефон</label><input id="invite-phone" class="form-input" type="tel" placeholder="+380…"></div><div class="form-group"><label class="form-label">Електронна пошта</label><input id="invite-email" class="form-input" type="email" placeholder="name@company.com"></div><div class="form-group"><label class="form-label">Роль</label><select id="invite-role" class="form-input"><option value="editor">Редактор — може вносити зміни</option><option value="viewer">Перегляд — без права змін</option><option value="admin">Адміністратор — керує доступом</option></select></div><button class="btn primary" onclick="maccInviteUser()">Надіслати запрошення</button><div id="invite-result" class="macc-access-note" style="margin-top:12px"></div></div></div><div class="card"><div class="card-head"><span class="card-title">Користувачі</span></div><div class="card-body" id="macc-members">Завантаження…</div></div></div><div style="margin-top:14px"><button class="btn secondary" onclick="maccToggleHistory()">📋 Історія змін</button></div><div class="card" id="macc-history-card" style="display:none;margin-top:14px"><div class="card-head"><span class="card-title">Історія змін</span></div><div class="card-body" id="macc-history">Завантаження…</div></div>`;
+    el.innerHTML=`<div class="page-header"><div><h1 class="page-title">🔐 Доступ команди</h1><div class="macc-access-note">Лише адміністратор запрошує людей, призначає їм статус та керує доступом.</div></div></div><div class="macc-access-grid"><div class="card"><div class="card-head"><span class="card-title">Запросити користувача</span></div><div class="card-body"><div class="form-group"><label class="form-label">Ім’я та прізвище</label><input id="invite-name" class="form-input" placeholder="Іван Петренко"></div><div class="form-group"><label class="form-label">Посада</label><input id="invite-position" class="form-input" placeholder="Напр. бухгалтер"></div><div class="form-group"><label class="form-label">Телефон</label><input id="invite-phone" class="form-input" type="tel" placeholder="+380…"></div><div class="form-group"><label class="form-label">Електронна пошта</label><input id="invite-email" class="form-input" type="email" placeholder="name@company.com"></div><div class="form-group"><label class="form-label">Статус *</label><select id="invite-role" class="form-input" required><option value="" selected disabled>— Оберіть статус —</option><option value="financial_analyst">Фінансовий аналітик — перегляд і вивантаження</option><option value="accountant">Бухгалтер — редагує лише грошові потоки</option><option value="project_manager">Керівник проєкту — працює зі своїми об’єктами</option><option value="admin">Адміністратор — повний доступ</option></select></div><button class="btn primary" onclick="maccInviteUser()">Надіслати запрошення</button><div id="invite-result" class="macc-access-note" style="margin-top:12px"></div></div></div><div class="card"><div class="card-head"><span class="card-title">Користувачі</span></div><div class="card-body" id="macc-members">Завантаження…</div></div></div><div style="margin-top:14px"><button class="btn secondary" onclick="maccToggleHistory()">📋 Історія змін</button></div><div class="card" id="macc-history-card" style="display:none;margin-top:14px"><div class="card-head"><span class="card-title">Історія змін</span></div><div class="card-body" id="macc-history">Завантаження…</div></div>`;
     const inviteCard=el.querySelector('.macc-access-grid .card');
     inviteCard.style.display='none';
     inviteCard.querySelector('button').textContent='Відправити запрошення';
@@ -132,8 +148,8 @@
   async function loadAccessData(){
     const [members,access,audit]=await Promise.all([db.from('macc_profiles').select('id,email,role,active,invited_at,revoked_at,full_name,position,phone').order('invited_at',{ascending:false}),db.from('macc_access_log').select('created_at,event,user_id').order('created_at',{ascending:false}).limit(12),db.from('macc_audit_log').select('created_at,action,details,user_id').order('created_at',{ascending:false}).limit(12)]);
     const memberEl=document.getElementById('macc-members'), historyEl=document.getElementById('macc-history');if(!memberEl||!historyEl)return;
-    if(members.error){memberEl.textContent='Не вдалося завантажити список.';return;}
-    memberEl.innerHTML=(members.data||[]).map(m=>`<div style="padding:9px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;justify-content:space-between"><div>${m.full_name?`<div style="font-size:13px;font-weight:600;color:var(--text)">${esc(m.full_name)}</div>`:''}<div style="font-size:12px;color:var(--text)">${esc(m.email)}</div><div style="font-size:10px;color:var(--text3)">${roleLabel(m.role)} · ${m.active?'активний':'доступ забрано'}</div>${m.position?`<div style="font-size:10px;color:var(--text3);margin-top:3px">Посада: ${esc(m.position)}</div>`:''}${m.phone?`<div style="font-size:10px;color:var(--text3)">Телефон: ${esc(m.phone)}</div>`:''}</div>${m.id!==session.user.id&&m.active?`<button class="btn sm danger" onclick="maccRevokeUser('${m.id}','${esc(m.email)}')">Забрати доступ</button>`:''}</div>`).join('')||'<div class="macc-access-note">Користувачів ще немає.</div>';
+    if(members.error){memberEl.textContent='Не вдалося завантажити список.';return;}teamMembers=members.data||[];
+    memberEl.innerHTML=(members.data||[]).map(m=>`<div style="padding:9px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;justify-content:space-between"><div>${m.full_name?`<div style="font-size:13px;font-weight:600;color:var(--text)">${esc(m.full_name)}</div>`:''}<div style="font-size:12px;color:var(--text)">${esc(m.email)}</div><div style="font-size:10px;color:var(--text3)">${roleLabel(m.role)} · ${m.active?'активний':'доступ забрано'}</div>${m.position?`<div style="font-size:10px;color:var(--text3);margin-top:3px">Посада: ${esc(m.position)}</div>`:''}${m.phone?`<div style="font-size:10px;color:var(--text3)">Телефон: ${esc(m.phone)}</div>`:''}</div>${m.id!==session.user.id&&m.active?`<div style="display:flex;gap:6px;align-items:center"><select class="form-input" style="width:auto;padding:5px;font-size:10px" onchange="maccChangeRole('${m.id}',this.value)">${roleOptions(m.role)}</select><button class="btn sm danger" onclick="maccRevokeUser('${m.id}','${esc(m.email)}')">Забрати доступ</button></div>`:''}</div>`).join('')||'<div class="macc-access-note">Користувачів ще немає.</div>';
     const emails=Object.fromEntries((members.data||[]).map(m=>[m.id,m.email]));
     const sectionNames={sites:'Об’єкти',contractors:'Контрагенти',executors:'Виконавці',cashflows:'Грошові потоки',budgets:'Бюджети',meetings:'Наради',tasks:'Завдання',tenders:'Тендери'};
     const records=[...(access.data||[]).map(x=>({at:x.created_at,by:emails[x.user_id]||'—',text:x.event==='login'?'Вхід до сайту':'Вихід із сайту'})),...(audit.data||[]).map(x=>({at:x.created_at,by:emails[x.user_id]||'—',text:x.action+(x.details?.sections?.length?' — '+x.details.sections.map(s=>sectionNames[s]||s).join(', '):'')}))].sort((a,b)=>new Date(b.at)-new Date(a.at)).slice(0,50);
@@ -141,7 +157,7 @@
   }
   async function invite(){
     const email=document.getElementById('invite-email').value.trim(), role=document.getElementById('invite-role').value, fullName=document.getElementById('invite-name').value.trim(), position=document.getElementById('invite-position').value.trim(), phone=document.getElementById('invite-phone').value.trim(), out=document.getElementById('invite-result');
-    if(!email){out.textContent='Вкажіть пошту користувача.';return;}
+    if(!email||!role){out.textContent='Вкажіть пошту та обов’язково оберіть статус.';return;}
     out.textContent='Створюємо запрошення…';
     const {data,error}=await db.functions.invoke('manage-users',{body:{action:'invite',email,role,fullName,position,phone}});
     let reason=error?.message;
@@ -153,20 +169,22 @@
     const {error}=await db.functions.invoke('manage-users',{body:{action:'revoke',userId:id}});
     if(error)alert('Помилка: '+error.message);else loadAccessData();
   }
+  async function changeRole(id,role){const {error}=await db.functions.invoke('manage-users',{body:{action:'update_role',userId:id,role}});if(error)alert('Не вдалося змінити статус: '+error.message);else loadAccessData();}
   window.maccToggleHistory=()=>{const card=document.getElementById('macc-history-card');if(card)card.style.display=card.style.display==='none'?'block':'none';};
-  window.maccInviteUser=invite;window.maccRevokeUser=revoke;
+  window.maccInviteUser=invite;window.maccRevokeUser=revoke;window.maccChangeRole=changeRole;
   window.maccSignOut=async()=>{sessionStorage.removeItem('macc_last_page');if(session)await db.from('macc_access_log').insert({user_id:session.user.id,event:'logout'});await db.auth.signOut();};
   async function activate(nextSession){
     session=nextSession;
     if(!session){profile=null;showLogin();return;}
     try{profile=await getProfile();}catch(e){showLogin('Помилка перевірки доступу: '+e.message);return;}
-    if(location.hash.includes('type=recovery')||(!profile?.active&&!profile?.revoked_at)){showPasswordSetup();return;}
+    if(!profile){await db.auth.signOut();showLogin('Доступ надається лише після запрошення адміністратора.');return;}
+    if(location.hash.includes('type=recovery')||!profile.active){if(profile.revoked_at){await db.auth.signOut();showLogin('Доступ закрито адміністратором.');return;}showPasswordSetup();return;}
     if(!profile?.active){await db.auth.signOut();showLogin('Для цієї пошти доступ закрито адміністратором.');return;}
-    document.getElementById('macc-auth')?.remove();addUserBox();enableNavigation();
+    document.getElementById('macc-auth')?.remove();if(isAdmin())await refreshTeamMembers();addUserBox();enableNavigation();
     await db.from('macc_access_log').insert({user_id:session.user.id,event:'login'});
     await secureLoad();
     const rememberedPage=sessionStorage.getItem('macc_last_page');if(rememberedPage&&rememberedPage!==curPage)window.navigate(rememberedPage);
-    db.channel('macc-main-state').on('postgres_changes',{event:'UPDATE',schema:'public',table:'macc_app_state',filter:'id=eq.main'},payload=>{if(payload.new.updated_by!==session.user.id){window.applyState(payload.new.data);latestData=JSON.stringify(state);window.render();applyReadOnly();}}).subscribe();
+    db.channel('macc-main-state').on('postgres_changes',{event:'UPDATE',schema:'public',table:'macc_app_state',filter:'id=eq.main'},payload=>{if(payload.new.updated_by!==session.user.id){fullState=payload.new.data;window.applyState(scopedState(payload.new.data));latestData=JSON.stringify(payload.new.data);window.render();applyReadOnly();}}).subscribe();
   }
   window.maccAccessBoot=async function(){
     if(booted)return;booted=true;
