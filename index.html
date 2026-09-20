@@ -2862,6 +2862,7 @@ function applyTheme(t){
 function renderService(){
   const el=document.getElementById('main-content');
   const isLight=document.body.classList.contains('light-theme');
+  const canImport=window.maccCanManageProjects?.()===true;
   el.innerHTML=`
     <div class="page-header"><h1 class="page-title">⚙️ Сервіс</h1></div>
     <div class="card" style="max-width:340px">
@@ -2877,7 +2878,46 @@ function renderService(){
         </div>
         <div style="margin-top:10px;font-size:11px;color:var(--text3)">Зараз: <b style="color:var(--accent)">${isLight?'Світла':'Темна'} тема</b></div>
       </div>
+    </div>
+    <div class="card" style="max-width:520px;margin-top:14px">
+      <div class="card-head"><span class="card-title">Дані сайту</span></div>
+      <div class="card-body">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Збережіть резервну копію всіх даних у файл JSON або відновіть дані з такої копії.</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          <button class="btn secondary" onclick="downloadJsonBackup()">⬇ Резерв JSON</button>
+          ${canImport?`<button class="btn primary" onclick="document.getElementById('json-import-file').click()">⬆ Імпорт JSON</button><input id="json-import-file" type="file" accept="application/json,.json" style="display:none" onchange="importJsonBackup(this)">`:`<span style="font-size:11px;color:var(--text3);align-self:center">Імпорт доступний лише адміністратору.</span>`}
+        </div>
+      </div>
     </div>`;
+}
+function downloadJsonBackup(){
+  const backup={app:'MACC',version:1,exportedAt:new Date().toISOString(),data:state};
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const link=document.createElement('a');
+  link.href=URL.createObjectURL(blob);
+  link.download=`macc-reserve-${new Date().toISOString().slice(0,10)}.json`;
+  link.click();
+  setTimeout(()=>URL.revokeObjectURL(link.href),0);
+}
+function importJsonBackup(input){
+  if(window.maccCanManageProjects?.()!==true){alert('Імпорт JSON доступний лише адміністратору.');input.value='';return;}
+  const file=input.files?.[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const parsed=JSON.parse(String(reader.result||''));
+      const data=parsed?.data||parsed;
+      if(!data||!Array.isArray(data.sites)||!Array.isArray(data.cashflows))throw new Error('це не резервна копія MACC');
+      if(!confirm('Імпорт замінить усі поточні дані сайту даними з файлу. Продовжити?'))return;
+      applyState(data);
+      save();
+      render();
+      alert('Резервну копію імпортовано.');
+    }catch(error){alert('Не вдалося імпортувати JSON: '+(error?.message||'перевірте файл.'));}
+    finally{input.value='';}
+  };
+  reader.readAsText(file);
 }
 function renderDashboard(){
   const el=document.getElementById('main-content');
