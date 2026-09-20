@@ -3,6 +3,7 @@
   window.MACC_SECURE_BOOT=true;
   const URL='https://wfdkprsszmvhqsycjwuh.supabase.co';
   const KEY='sb_publishable_e95XvrX-cpaj7-dITbc67g__KYosuXT';
+  const recoveryFromLink=/(?:[?#&])type=recovery(?:&|$)/.test(window.location.href);
   const db=window.supabase.createClient(URL,KEY);
   let session=null, profile=null, originalRender=null, originalNavigate=null, fullState=null, teamMembers=[];
   let booted=false, latestData='';
@@ -13,7 +14,7 @@
     .macc-auth-logo{display:flex;align-items:center;gap:12px;margin-bottom:24px}.macc-auth-logo b{color:#f0b429;font-size:20px;letter-spacing:.08em}.macc-auth-logo span{font-size:11px;color:#a0b4c8}
     .macc-auth-card h1{font-size:20px;margin:0 0 8px}.macc-auth-card p{font-size:13px;color:#c7d4e3;line-height:1.5;margin:0 0 20px}.macc-auth-card label{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;color:#a0b4c8;margin:13px 0 5px;text-transform:uppercase}
     .macc-auth-card input,.macc-auth-card select{width:100%;padding:10px 12px;border-radius:7px;border:1px solid #3f5f84;background:#162030;color:#fff;font-size:14px}.macc-auth-card button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:7px;background:#f0b429;color:#162030;font-weight:800;cursor:pointer}.macc-auth-card button:disabled{opacity:.6;cursor:wait}.macc-auth-message{min-height:20px;margin-top:13px;font-size:12px;color:#fbbf24}.macc-auth-help{font-size:11px!important;color:#a0b4c8!important;margin-top:18px!important}
-    #macc-user-box{padding:12px 14px 14px;border-top:1px solid var(--border);margin-top:4px}.macc-user-email{font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.macc-user-role{font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-top:3px}.macc-user-actions{display:flex;gap:6px;margin-top:8px}.macc-user-actions button{background:none;border:1px solid var(--border2);border-radius:5px;color:var(--text3);font-size:10px;padding:4px 7px;cursor:pointer}.macc-user-actions button:hover{color:var(--text);border-color:var(--accent)}
+    #macc-user-box{position:fixed;right:16px;bottom:16px;z-index:450;padding:11px 13px;border:1px solid var(--border2);border-radius:9px;background:var(--bg2);box-shadow:0 10px 28px #0005;min-width:190px}.macc-user-email{font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.macc-user-role{font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-top:3px}.macc-user-actions{display:flex;gap:6px;margin-top:8px}.macc-user-actions button{background:none;border:1px solid var(--border2);border-radius:5px;color:var(--text3);font-size:10px;padding:5px 7px;cursor:pointer}.macc-user-actions button:hover{color:var(--text);border-color:var(--accent)}@media(max-width:640px){#macc-user-box{bottom:70px;right:10px}}
     #nav-access{display:none}.macc-access-note{font-size:12px;color:var(--text3);line-height:1.5}.macc-access-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.macc-access-grid .card{margin-bottom:0}@media(max-width:700px){.macc-access-grid{grid-template-columns:1fr}}
   `;
   function esc(v){return String(v||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
@@ -88,8 +89,8 @@
   async function refreshTeamMembers(){const {data}=await db.from('macc_profiles').select('id,email,role,active,revoked_at,full_name,position,phone').order('invited_at',{ascending:false});if(data)teamMembers=data;return teamMembers;}
   function addUserBox(){
     let box=document.getElementById('macc-user-box');
-    if(!box){box=document.createElement('div');box.id='macc-user-box';document.querySelector('.topbar').appendChild(box);}
-    box.innerHTML=`<div class="macc-user-email">${esc(profile.email)}</div><div class="macc-user-role">${roleLabel(profile.role)}</div><div class="macc-user-actions">${profile.role==='admin'?'<button onclick="navigate(\'access\')">Керування доступом</button>':''}<button onclick="maccSignOut()">Вийти</button></div>`;
+    if(!box){box=document.createElement('div');box.id='macc-user-box';document.body.appendChild(box);}
+    box.innerHTML=`<div class="macc-user-email">${esc(profile.email)}</div><div class="macc-user-role">${roleLabel(profile.role)}</div><div class="macc-user-actions">${profile.role==='admin'?'<button onclick="navigate(\'access\')">Команда</button>':''}<button onclick="maccShowPasswordChange()">Змінити пароль</button><button onclick="maccSignOut()">Вийти</button></div>`;
   }
   function enableNavigation(){
     if(!document.getElementById('nav-access')){
@@ -185,6 +186,7 @@
   }
   async function changeRole(id,role){const {error}=await db.functions.invoke('manage-users',{body:{action:'update_role',userId:id,role}});if(error)alert('Не вдалося змінити статус: '+error.message);else loadAccessData();}
   window.maccToggleHistory=()=>{const card=document.getElementById('macc-history-card');if(card)card.style.display=card.style.display==='none'?'block':'none';};
+  window.maccShowPasswordChange=()=>showPasswordSetup();
   window.maccInviteUser=invite;window.maccRevokeUser=revoke;window.maccChangeRole=changeRole;
   window.maccSignOut=async()=>{sessionStorage.removeItem('macc_last_page');if(session)await db.from('macc_access_log').insert({user_id:session.user.id,event:'logout'});await db.auth.signOut();};
   async function activate(nextSession,isPasswordRecovery=false){
@@ -205,7 +207,7 @@
     originalRender=window.render;window.render=function(){originalRender();if(profile)applyReadOnly();};
     originalNavigate=window.navigate;window.navigate=function(page){sessionStorage.setItem('macc_last_page',page);if(page==='access'){curPage='access';document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));document.getElementById('nav-access')?.classList.add('active');renderAccess();return;}originalNavigate(page);};
     window.save=secureSave;
-    const {data:{session:existing}}=await db.auth.getSession();await activate(existing);
+    const {data:{session:existing}}=await db.auth.getSession();await activate(existing,recoveryFromLink);
     db.auth.onAuthStateChange((event,next)=>{if(event==='SIGNED_IN'||event==='SIGNED_OUT'||event==='PASSWORD_RECOVERY')setTimeout(()=>activate(next,event==='PASSWORD_RECOVERY'),0);});
   };
 })();
