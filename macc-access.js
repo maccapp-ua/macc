@@ -187,12 +187,12 @@
   window.maccToggleHistory=()=>{const card=document.getElementById('macc-history-card');if(card)card.style.display=card.style.display==='none'?'block':'none';};
   window.maccInviteUser=invite;window.maccRevokeUser=revoke;window.maccChangeRole=changeRole;
   window.maccSignOut=async()=>{sessionStorage.removeItem('macc_last_page');if(session)await db.from('macc_access_log').insert({user_id:session.user.id,event:'logout'});await db.auth.signOut();};
-  async function activate(nextSession){
+  async function activate(nextSession,isPasswordRecovery=false){
     session=nextSession;
     if(!session){profile=null;showLogin();return;}
     try{profile=await getProfile();}catch(e){showLogin('Помилка перевірки доступу: '+e.message);return;}
     if(!profile){await db.auth.signOut();showLogin('Доступ надається лише після запрошення адміністратора.');return;}
-    if(location.hash.includes('type=recovery')||!profile.active){if(profile.revoked_at){await db.auth.signOut();showLogin('Доступ закрито адміністратором.');return;}showPasswordSetup();return;}
+    if(isPasswordRecovery||location.hash.includes('type=recovery')||!profile.active){if(profile.revoked_at){await db.auth.signOut();showLogin('Доступ закрито адміністратором.');return;}showPasswordSetup();return;}
     if(!profile?.active){await db.auth.signOut();showLogin('Для цієї пошти доступ закрито адміністратором.');return;}
     document.getElementById('macc-auth')?.remove();if(isAdmin())await refreshTeamMembers();addUserBox();enableNavigation();
     await db.from('macc_access_log').insert({user_id:session.user.id,event:'login'});
@@ -206,6 +206,6 @@
     originalNavigate=window.navigate;window.navigate=function(page){sessionStorage.setItem('macc_last_page',page);if(page==='access'){curPage='access';document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));document.getElementById('nav-access')?.classList.add('active');renderAccess();return;}originalNavigate(page);};
     window.save=secureSave;
     const {data:{session:existing}}=await db.auth.getSession();await activate(existing);
-    db.auth.onAuthStateChange((event,next)=>{if(event==='SIGNED_IN'||event==='SIGNED_OUT')setTimeout(()=>activate(next),0);});
+    db.auth.onAuthStateChange((event,next)=>{if(event==='SIGNED_IN'||event==='SIGNED_OUT'||event==='PASSWORD_RECOVERY')setTimeout(()=>activate(next,event==='PASSWORD_RECOVERY'),0);});
   };
 })();
