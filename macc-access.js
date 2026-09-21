@@ -73,9 +73,11 @@
       button.disabled=true; message.textContent='Зберігаємо пароль…';
       const {error}=await db.auth.updateUser({password});
       if(error){message.textContent='Не вдалося зберегти пароль: '+error.message;button.disabled=false;return;}
-      const {error:activationError}=await db.functions.invoke('manage-users',{body:{action:'activate_self'}});
-      if(activationError){message.textContent='Пароль збережено, але доступ не підтверджено: '+activationError.message;button.disabled=false;return;}
-      profile.active=true;profile.revoked_at=null;
+      if(!profile.active){
+        const {error:activationError}=await db.functions.invoke('manage-users',{body:{action:'activate_self'}});
+        if(activationError){message.textContent='Пароль збережено, але доступ не підтверджено: '+activationError.message;button.disabled=false;return;}
+        profile.active=true;profile.revoked_at=null;
+      }
       history.replaceState(null,'',location.pathname);
       overlay.remove(); addUserBox(); enableNavigation();
       await db.from('macc_access_log').insert({user_id:session.user.id,event:'login'});
