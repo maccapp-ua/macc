@@ -5,7 +5,7 @@
   const KEY='sb_publishable_e95XvrX-cpaj7-dITbc67g__KYosuXT';
   const recoveryFromLink=/(?:[?#&])type=recovery(?:&|$)/.test(window.location.href);
   const db=window.supabase.createClient(URL,KEY);
-  let session=null, profile=null, originalRender=null, originalNavigate=null, fullState=null, teamMembers=[];
+  let session=null, profile=null, company=null, originalRender=null, originalNavigate=null, fullState=null, teamMembers=[];
   let booted=false, latestData='';
 
   const css=`
@@ -15,12 +15,25 @@
     .macc-auth-card h1{font-size:20px;margin:0 0 8px}.macc-auth-card p{font-size:13px;color:#c7d4e3;line-height:1.5;margin:0 0 20px}.macc-auth-card label{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;color:#a0b4c8;margin:13px 0 5px;text-transform:uppercase}
     .macc-auth-card input,.macc-auth-card select{width:100%;padding:10px 12px;border-radius:7px;border:1px solid #3f5f84;background:#162030;color:#fff;font-size:14px}.macc-auth-card button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:7px;background:#f0b429;color:#162030;font-weight:800;cursor:pointer}.macc-auth-card button:disabled{opacity:.6;cursor:wait}.macc-auth-message{min-height:20px;margin-top:13px;font-size:12px;color:#fbbf24}.macc-auth-help{font-size:11px!important;color:#a0b4c8!important;margin-top:18px!important}
     #macc-user-box{position:fixed;right:16px;bottom:16px;z-index:450;padding:11px 13px;border:1px solid var(--border2);border-radius:9px;background:var(--bg2);box-shadow:0 10px 28px #0005;min-width:190px}.macc-user-email{font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.macc-user-role{font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-top:3px}.macc-user-actions{display:flex;gap:6px;margin-top:8px}.macc-user-actions button{background:none;border:1px solid var(--border2);border-radius:5px;color:var(--text3);font-size:10px;padding:5px 7px;cursor:pointer}.macc-user-actions button:hover{color:var(--text);border-color:var(--accent)}@media(max-width:640px){#macc-user-box{bottom:70px;right:10px}}
-    #nav-access{display:none}.macc-access-note{font-size:12px;color:var(--text3);line-height:1.5}.macc-access-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.macc-access-grid .card{margin-bottom:0}@media(max-width:700px){.macc-access-grid{grid-template-columns:1fr}}
+    #nav-access{display:none}.macc-access-note{font-size:12px;color:var(--text3);line-height:1.5}.macc-access-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.macc-access-grid .card{margin-bottom:0}.macc-company-brand{margin:0 14px 12px;padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--bg3);display:none;align-items:center;gap:8px}.macc-company-brand img{width:30px;height:30px;object-fit:contain;border-radius:6px;background:#fff}.macc-company-brand b{display:block;font-size:11px;color:var(--text)}.macc-company-brand span{font-size:9px;color:var(--text3)}@media(max-width:700px){.macc-access-grid{grid-template-columns:1fr}}
   `;
   function esc(v){return String(v||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
   function roleLabel(role){return({admin:'Адміністратор',financial_analyst:'Фінансовий аналітик',accountant:'Бухгалтер',project_manager:'Керівник проєкту'})[role]||role;}
   function roleOptions(selected){return[['financial_analyst','Фінансовий аналітик'],['accountant','Бухгалтер'],['project_manager','Керівник проєкту'],['admin','Адміністратор']].map(([value,label])=>`<option value="${value}"${value===selected?' selected':''}>${label}</option>`).join('');}
   function isAdmin(){return profile?.role==='admin';}
+  function companyStateKey(){return profile?.company_id?'macc_state_'+profile.company_id:'macc_state';}
+  function applyCompanyBrand(){
+    const brand=document.getElementById('macc-company-brand');
+    if(!brand)return;
+    if(!company?.name){brand.style.display='none';return;}
+    brand.style.display='flex';
+    brand.innerHTML=`${company.logo_url?`<img src="${esc(company.logo_url)}" alt="Логотип ${esc(company.name)}">`:''}<div><b>${esc(company.name)}</b><span>Робочий простір</span></div>`;
+  }
+  async function getCompany(){
+    if(!profile?.company_id)return null;
+    const {data,error}=await db.from('macc_companies').select('id,name,logo_url').eq('id',profile.company_id).maybeSingle();
+    if(error)throw error; company=data; applyCompanyBrand(); return company;
+  }
   function assignedSiteIds(data=fullState){return new Set((data?.sites||[]).filter(s=>String(s.projectManagerEmail||'').toLowerCase()===String(profile?.email||'').toLowerCase()).map(s=>s.id));}
   function clone(data){return JSON.parse(JSON.stringify(data||{}));}
   function recordIds(rows){return new Set((rows||[]).filter(x=>x&&typeof x==='object'&&x.id).map(x=>x.id));}
@@ -51,8 +64,9 @@
     copy.sites.forEach(s=>{(s.subContracts||[]).forEach(x=>contractorIds.add(x.contractorId));(s.itrAssignments||[]).forEach(x=>executorIds.add(x.executorId));});
     copy.meetings.forEach(m=>(m.attendees||[]).forEach(id=>{contractorIds.add(id);executorIds.add(id);}));
     copy.tasks.forEach(t=>{const id=String(t.executorId||'');if(id.startsWith('cont_'))contractorIds.add(id.slice(5));else if(id.startsWith('exec_'))executorIds.add(id.slice(5));else executorIds.add(id);});
-    copy.contractors=(copy.contractors||[]).filter(x=>contractorIds.has(x.id));
-    copy.executors=(copy.executors||[]).filter(x=>executorIds.has(x.id));
+    const ownEmail=String(profile?.email||'').toLowerCase();
+    copy.contractors=(copy.contractors||[]).filter(x=>contractorIds.has(x.id)||String(x.createdBy||'').toLowerCase()===ownEmail);
+    copy.executors=(copy.executors||[]).filter(x=>executorIds.has(x.id)||String(x.createdBy||'').toLowerCase()===ownEmail);
     copy.cfCategories=[...new Set(copy.cashflows.map(x=>x.category).filter(Boolean))];
     copy.cfCounterparties=[...new Set(copy.cashflows.map(x=>x.counterparty).filter(Boolean))];
     return copy;
@@ -62,21 +76,36 @@
     if([...afterSites.keys()].some(id=>!ids.has(id)))return false;
     for(const site of (visibleBefore?.sites||[])){
       const changed=afterSites.get(site.id);
-      if(!changed||changed.projectManagerEmail!==site.projectManagerEmail||hasDeletedRecords(site,changed))return false;
+      if(!changed||changed.projectManagerEmail!==site.projectManagerEmail)return false;
+      // A project manager may remove only an assignment from their own site.
+      // Removing acts or any other nested project data remains forbidden.
+      const oldSubs=new Map((site.subContracts||[]).map(x=>[x.id,x]));
+      const newSubs=new Map((changed.subContracts||[]).map(x=>[x.id,x]));
+      for(const [id,oldSub] of oldSubs){const newSub=newSubs.get(id);if(newSub&&hasDeletedRecords(oldSub,newSub))return false;}
+      const plainOld=clone(site),plainNew=clone(changed);
+      plainOld.subContracts=[];plainOld.itrAssignments=[];plainNew.subContracts=[];plainNew.itrAssignments=[];
+      if(hasDeletedRecords(plainOld,plainNew))return false;
     }
     for(const key of ['cashflows','meetings','tasks']){
       const oldRows=visibleBefore?.[key]||[],newRows=after?.[key]||[];
       if(newRows.some(x=>!ids.has(x.siteId))||hasDeletedRecords(oldRows,newRows))return false;
     }
     for(const id of ids)if(hasDeletedRecords(visibleBefore?.budgets?.[id]?.rows||[],after?.budgets?.[id]?.rows||[]))return false;
-    const knownExecutors=recordIds(before?.executors),visibleExecutors=new Map((visibleBefore?.executors||[]).map(x=>[x.id,x])),assignedExecutors=new Set((after?.sites||[]).flatMap(s=>(s.itrAssignments||[]).map(x=>x.executorId)));
+    const knownExecutors=recordIds(before?.executors),visibleExecutors=new Map((visibleBefore?.executors||[]).map(x=>[x.id,x]));
     for(const executor of after?.executors||[]){
       const old=visibleExecutors.get(executor.id);
       if(old&&JSON.stringify(old)!==JSON.stringify(executor))return false;
-      if(!old&&(knownExecutors.has(executor.id)||!assignedExecutors.has(executor.id)))return false;
+      if(!old&&knownExecutors.has(executor.id))return false;
     }
     if([...visibleExecutors.keys()].some(id=>!(after?.executors||[]).some(x=>x.id===id)))return false;
-    for(const key of ['contractors','cfCategories','cfCounterparties','tenders'])if(JSON.stringify(visibleBefore?.[key]??null)!==JSON.stringify(after?.[key]??null))return false;
+    const knownContractors=recordIds(before?.contractors),visibleContractors=new Map((visibleBefore?.contractors||[]).map(x=>[x.id,x]));
+    for(const contractor of after?.contractors||[]){
+      const old=visibleContractors.get(contractor.id);
+      if(old&&JSON.stringify(old)!==JSON.stringify(contractor))return false;
+      if(!old&&knownContractors.has(contractor.id))return false;
+    }
+    if([...visibleContractors.keys()].some(id=>!(after?.contractors||[]).some(x=>x.id===id)))return false;
+    for(const key of ['cfCategories','cfCounterparties','tenders'])if(JSON.stringify(visibleBefore?.[key]??null)!==JSON.stringify(after?.[key]??null))return false;
     return true;
   }
   function mergeProjectManagerChanges(before,after){
@@ -84,11 +113,16 @@
     merged.sites=(before?.sites||[]).map(s=>ids.has(s.id)?afterSites.get(s.id):s);
     for(const key of ['cashflows','meetings','tasks'])merged[key]=[...(before?.[key]||[]).filter(x=>!ids.has(x.siteId)),...(after?.[key]||[]).filter(x=>ids.has(x.siteId))];
     merged.budgets=clone(before?.budgets||{});for(const id of ids)merged.budgets[id]=clone(after?.budgets?.[id]||{rows:[]});
-    const existingExecutors=recordIds(before?.executors);merged.executors=[...(before?.executors||[]),...(after?.executors||[]).filter(x=>!existingExecutors.has(x.id))];
+    const existingExecutors=recordIds(before?.executors),existingContractors=recordIds(before?.contractors);
+    merged.executors=[...(before?.executors||[]),...(after?.executors||[]).filter(x=>!existingExecutors.has(x.id))];
+    merged.contractors=[...(before?.contractors||[]),...(after?.contractors||[]).filter(x=>!existingContractors.has(x.id))];
     return merged;
   }
   function accountantMaySave(before,after){return ['sites','contractors','executors','cfCategories','cfCounterparties','budgets','meetings','tasks','tenders'].every(key=>JSON.stringify(before?.[key]??null)===JSON.stringify(after?.[key]??null));}
   window.maccCanManageProjects=()=>isAdmin();
+  window.maccCanAddDirectory=()=>isAdmin()||profile?.role==='project_manager';
+  window.maccCanEditDirectory=()=>isAdmin();
+  window.maccDirectoryOwner=()=>profile?.role==='project_manager'?profile.email:'';
   window.maccCanEditSite=(siteId)=>isAdmin()||(profile?.role==='project_manager'&&assignedSiteIds().has(siteId));
   window.maccProjectManagers=()=>teamMembers.filter(m=>m.role==='project_manager'&&m.active&&!m.revoked_at);
   window.maccProjectFilterEmail='';window.maccProjectFilterLabel='';
@@ -143,19 +177,19 @@
       }
       history.replaceState(null,'',location.pathname);
       overlay.remove(); addUserBox(); enableNavigation();
-      await db.from('macc_access_log').insert({user_id:session.user.id,event:'login'});
+      await db.from('macc_access_log').insert({company_id:profile.company_id,user_id:session.user.id,event:'login'});
       await secureLoad();
     });
   }
   async function getProfile(){
-    const {data,error}=await db.from('macc_profiles').select('id,email,role,active,revoked_at').eq('id',session.user.id).maybeSingle();
+    const {data,error}=await db.from('macc_profiles').select('id,email,role,active,revoked_at,company_id').eq('id',session.user.id).maybeSingle();
     if(error)throw error; return data;
   }
-  async function refreshTeamMembers(){const {data}=await db.from('macc_profiles').select('id,email,role,active,revoked_at,full_name,position,phone').order('invited_at',{ascending:false});if(data)teamMembers=data;return teamMembers;}
+  async function refreshTeamMembers(){const {data}=await db.from('macc_profiles').select('id,email,role,active,revoked_at,full_name,position,phone').eq('company_id',profile.company_id).order('invited_at',{ascending:false});if(data)teamMembers=data;return teamMembers;}
   function addUserBox(){
     let box=document.getElementById('macc-user-box');
     if(!box){box=document.createElement('div');box.id='macc-user-box';document.body.appendChild(box);}
-    box.innerHTML=`<div class="macc-user-email">${esc(profile.email)}</div><div class="macc-user-role">${roleLabel(profile.role)}</div><div class="macc-user-actions">${profile.role==='admin'?'<button onclick="navigate(\'access\')">Команда</button>':''}<button onclick="maccShowPasswordChange()">Змінити пароль</button><button onclick="maccSignOut()">Вийти</button></div>`;
+    box.innerHTML=`<div class="macc-user-email">${esc(profile.email)}</div><div class="macc-user-role">${roleLabel(profile.role)}</div><div class="macc-user-actions">${profile.role==='admin'?'<button onclick="navigate(\'access\')">Команда</button><button onclick="maccOpenCompanySettings()">Компанія</button>':''}<button onclick="maccShowPasswordChange()">Змінити пароль</button><button onclick="maccSignOut()">Вийти</button></div>`;
   }
   function enableNavigation(){
     if(!document.getElementById('nav-access')){
@@ -170,8 +204,7 @@
     if(role==='financial_analyst')document.querySelectorAll('#main-content button[onclick*="export"]').forEach(el=>el.disabled=false);
     if(role==='project_manager'){
       document.querySelectorAll('.nav-item').forEach(el=>{if(el.id!=='nav-access')el.style.display='';});
-      document.querySelectorAll('#main-content button[onclick*="delete"],#main-content button[onclick*="Delete"]').forEach(el=>{el.disabled=true;el.style.display='none';});
-      document.querySelectorAll('#main-content button[onclick*="openExecutorModal"]').forEach(el=>{el.disabled=true;el.style.display='none';});
+      document.querySelectorAll('#main-content button[onclick*="delete"],#main-content button[onclick*="Delete"]').forEach(el=>{if(el.dataset.maccPmDelete!=='assignment'){el.disabled=true;el.style.display='none';}});
     }
     if(readOnly)document.querySelectorAll('#main-content .page-header').forEach(el=>{if(!el.querySelector('.macc-viewer-note'))el.insertAdjacentHTML('beforeend',`<span class="macc-viewer-note" style="font-size:11px;color:var(--accent)">${role==='financial_analyst'?'Перегляд і вивантаження':'Редагування доступне лише в «Грошових потоках»'}</span>`)});
   }
@@ -194,28 +227,20 @@
     if(profile.role==='project_manager'){if(!projectManagerMaySave(previous,next)){alert('Керівник проєкту може додавати та редагувати дані лише у своїх об’єктах. Видалення даних і зміни чужих об’єктів недоступні.');window.applyState(scopedState(previous));window.render();return;}next=mergeProjectManagerChanges(previous,next);}
     if(!isAdmin()&&profile.role!=='accountant'&&profile.role!=='project_manager'){alert('У вас немає права вносити зміни.');return;}
     const payload=JSON.stringify(next);
-    localStorage.setItem('macc_state',payload);
+    localStorage.setItem(companyStateKey(),payload);
     if(payload===latestData)return;
     latestData=payload;
     fullState=next;
-    const {error}=await db.from('macc_app_state').upsert({id:'main',data:next,updated_at:new Date().toISOString(),updated_by:session.user.id});
+    const {error}=await db.from('macc_company_state').upsert({company_id:profile.company_id,data:next,updated_at:new Date().toISOString(),updated_by:session.user.id},{onConflict:'company_id'});
     if(error){console.error(error); alert('Зміни не вдалося синхронізувати: '+error.message);return;}
-    const changes=auditChanges(previous,next);await db.from('macc_audit_log').insert({user_id:session.user.id,action:changes.length?changes.join('; '):'Зміна даних сайту',details:{sections:topLevelChanges(previous,next)}});
+    const changes=auditChanges(previous,next);await db.from('macc_audit_log').insert({company_id:profile.company_id,user_id:session.user.id,action:changes.length?changes.join('; '):'Зміна даних сайту',details:{sections:topLevelChanges(previous,next)}});
   }
   async function secureLoad(){
     const savedTheme=localStorage.getItem('macc_theme')||'dark';document.body.classList.toggle('light-theme',savedTheme==='light');
-    const {data,error}=await db.from('macc_app_state').select('data,updated_at').eq('id','main').maybeSingle();
+    const {data,error}=await db.from('macc_company_state').select('data,updated_at').eq('company_id',profile.company_id).maybeSingle();
     if(error)throw error;
-    if(data?.data){fullState=data.data;window.applyState(scopedState(data.data));latestData=JSON.stringify(data.data);localStorage.setItem('macc_state',JSON.stringify(state));}
-    else if(profile.role==='admin'){
-      const backup=await fetch('https://macc-d6e9b-default-rtdb.europe-west1.firebasedatabase.app/data.json').then(r=>r.ok?r.json():null).catch(()=>null);
-      if(backup&&(backup.sites||backup.cashflows)){
-        window.applyState(backup); latestData=JSON.stringify(state);
-        const {error:writeError}=await db.from('macc_app_state').upsert({id:'main',data:state,updated_at:new Date().toISOString(),updated_by:session.user.id});
-        if(writeError)throw writeError;
-        await db.from('macc_audit_log').insert({user_id:session.user.id,action:'Початкове перенесення даних',details:{source:'попереднє сховище'}});
-      }
-    }
+    if(data?.data){fullState=data.data;window.applyState(scopedState(data.data));latestData=JSON.stringify(data.data);localStorage.setItem(companyStateKey(),JSON.stringify(state));}
+    else {fullState={sites:[],contractors:[],executors:[],cashflows:[],cfCategories:[],cfCounterparties:[],budgets:{},meetings:[],tasks:[],tenders:[]};window.applyState(fullState);latestData=JSON.stringify(fullState);}
     window.render();applyReadOnly();
   }
   function renderAccess(){
@@ -229,7 +254,7 @@
     loadAccessData();
   }
   async function loadAccessData(){
-    const [members,access,audit]=await Promise.all([db.from('macc_profiles').select('id,email,role,active,invited_at,revoked_at,full_name,position,phone').order('invited_at',{ascending:false}),db.from('macc_access_log').select('created_at,event,user_id').order('created_at',{ascending:false}).limit(500),db.from('macc_audit_log').select('created_at,action,details,user_id').order('created_at',{ascending:false}).limit(50)]);
+    const [members,access,audit]=await Promise.all([db.from('macc_profiles').select('id,email,role,active,invited_at,revoked_at,full_name,position,phone').eq('company_id',profile.company_id).order('invited_at',{ascending:false}),db.from('macc_access_log').select('created_at,event,user_id').eq('company_id',profile.company_id).order('created_at',{ascending:false}).limit(500),db.from('macc_audit_log').select('created_at,action,details,user_id').eq('company_id',profile.company_id).order('created_at',{ascending:false}).limit(50)]);
     const memberEl=document.getElementById('macc-members'), historyEl=document.getElementById('macc-history');if(!memberEl||!historyEl)return;
     if(members.error){memberEl.textContent='Не вдалося завантажити список.';return;}teamMembers=members.data||[];
     const lastVisit={};(access.data||[]).filter(x=>x.event==='login').sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).forEach(x=>{if(!lastVisit[x.user_id])lastVisit[x.user_id]=x.created_at;});
@@ -254,10 +279,25 @@
     if(error)alert('Помилка: '+error.message);else loadAccessData();
   }
   async function changeRole(id,role){const {error}=await db.functions.invoke('manage-users',{body:{action:'update_role',userId:id,role}});if(error)alert('Не вдалося змінити статус: '+error.message);else loadAccessData();}
+  window.maccOpenCompanySettings=()=>{
+    if(!isAdmin()||!company)return;
+    let overlay=document.getElementById('macc-company-settings');
+    if(!overlay){overlay=document.createElement('div');overlay.id='macc-company-settings';overlay.className='modal-overlay';overlay.style.zIndex='600';document.body.appendChild(overlay);}
+    overlay.innerHTML=`<div class="modal" style="width:460px"><div class="modal-head"><span class="modal-title">Налаштування компанії</span><button class="modal-close" onclick="document.getElementById('macc-company-settings').classList.remove('open')">×</button></div><div class="modal-body"><div class="macc-access-note" style="margin-bottom:14px">Назва відображається у робочому просторі компанії. Логотип можна додати посиланням на зображення; поле необов’язкове.</div><div class="form-group"><label class="form-label">Назва компанії *</label><input id="macc-company-name" class="form-input" value="${esc(company.name)}" required></div><div class="form-group"><label class="form-label">Посилання на логотип</label><input id="macc-company-logo-url" class="form-input" type="url" value="${esc(company.logo_url||'')}" placeholder="https://…"></div><div id="macc-company-result" class="macc-access-note"></div></div><div class="modal-footer"><button class="btn secondary" onclick="document.getElementById('macc-company-settings').classList.remove('open')">Скасувати</button><button class="btn primary" onclick="maccSaveCompanySettings()">Зберегти</button></div></div>`;
+    overlay.classList.add('open');
+  };
+  window.maccSaveCompanySettings=async()=>{
+    const name=document.getElementById('macc-company-name').value.trim(),logoUrl=document.getElementById('macc-company-logo-url').value.trim(),out=document.getElementById('macc-company-result');
+    if(!name){out.textContent='Вкажіть назву компанії.';return;}
+    out.textContent='Зберігаємо…';
+    const {data,error}=await db.from('macc_companies').update({name,logo_url:logoUrl||null}).eq('id',company.id).select('id,name,logo_url').single();
+    if(error){out.textContent='Не вдалося зберегти: '+error.message;return;}
+    company=data;applyCompanyBrand();out.textContent='Збережено.';setTimeout(()=>document.getElementById('macc-company-settings')?.classList.remove('open'),500);
+  };
   window.maccToggleHistory=()=>{const card=document.getElementById('macc-history-card');if(card)card.style.display=card.style.display==='none'?'block':'none';};
   window.maccShowPasswordChange=()=>showPasswordSetup();
   window.maccInviteUser=invite;window.maccRevokeUser=revoke;window.maccChangeRole=changeRole;
-  window.maccSignOut=async()=>{sessionStorage.removeItem('macc_last_page');if(session)await db.from('macc_access_log').insert({user_id:session.user.id,event:'logout'});await db.auth.signOut();};
+  window.maccSignOut=async()=>{sessionStorage.removeItem('macc_last_page');if(session)await db.from('macc_access_log').insert({company_id:profile?.company_id,user_id:session.user.id,event:'logout'});await db.auth.signOut();};
   async function activate(nextSession,isPasswordRecovery=false){
     session=nextSession;
     if(!session){profile=null;showLogin();return;}
@@ -265,11 +305,12 @@
     if(!profile){await db.auth.signOut();showLogin('Доступ надається лише після запрошення адміністратора.');return;}
     if(isPasswordRecovery||location.hash.includes('type=recovery')||!profile.active){if(profile.revoked_at){await db.auth.signOut();showLogin('Доступ закрито адміністратором.');return;}showPasswordSetup();return;}
     if(!profile?.active){await db.auth.signOut();showLogin('Для цієї пошти доступ закрито адміністратором.');return;}
+    try{await getCompany();}catch(e){await db.auth.signOut();showLogin('Не вдалося відкрити робочий простір: '+e.message);return;}
     document.getElementById('macc-auth')?.remove();if(isAdmin())await refreshTeamMembers();addUserBox();enableNavigation();
-    await db.from('macc_access_log').insert({user_id:session.user.id,event:'login'});
+    await db.from('macc_access_log').insert({company_id:profile.company_id,user_id:session.user.id,event:'login'});
     await secureLoad();
     const rememberedPage=sessionStorage.getItem('macc_last_page');if(rememberedPage&&rememberedPage!==curPage)window.navigate(rememberedPage);
-    db.channel('macc-main-state').on('postgres_changes',{event:'UPDATE',schema:'public',table:'macc_app_state',filter:'id=eq.main'},payload=>{if(payload.new.updated_by!==session.user.id){fullState=payload.new.data;window.applyState(scopedState(payload.new.data));latestData=JSON.stringify(payload.new.data);window.render();applyReadOnly();}}).subscribe();
+    db.channel('macc-company-state-'+profile.company_id).on('postgres_changes',{event:'UPDATE',schema:'public',table:'macc_company_state',filter:'company_id=eq.'+profile.company_id},payload=>{if(payload.new.updated_by!==session.user.id){fullState=payload.new.data;window.applyState(scopedState(payload.new.data));latestData=JSON.stringify(payload.new.data);window.render();applyReadOnly();}}).subscribe();
   }
   window.maccAccessBoot=async function(){
     if(booted)return;booted=true;

@@ -217,6 +217,7 @@ select.form-input option{background:var(--bg3)}
     <img src="logo.png" alt="Pshenya PM" width="40" height="40" style="border-radius:50%;flex-shrink:0">
     <div class="logo-text"><b>MACC</b><span>Management Accounting</span></div>
   </div>
+  <div id="macc-company-brand" class="macc-company-brand"></div>
   <div class="nav-section-label">Головне</div>
   <button class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>Дашборд</button>
   <button class="nav-item" id="nav-sites" onclick="navigate('sites')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21V12h6v9"/></svg></span>Об'єкти</button>
@@ -1078,7 +1079,7 @@ function renderSiteDetail(){
         <td onclick="event.stopPropagation()" style="white-space:nowrap">
           <button class="btn sm" style="background:var(--accent);color:#fff" onclick="openSubActsModal('${s.id}','${c.id}')">Акти${(c.acts||[]).length?` (${(c.acts||[]).length})`:'+'}</button>
           <button class="btn sm" onclick="openSiteSubModal('${s.id}','${c.id}')" style="margin-left:4px">✏</button>
-          <button class="btn sm danger" onclick="deleteSiteSub('${s.id}','${c.id}')" style="margin-left:4px">×</button>
+          <button class="btn sm danger" data-macc-pm-delete="assignment" onclick="deleteSiteSub('${s.id}','${c.id}')" style="margin-left:4px">×</button>
         </td>
       </tr>`;
     });
@@ -1108,7 +1109,7 @@ function renderSiteDetail(){
         <td style="font-size:11px;color:var(--text3)">${esc(exec?.email||'—')}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap">
           <button class="btn sm" onclick="openSiteITRModal('${s.id}','${a.id}')">✏</button>
-          <button class="btn sm danger" onclick="deleteSiteITR('${s.id}','${a.id}')" style="margin-left:4px">×</button>
+          <button class="btn sm danger" data-macc-pm-delete="assignment" onclick="deleteSiteITR('${s.id}','${a.id}')" style="margin-left:4px">×</button>
         </td>
       </tr>`;
     });
@@ -1841,8 +1842,8 @@ function renderExecutors(){
     <div class="page-header">
       <h1 class="page-title">👷 Виконавці та підрядники</h1>
       <div style="display:flex;gap:8px">
-        ${execTab==='contractors'?`<button class="btn primary" onclick="openContractorModal(null)">+ Новий підрядник</button>`:
-                                   `<button class="btn primary" onclick="openExecutorModal(null)">+ Новий виконавець</button>`}
+        ${(typeof maccCanAddDirectory!=='function'||maccCanAddDirectory())?(execTab==='contractors'?`<button class="btn primary" onclick="openContractorModal(null)">+ Новий підрядник</button>`:
+                                   `<button class="btn primary" onclick="openExecutorModal(null)">+ Новий виконавець</button>`):''}
       </div>
     </div>
     <div class="card">
@@ -1869,7 +1870,7 @@ function renderContractorsTable(){
       <td style="color:var(--text3)">${esc(c.email||'—')}</td>
       <td style="font-size:11px">${esc(c.worktype||'—')}</td>
       <td>${c.vatPayer==='yes'?`<span class="badge" style="background:rgba(74,222,128,.12);color:var(--green);border:1px solid rgba(74,222,128,.3)">Платник</span>`:`<span class="badge" style="background:rgba(90,112,144,.1);color:var(--text3);border:1px solid var(--border)">Не платник</span>`}</td>
-      <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="deleteContractor('${c.id}')">×</button></td>
+      <td onclick="event.stopPropagation()">${(typeof maccCanEditDirectory!=='function'||maccCanEditDirectory())?`<button class="btn sm danger" onclick="deleteContractor('${c.id}')">×</button>`:''}</td>
     </tr>`).join('')}</tbody>
   </table>`;
 }
@@ -1888,7 +1889,7 @@ function renderExecutorsTable(){
       <td class="r mono">${e.salaryLevel?fmtN(e.salaryLevel):'—'}</td>
       <td style="white-space:nowrap">${esc(e.phone||'—')}</td>
       <td style="color:var(--text3)">${esc(e.email||'—')}</td>
-      <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="deleteExecutor('${e.id}')">×</button></td>
+      <td onclick="event.stopPropagation()">${(typeof maccCanEditDirectory!=='function'||maccCanEditDirectory())?`<button class="btn sm danger" onclick="deleteExecutor('${e.id}')">×</button>`:''}</td>
     </tr>`).join('')}</tbody>
   </table>`;
 }
@@ -1949,8 +1950,7 @@ function renderContractorDetail(){
         ${c.vatPayer==='yes'?`<span class="badge" style="background:rgba(74,222,128,.12);color:var(--green);border:1px solid rgba(74,222,128,.3)">ПДВ платник</span>`:''}
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn" onclick="openContractorModal('${c.id}')">✏ Редагувати</button>
-        <button class="btn danger" onclick="deleteContractor('${c.id}')">🗑 Видалити</button>
+        ${(typeof maccCanEditDirectory!=='function'||maccCanEditDirectory())?`<button class="btn" onclick="openContractorModal('${c.id}')">✏ Редагувати</button><button class="btn danger" onclick="deleteContractor('${c.id}')">🗑 Видалити</button>`:''}
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
@@ -2022,8 +2022,7 @@ function renderExecutorDetail(){
         ${e.position?`<span class="badge" style="background:rgba(240,180,41,.12);color:var(--accent)">${esc(e.position)}</span>`:''}
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn" onclick="openExecutorModal('${e.id}')">✏ Редагувати</button>
-        <button class="btn danger" onclick="deleteExecutor('${e.id}')">🗑 Видалити</button>
+        ${(typeof maccCanEditDirectory!=='function'||maccCanEditDirectory())?`<button class="btn" onclick="openExecutorModal('${e.id}')">✏ Редагувати</button><button class="btn danger" onclick="deleteExecutor('${e.id}')">🗑 Видалити</button>`:''}
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
@@ -2070,6 +2069,7 @@ function openContractorModal(id){
 function saveContractor(){
   const name=document.getElementById('c-name').value.trim();
   if(!name){alert('Введіть назву');return;}
+  const existing=editingContractorId?(state.contractors||[]).find(x=>x.id===editingContractorId):null;
   const data={
     id:editingContractorId||uid(),
     name,
@@ -2079,6 +2079,7 @@ function saveContractor(){
     vatPayer:document.getElementById('c-vat').value,
     worktype:document.getElementById('c-worktype').value.trim(),
     notes:document.getElementById('c-notes').value.trim(),
+    createdBy:editingContractorId?(existing?.createdBy||''):(typeof maccDirectoryOwner==='function'?maccDirectoryOwner():''),
   };
   if(editingContractorId){const i=state.contractors.findIndex(x=>x.id===editingContractorId);if(i>=0)state.contractors[i]=data;}
   else state.contractors.push(data);
@@ -2104,6 +2105,7 @@ function openExecutorModal(id){
 function saveExecutor(){
   const name=document.getElementById('e-name').value.trim();
   if(!name){alert('Введіть ім\'я');return;}
+  const existing=editingExecutorId?(state.executors||[]).find(x=>x.id===editingExecutorId):null;
   const data={
     id:editingExecutorId||uid(),
     name,
@@ -2112,6 +2114,7 @@ function saveExecutor(){
     phone:document.getElementById('e-phone').value.trim(),
     email:document.getElementById('e-email').value.trim(),
     notes:document.getElementById('e-notes').value.trim(),
+    createdBy:editingExecutorId?(existing?.createdBy||''):(typeof maccDirectoryOwner==='function'?maccDirectoryOwner():''),
   };
   if(editingExecutorId){const i=state.executors.findIndex(x=>x.id===editingExecutorId);if(i>=0)state.executors[i]=data;}
   else state.executors.push(data);
