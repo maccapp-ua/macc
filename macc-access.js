@@ -69,7 +69,14 @@
       if(newRows.some(x=>!ids.has(x.siteId))||hasDeletedRecords(oldRows,newRows))return false;
     }
     for(const id of ids)if(hasDeletedRecords(visibleBefore?.budgets?.[id]?.rows||[],after?.budgets?.[id]?.rows||[]))return false;
-    for(const key of ['contractors','executors','cfCategories','cfCounterparties','tenders'])if(JSON.stringify(visibleBefore?.[key]??null)!==JSON.stringify(after?.[key]??null))return false;
+    const knownExecutors=recordIds(before?.executors),visibleExecutors=new Map((visibleBefore?.executors||[]).map(x=>[x.id,x])),assignedExecutors=new Set((after?.sites||[]).flatMap(s=>(s.itrAssignments||[]).map(x=>x.executorId)));
+    for(const executor of after?.executors||[]){
+      const old=visibleExecutors.get(executor.id);
+      if(old&&JSON.stringify(old)!==JSON.stringify(executor))return false;
+      if(!old&&(knownExecutors.has(executor.id)||!assignedExecutors.has(executor.id)))return false;
+    }
+    if([...visibleExecutors.keys()].some(id=>!(after?.executors||[]).some(x=>x.id===id)))return false;
+    for(const key of ['contractors','cfCategories','cfCounterparties','tenders'])if(JSON.stringify(visibleBefore?.[key]??null)!==JSON.stringify(after?.[key]??null))return false;
     return true;
   }
   function mergeProjectManagerChanges(before,after){
@@ -77,6 +84,7 @@
     merged.sites=(before?.sites||[]).map(s=>ids.has(s.id)?afterSites.get(s.id):s);
     for(const key of ['cashflows','meetings','tasks'])merged[key]=[...(before?.[key]||[]).filter(x=>!ids.has(x.siteId)),...(after?.[key]||[]).filter(x=>ids.has(x.siteId))];
     merged.budgets=clone(before?.budgets||{});for(const id of ids)merged.budgets[id]=clone(after?.budgets?.[id]||{rows:[]});
+    const existingExecutors=recordIds(before?.executors);merged.executors=[...(before?.executors||[]),...(after?.executors||[]).filter(x=>!existingExecutors.has(x.id))];
     return merged;
   }
   function accountantMaySave(before,after){return ['sites','contractors','executors','cfCategories','cfCounterparties','budgets','meetings','tasks','tenders'].every(key=>JSON.stringify(before?.[key]??null)===JSON.stringify(after?.[key]??null));}
@@ -163,6 +171,7 @@
     if(role==='project_manager'){
       document.querySelectorAll('.nav-item').forEach(el=>{if(el.id!=='nav-access')el.style.display='';});
       document.querySelectorAll('#main-content button[onclick*="delete"],#main-content button[onclick*="Delete"]').forEach(el=>{el.disabled=true;el.style.display='none';});
+      document.querySelectorAll('#main-content button[onclick*="openExecutorModal"]').forEach(el=>{el.disabled=true;el.style.display='none';});
     }
     if(readOnly)document.querySelectorAll('#main-content .page-header').forEach(el=>{if(!el.querySelector('.macc-viewer-note'))el.insertAdjacentHTML('beforeend',`<span class="macc-viewer-note" style="font-size:11px;color:var(--accent)">${role==='financial_analyst'?'Перегляд і вивантаження':'Редагування доступне лише в «Грошових потоках»'}</span>`)});
   }

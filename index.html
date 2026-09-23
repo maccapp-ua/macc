@@ -624,9 +624,16 @@ select.form-input option{background:var(--bg3)}
     </div>
     <div class="modal-body">
       <div class="form-group"><label class="form-label">Виконавець *</label>
-        <select class="form-input" id="si-executor">
+        <select class="form-input" id="si-executor" onchange="toggleSiteNewExecutor(this.value)">
           <option value="">— Оберіть виконавця —</option>
+          <option value="__new__">＋ Створити нового виконавця</option>
         </select></div>
+      <div id="si-new-executor-fields" style="display:none;padding:10px;margin:-2px 0 12px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
+        <div style="font-size:10px;font-weight:700;color:var(--accent);margin-bottom:9px;text-transform:uppercase;letter-spacing:.06em">Новий виконавець</div>
+        <div class="form-group"><label class="form-label">Імʼя та прізвище *</label><input class="form-input" id="si-new-name" placeholder="Іван Петренко"></div>
+        <div class="form-row2"><div class="form-group"><label class="form-label">Посада</label><input class="form-input" id="si-new-position" placeholder="Виконроб"></div><div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="si-new-phone" type="tel" placeholder="+380…"></div></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="si-new-email" type="email" placeholder="name@example.com"></div>
+      </div>
       <div class="form-group"><label class="form-label">Роль на об'єкті</label>
         <input class="form-input" id="si-role" placeholder="напр. Керівник проекту, Виконроб..."></div>
     </div>
@@ -1272,15 +1279,28 @@ function openSiteITRModal(siteId, asgId){
   const a=asgId?(s?.itrAssignments||[]).find(x=>x.id===asgId):null;
   document.getElementById('modal-site-itr-title').textContent=asgId?'Редагувати ІТР':'Додати ІТР';
   const sel=document.getElementById('si-executor');
-  sel.innerHTML='<option value="">— Оберіть виконавця —</option>'+(state.executors||[]).map(x=>`<option value="${x.id}"${a?.executorId===x.id?' selected':''}>${esc(x.name)}${x.position?' — '+x.position:''}</option>`).join('');
+  sel.innerHTML='<option value="">— Оберіть виконавця —</option>'+(state.executors||[]).map(x=>`<option value="${x.id}"${a?.executorId===x.id?' selected':''}>${esc(x.name)}${x.position?' — '+x.position:''}</option>`).join('')+'<option value="__new__">＋ Створити нового виконавця</option>';
+  document.getElementById('si-new-name').value='';document.getElementById('si-new-position').value='';document.getElementById('si-new-phone').value='';document.getElementById('si-new-email').value='';
+  toggleSiteNewExecutor(sel.value);
   document.getElementById('si-role').value=a?.role||'';
   document.getElementById('modal-site-itr').classList.add('open');
 }
+function toggleSiteNewExecutor(value){
+  const fields=document.getElementById('si-new-executor-fields');
+  if(fields)fields.style.display=value==='__new__'?'block':'none';
+}
 function saveSiteITR(){
-  const executorId=document.getElementById('si-executor').value;
+  let executorId=document.getElementById('si-executor').value;
   if(!executorId){alert('Оберіть виконавця');return;}
   const s=(state.sites||[]).find(x=>x.id===curSiteDetailId);
   if(!s)return;
+  if(executorId==='__new__'){
+    const name=document.getElementById('si-new-name').value.trim();
+    if(!name){alert('Введіть імʼя нового виконавця');return;}
+    executorId=uid();
+    if(!state.executors)state.executors=[];
+    state.executors.push({id:executorId,name,position:document.getElementById('si-new-position').value.trim(),salaryLevel:0,phone:document.getElementById('si-new-phone').value.trim(),email:document.getElementById('si-new-email').value.trim(),notes:''});
+  }
   if(!s.itrAssignments)s.itrAssignments=[];
   const data={
     id:editingSiteITRId||uid(),
