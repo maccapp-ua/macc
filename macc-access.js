@@ -62,13 +62,10 @@
     copy.meetings=(copy.meetings||[]).filter(x=>ids.has(x.siteId));
     copy.tasks=(copy.tasks||[]).filter(x=>ids.has(x.siteId));
     copy.tenders=(copy.tenders||[]).filter(x=>ids.has(x.siteId));
-    const contractorIds=new Set(),executorIds=new Set();
-    copy.sites.forEach(s=>{(s.subContracts||[]).forEach(x=>contractorIds.add(x.contractorId));(s.itrAssignments||[]).forEach(x=>executorIds.add(x.executorId));});
-    copy.meetings.forEach(m=>(m.attendees||[]).forEach(id=>{contractorIds.add(id);executorIds.add(id);}));
-    copy.tasks.forEach(t=>{const id=String(t.executorId||'');if(id.startsWith('cont_'))contractorIds.add(id.slice(5));else if(id.startsWith('exec_'))executorIds.add(id.slice(5));else executorIds.add(id);});
-    const ownEmail=String(profile?.email||'').toLowerCase();
-    copy.contractors=(copy.contractors||[]).filter(x=>contractorIds.has(x.id)||String(x.createdBy||'').toLowerCase()===ownEmail);
-    copy.executors=(copy.executors||[]).filter(x=>executorIds.has(x.id)||String(x.createdBy||'').toLowerCase()===ownEmail);
+    // The company directory is common for the entire team. A project manager
+    // may use any existing contractor or executor in their own projects.
+    copy.contractors=clone(data?.contractors||[]);
+    copy.executors=clone(data?.executors||[]);
     copy.cfCategories=[...new Set(copy.cashflows.map(x=>x.category).filter(Boolean))];
     copy.cfCounterparties=[...new Set(copy.cashflows.map(x=>x.counterparty).filter(Boolean))];
     return copy;
@@ -120,11 +117,28 @@
     merged.contractors=[...(before?.contractors||[]),...(after?.contractors||[]).filter(x=>!existingContractors.has(x.id))];
     return merged;
   }
-  function accountantMaySave(before,after){return ['sites','contractors','executors','cfCategories','cfCounterparties','budgets','meetings','tasks','tenders'].every(key=>JSON.stringify(before?.[key]??null)===JSON.stringify(after?.[key]??null));}
+  function listOnlyAdds(before,after){
+    const oldRows=new Map((before||[]).map(x=>[x.id,x]));
+    return (after||[]).every(x=>!oldRows.has(x.id)||JSON.stringify(oldRows.get(x.id))===JSON.stringify(x))&&[...oldRows.keys()].every(id=>(after||[]).some(x=>x.id===id));
+  }
+  function siteAssignmentsOnlyAdd(before,after){
+    const oldSites=new Map((before||[]).map(x=>[x.id,x])),newSites=new Map((after||[]).map(x=>[x.id,x]));
+    if(oldSites.size!==newSites.size||[...oldSites.keys()].some(id=>!newSites.has(id)))return false;
+    for(const [id,oldSite] of oldSites){
+      const newSite=newSites.get(id),oldBase=clone(oldSite),newBase=clone(newSite);
+      oldBase.subContracts=[];oldBase.itrAssignments=[];newBase.subContracts=[];newBase.itrAssignments=[];
+      if(JSON.stringify(oldBase)!==JSON.stringify(newBase)||!listOnlyAdds(oldSite.subContracts,newSite.subContracts)||!listOnlyAdds(oldSite.itrAssignments,newSite.itrAssignments))return false;
+    }
+    return true;
+  }
+  function accountantMaySave(before,after){
+    if(!siteAssignmentsOnlyAdd(before?.sites,after?.sites)||!listOnlyAdds(before?.contractors,after?.contractors)||!listOnlyAdds(before?.executors,after?.executors))return false;
+    return ['budgets','meetings','tasks','tenders'].every(key=>JSON.stringify(before?.[key]??null)===JSON.stringify(after?.[key]??null));
+  }
   window.maccCanManageProjects=()=>isAdmin();
-  window.maccCanAddDirectory=()=>isAdmin()||profile?.role==='project_manager';
+  window.maccCanAddDirectory=()=>!!profile&&profile.role!=='financial_analyst';
   window.maccCanEditDirectory=()=>isAdmin();
-  window.maccDirectoryOwner=()=>profile?.role==='project_manager'?profile.email:'';
+  window.maccDirectoryOwner=()=>profile?.email||'';
   window.maccCanEditSite=(siteId)=>isAdmin()||(profile?.role==='project_manager'&&assignedSiteIds().has(siteId));
   window.maccProjectManagers=()=>teamMembers.filter(m=>m.role==='project_manager'&&m.active&&!m.revoked_at);
   window.maccProjectFilterEmail='';window.maccProjectFilterLabel='';
@@ -201,14 +215,15 @@
     document.getElementById('nav-access').style.display=profile.role==='admin'?'flex':'none';
   }
   function applyReadOnly(){
-    const role=profile?.role;const readOnly=role==='financial_analyst'||(role==='accountant'&&curPage!=='cashflow');
+    const role=profile?.role;const accountantLimited=role==='accountant'&&curPage!=='cashflow';const readOnly=role==='financial_analyst'||accountantLimited;
     document.querySelectorAll('#main-content button,#main-content input,#main-content select,#main-content textarea').forEach(el=>el.disabled=readOnly);
+    if(accountantLimited)document.querySelectorAll('#main-content [data-macc-accountant-allowed]').forEach(el=>el.disabled=false);
     if(role==='financial_analyst')document.querySelectorAll('#main-content button[onclick*="export"]').forEach(el=>el.disabled=false);
     if(role==='project_manager'){
       document.querySelectorAll('.nav-item').forEach(el=>{if(el.id!=='nav-access')el.style.display='';});
       document.querySelectorAll('#main-content button[onclick*="delete"],#main-content button[onclick*="Delete"]').forEach(el=>{if(el.dataset.maccPmDelete!=='assignment'){el.disabled=true;el.style.display='none';}});
     }
-    if(readOnly)document.querySelectorAll('#main-content .page-header').forEach(el=>{if(!el.querySelector('.macc-viewer-note'))el.insertAdjacentHTML('beforeend',`<span class="macc-viewer-note" style="font-size:11px;color:var(--accent)">${role==='financial_analyst'?'Перегляд і вивантаження':'Редагування доступне лише в «Грошових потоках»'}</span>`)});
+    if(readOnly)document.querySelectorAll('#main-content .page-header').forEach(el=>{if(!el.querySelector('.macc-viewer-note'))el.insertAdjacentHTML('beforeend',`<span class="macc-viewer-note" style="font-size:11px;color:var(--accent)">${role==='financial_analyst'?'Перегляд і вивантаження':'Бухгалтер може також додавати виконавців і підрядників до об’єктів'}</span>`)});
   }
   function topLevelChanges(before,after){
     const changed=[];['sites','contractors','executors','cashflows','budgets','meetings','tasks','tenders'].forEach(k=>{if(JSON.stringify(before?.[k]??null)!==JSON.stringify(after?.[k]??null))changed.push(k)});return changed;

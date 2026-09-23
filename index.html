@@ -1150,7 +1150,7 @@ function renderSiteDetail(){
     <div class="card" style="margin-bottom:14px">
       <div class="card-head">
         <span class="card-title">🏢 Субпідрядники на об'єкті</span>
-        <button class="btn sm primary" onclick="openSiteSubModal('${s.id}',null)">+ Додати</button>
+        <button class="btn sm primary" data-macc-accountant-allowed="assignment" onclick="openSiteSubModal('${s.id}',null)">+ Додати</button>
       </div>
       <div style="overflow-x:auto">
         <table class="tbl">
@@ -1166,7 +1166,7 @@ function renderSiteDetail(){
     <div class="card">
       <div class="card-head">
         <span class="card-title">👷 ІТР на об'єкті</span>
-        <button class="btn sm primary" onclick="openSiteITRModal('${s.id}',null)">+ Додати</button>
+        <button class="btn sm primary" data-macc-accountant-allowed="assignment" onclick="openSiteITRModal('${s.id}',null)">+ Додати</button>
       </div>
       <div style="overflow-x:auto">
         <table class="tbl">
@@ -1842,8 +1842,8 @@ function renderExecutors(){
     <div class="page-header">
       <h1 class="page-title">👷 Виконавці та підрядники</h1>
       <div style="display:flex;gap:8px">
-        ${(typeof maccCanAddDirectory!=='function'||maccCanAddDirectory())?(execTab==='contractors'?`<button class="btn primary" onclick="openContractorModal(null)">+ Новий підрядник</button>`:
-                                   `<button class="btn primary" onclick="openExecutorModal(null)">+ Новий виконавець</button>`):''}
+        ${(typeof maccCanAddDirectory!=='function'||maccCanAddDirectory())?(execTab==='contractors'?`<button class="btn primary" data-macc-accountant-allowed="directory" onclick="openContractorModal(null)">+ Новий підрядник</button>`:
+                                   `<button class="btn primary" data-macc-accountant-allowed="directory" onclick="openExecutorModal(null)">+ Новий виконавець</button>`):''}
       </div>
     </div>
     <div class="card">
