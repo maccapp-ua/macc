@@ -4,8 +4,10 @@
   const URL='https://wfdkprsszmvhqsycjwuh.supabase.co';
   const KEY='sb_publishable_e95XvrX-cpaj7-dITbc67g__KYosuXT';
   const recoveryFromLink=/(?:[?#&])type=recovery(?:&|$)/.test(window.location.href);
-  const db=window.supabase.createClient(URL,KEY);
-  let session=null, profile=null, company=null, originalRender=null, originalNavigate=null, fullState=null, teamMembers=[];
+  // Авторизація діє лише в межах поточної сесії браузера.
+  // Після оновлення сторінки вона зберігається, а після закриття браузера — ні.
+  const db=window.supabase.createClient(URL,KEY,{auth:{storage:window.sessionStorage,persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  let session=null, profile=null, company=null, originalRender=null, originalNavigate=null, fullState=null, teamMembers=[], signedOutByUser=false;
   let booted=false, latestData='';
 
   const css=`
@@ -297,10 +299,10 @@
   window.maccToggleHistory=()=>{const card=document.getElementById('macc-history-card');if(card)card.style.display=card.style.display==='none'?'block':'none';};
   window.maccShowPasswordChange=()=>showPasswordSetup();
   window.maccInviteUser=invite;window.maccRevokeUser=revoke;window.maccChangeRole=changeRole;
-  window.maccSignOut=async()=>{sessionStorage.removeItem('macc_last_page');if(session)await db.from('macc_access_log').insert({company_id:profile?.company_id,user_id:session.user.id,event:'logout'});await db.auth.signOut();};
+  window.maccSignOut=async()=>{sessionStorage.removeItem('macc_last_page');signedOutByUser=true;if(session)await db.from('macc_access_log').insert({company_id:profile?.company_id,user_id:session.user.id,event:'logout'});await db.auth.signOut({scope:'local'});};
   async function activate(nextSession,isPasswordRecovery=false){
     session=nextSession;
-    if(!session){profile=null;showLogin();return;}
+    if(!session){profile=null;showLogin(signedOutByUser?'Ви вийшли з робочого простору. Для повторного входу введіть пошту та пароль.':'');return;}
     try{profile=await getProfile();}catch(e){showLogin('Помилка перевірки доступу: '+e.message);return;}
     if(!profile){await db.auth.signOut();showLogin('Доступ надається лише після запрошення адміністратора.');return;}
     if(isPasswordRecovery||location.hash.includes('type=recovery')||!profile.active){if(profile.revoked_at){await db.auth.signOut();showLogin('Доступ закрито адміністратором.');return;}showPasswordSetup();return;}
