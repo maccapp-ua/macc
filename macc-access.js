@@ -22,8 +22,63 @@
   function roleOptions(selected){return[['financial_analyst','Фінансовий аналітик'],['accountant','Бухгалтер'],['project_manager','Керівник проєкту'],['admin','Адміністратор']].map(([value,label])=>`<option value="${value}"${value===selected?' selected':''}>${label}</option>`).join('');}
   function isAdmin(){return profile?.role==='admin';}
   function assignedSiteIds(data=fullState){return new Set((data?.sites||[]).filter(s=>String(s.projectManagerEmail||'').toLowerCase()===String(profile?.email||'').toLowerCase()).map(s=>s.id));}
-  function scopedState(data){if(profile?.role!=='project_manager')return data;const ids=assignedSiteIds(data),copy=JSON.parse(JSON.stringify(data||{}));copy.sites=(copy.sites||[]).filter(s=>ids.has(s.id));copy.cashflows=(copy.cashflows||[]).filter(x=>ids.has(x.siteId));copy.budgets=Object.fromEntries(Object.entries(copy.budgets||{}).filter(([id])=>ids.has(id)));copy.meetings=(copy.meetings||[]).filter(x=>!x.siteId||ids.has(x.siteId));copy.tasks=(copy.tasks||[]).filter(x=>!x.siteId||ids.has(x.siteId));return copy;}
-  function projectManagerMaySave(before,after){const ids=assignedSiteIds(before);for(const key of ['contractors','executors','cashflows','cfCategories','cfCounterparties','budgets','meetings','tasks','tenders'])if(JSON.stringify(before?.[key]??null)!==JSON.stringify(after?.[key]??null))return false;const oldSites=new Map((before?.sites||[]).map(s=>[s.id,s]));const newSites=new Map((after?.sites||[]).map(s=>[s.id,s]));if(oldSites.size!==newSites.size)return false;for(const [id,oldSite] of oldSites){const newSite=newSites.get(id);if(!newSite||(!ids.has(id)&&JSON.stringify(oldSite)!==JSON.stringify(newSite)))return false;}return true;}
+  function clone(data){return JSON.parse(JSON.stringify(data||{}));}
+  function recordIds(rows){return new Set((rows||[]).filter(x=>x&&typeof x==='object'&&x.id).map(x=>x.id));}
+  function hasDeletedRecords(before,after){
+    if(Array.isArray(before)){
+      if(!Array.isArray(after))return before.length>0;
+      if(before.some(x=>x===null||typeof x!=='object'))return before.some(x=>!after.includes(x));
+      const afterIds=recordIds(after);
+      for(const row of before||[]){
+        if(row&&typeof row==='object'&&row.id&&!afterIds.has(row.id))return true;
+        if(row&&typeof row==='object'&&row.id){const match=(after||[]).find(x=>x&&x.id===row.id);if(match&&hasDeletedRecords(row,match))return true;}
+      }
+    }else if(before&&typeof before==='object'){
+      for(const [key,value] of Object.entries(before))if(Array.isArray(value)&&hasDeletedRecords(value,after?.[key]))return true;
+    }
+    return false;
+  }
+  function scopedState(data){
+    if(profile?.role!=='project_manager')return data;
+    const ids=assignedSiteIds(data),copy=clone(data);
+    copy.sites=(copy.sites||[]).filter(s=>ids.has(s.id));
+    copy.cashflows=(copy.cashflows||[]).filter(x=>ids.has(x.siteId));
+    copy.budgets=Object.fromEntries(Object.entries(copy.budgets||{}).filter(([id])=>ids.has(id)));
+    copy.meetings=(copy.meetings||[]).filter(x=>ids.has(x.siteId));
+    copy.tasks=(copy.tasks||[]).filter(x=>ids.has(x.siteId));
+    copy.tenders=(copy.tenders||[]).filter(x=>ids.has(x.siteId));
+    const contractorIds=new Set(),executorIds=new Set();
+    copy.sites.forEach(s=>{(s.subContracts||[]).forEach(x=>contractorIds.add(x.contractorId));(s.itrAssignments||[]).forEach(x=>executorIds.add(x.executorId));});
+    copy.meetings.forEach(m=>(m.attendees||[]).forEach(id=>{contractorIds.add(id);executorIds.add(id);}));
+    copy.tasks.forEach(t=>{const id=String(t.executorId||'');if(id.startsWith('cont_'))contractorIds.add(id.slice(5));else if(id.startsWith('exec_'))executorIds.add(id.slice(5));else executorIds.add(id);});
+    copy.contractors=(copy.contractors||[]).filter(x=>contractorIds.has(x.id));
+    copy.executors=(copy.executors||[]).filter(x=>executorIds.has(x.id));
+    copy.cfCategories=[...new Set(copy.cashflows.map(x=>x.category).filter(Boolean))];
+    copy.cfCounterparties=[...new Set(copy.cashflows.map(x=>x.counterparty).filter(Boolean))];
+    return copy;
+  }
+  function projectManagerMaySave(before,after){
+    const ids=assignedSiteIds(before),visibleBefore=scopedState(before),afterSites=new Map((after?.sites||[]).map(s=>[s.id,s]));
+    if([...afterSites.keys()].some(id=>!ids.has(id)))return false;
+    for(const site of (visibleBefore?.sites||[])){
+      const changed=afterSites.get(site.id);
+      if(!changed||changed.projectManagerEmail!==site.projectManagerEmail||hasDeletedRecords(site,changed))return false;
+    }
+    for(const key of ['cashflows','meetings','tasks']){
+      const oldRows=visibleBefore?.[key]||[],newRows=after?.[key]||[];
+      if(newRows.some(x=>!ids.has(x.siteId))||hasDeletedRecords(oldRows,newRows))return false;
+    }
+    for(const id of ids)if(hasDeletedRecords(visibleBefore?.budgets?.[id]?.rows||[],after?.budgets?.[id]?.rows||[]))return false;
+    for(const key of ['contractors','executors','cfCategories','cfCounterparties','tenders'])if(JSON.stringify(visibleBefore?.[key]??null)!==JSON.stringify(after?.[key]??null))return false;
+    return true;
+  }
+  function mergeProjectManagerChanges(before,after){
+    const ids=assignedSiteIds(before),merged=clone(before),afterSites=new Map((after?.sites||[]).map(s=>[s.id,s]));
+    merged.sites=(before?.sites||[]).map(s=>ids.has(s.id)?afterSites.get(s.id):s);
+    for(const key of ['cashflows','meetings','tasks'])merged[key]=[...(before?.[key]||[]).filter(x=>!ids.has(x.siteId)),...(after?.[key]||[]).filter(x=>ids.has(x.siteId))];
+    merged.budgets=clone(before?.budgets||{});for(const id of ids)merged.budgets[id]=clone(after?.budgets?.[id]||{rows:[]});
+    return merged;
+  }
   function accountantMaySave(before,after){return ['sites','contractors','executors','cfCategories','cfCounterparties','budgets','meetings','tasks','tenders'].every(key=>JSON.stringify(before?.[key]??null)===JSON.stringify(after?.[key]??null));}
   window.maccCanManageProjects=()=>isAdmin();
   window.maccCanEditSite=(siteId)=>isAdmin()||(profile?.role==='project_manager'&&assignedSiteIds().has(siteId));
@@ -105,7 +160,10 @@
     const role=profile?.role;const readOnly=role==='financial_analyst'||(role==='accountant'&&curPage!=='cashflow');
     document.querySelectorAll('#main-content button,#main-content input,#main-content select,#main-content textarea').forEach(el=>el.disabled=readOnly);
     if(role==='financial_analyst')document.querySelectorAll('#main-content button[onclick*="export"]').forEach(el=>el.disabled=false);
-    if(role==='project_manager'){document.querySelectorAll('.nav-item').forEach(el=>{const allowed=['nav-sites'].includes(el.id);if(!allowed)el.style.display='none';});if(curPage!=='sites'&&curPage!=='access')window.navigate('sites');}
+    if(role==='project_manager'){
+      document.querySelectorAll('.nav-item').forEach(el=>{if(el.id!=='nav-access')el.style.display='';});
+      document.querySelectorAll('#main-content button[onclick*="delete"],#main-content button[onclick*="Delete"]').forEach(el=>{el.disabled=true;el.style.display='none';});
+    }
     if(readOnly)document.querySelectorAll('#main-content .page-header').forEach(el=>{if(!el.querySelector('.macc-viewer-note'))el.insertAdjacentHTML('beforeend',`<span class="macc-viewer-note" style="font-size:11px;color:var(--accent)">${role==='financial_analyst'?'Перегляд і вивантаження':'Редагування доступне лише в «Грошових потоках»'}</span>`)});
   }
   function topLevelChanges(before,after){
@@ -124,7 +182,7 @@
     const previous=fullState||{};let next=state;
     if(profile.role==='financial_analyst'){alert('Фінансовий аналітик має доступ лише для перегляду та вивантаження.');window.applyState(scopedState(previous));window.render();return;}
     if(profile.role==='accountant'&&!accountantMaySave(previous,next)){alert('Бухгалтер може змінювати лише дані у «Грошових потоках».');window.applyState(scopedState(previous));window.render();return;}
-    if(profile.role==='project_manager'){const merged=JSON.parse(JSON.stringify(previous));const visible=new Map((next.sites||[]).map(s=>[s.id,s]));merged.sites=(merged.sites||[]).map(s=>visible.has(s.id)?visible.get(s.id):s);next=merged;if(!projectManagerMaySave(previous,next)){alert('Керівник проєкту може змінювати дані лише у своїх призначених об’єктах.');window.applyState(scopedState(previous));window.render();return;}}
+    if(profile.role==='project_manager'){if(!projectManagerMaySave(previous,next)){alert('Керівник проєкту може додавати та редагувати дані лише у своїх об’єктах. Видалення даних і зміни чужих об’єктів недоступні.');window.applyState(scopedState(previous));window.render();return;}next=mergeProjectManagerChanges(previous,next);}
     if(!isAdmin()&&profile.role!=='accountant'&&profile.role!=='project_manager'){alert('У вас немає права вносити зміни.');return;}
     const payload=JSON.stringify(next);
     localStorage.setItem('macc_state',payload);
@@ -133,7 +191,7 @@
     fullState=next;
     const {error}=await db.from('macc_app_state').upsert({id:'main',data:next,updated_at:new Date().toISOString(),updated_by:session.user.id});
     if(error){console.error(error); alert('Зміни не вдалося синхронізувати: '+error.message);return;}
-    const changes=auditChanges(previous,state);await db.from('macc_audit_log').insert({user_id:session.user.id,action:changes.length?changes.join('; '):'Зміна даних сайту',details:{sections:topLevelChanges(previous,state)}});
+    const changes=auditChanges(previous,next);await db.from('macc_audit_log').insert({user_id:session.user.id,action:changes.length?changes.join('; '):'Зміна даних сайту',details:{sections:topLevelChanges(previous,next)}});
   }
   async function secureLoad(){
     const savedTheme=localStorage.getItem('macc_theme')||'dark';document.body.classList.toggle('light-theme',savedTheme==='light');
