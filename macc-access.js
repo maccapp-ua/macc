@@ -205,8 +205,8 @@
   function showPasswordSetup(){
     authOverlay();
     const overlay=document.getElementById('macc-auth');
-    const firstUserSetup=!profile?.active;
-    const firstAdminSetup=profile?.role==='admin'&&firstUserSetup;
+    const firstUserSetup=!profile?.full_name?.trim();
+    const firstAdminSetup=profile?.role==='admin'&&!profile.active;
     const identitySetup=firstUserSetup?`<div style="margin:18px 0 4px;padding:14px;border:1px solid #3f5f84;border-radius:10px;background:#1c2b3e"><b style="font-size:13px;color:#fff">Ваші дані</b><p style="font-size:11px;margin:6px 0 10px">Вкажіть ім’я один раз. Воно буде видно в команді.</p><label for="macc-first-user-name">Ім’я та прізвище *</label><input id="macc-first-user-name" type="text" required value="${esc(profile?.full_name||'')}"><label for="macc-first-user-email">Електронна пошта</label><input id="macc-first-user-email" type="email" value="${esc(profile?.email||'')}" readonly></div>`:'';
     const companySetup=firstAdminSetup?`<div style="margin:18px 0 4px;padding:14px;border:1px solid #3f5f84;border-radius:10px;background:#1c2b3e"><b style="font-size:13px;color:#fff">Налаштуйте робочий простір</b><p style="font-size:11px;margin:6px 0 10px">Назва компанії буде показана у верхньому лівому куті. Логотип — необов’язковий.</p><label for="macc-first-company-name">Назва компанії *</label><input id="macc-first-company-name" type="text" required value="${esc(company?.name||'')}"><label for="macc-first-company-logo-url">Посилання на логотип</label><input id="macc-first-company-logo-url" type="url" placeholder="https://…"><label for="macc-first-company-logo-file">або файл логотипу</label><input class="macc-logo-file" id="macc-first-company-logo-file" type="file" accept="image/*"></div>`:'';
     overlay.innerHTML=`<form class="macc-auth-card" id="macc-password-form"><div class="macc-auth-logo"><img src="logo.png" width="42" height="42" style="border-radius:50%"><div><b>MACC</b><br><span>Management Accounting</span></div></div><h1>Створіть пароль</h1><p>Задайте пароль для наступних входів до закритого робочого простору MACC.</p>${identitySetup}${companySetup}<label for="macc-new-password">Новий пароль</label><input id="macc-new-password" type="password" required minlength="8" autocomplete="new-password"><label for="macc-new-password-repeat">Повторіть пароль</label><input id="macc-new-password-repeat" type="password" required minlength="8" autocomplete="new-password"><button id="macc-password-submit" type="submit">${firstAdminSetup?'Зберегти та відкрити робочий простір':'Зберегти пароль і відкрити сайт'}</button><div id="macc-password-message" class="macc-auth-message"></div></form>`;
@@ -240,10 +240,25 @@
         if(companyError){message.textContent='Пароль збережено, але компанію не вдалося налаштувати: '+companyError.message;button.disabled=false;return;}
         company=data;applyCompanyBrand();
       }
+      if(!company){try{await getCompany();}catch(e){message.textContent='Пароль збережено, але не вдалося відкрити робочий простір: '+e.message;button.disabled=false;return;}}
       history.replaceState(null,'',location.pathname);
       overlay.remove(); addUserBox(); enableNavigation();
       await db.from('macc_access_log').insert({company_id:profile.company_id,user_id:session.user.id,event:'login'});
       await secureLoad();
+    });
+  }
+  function showInitialProfileSetup(){
+    authOverlay();
+    const overlay=document.getElementById('macc-auth');
+    overlay.innerHTML=`<form class="macc-auth-card" id="macc-initial-profile-form"><div class="macc-auth-logo"><img src="logo.png" width="42" height="42" style="border-radius:50%"><div><b>MACC</b><br><span>Management Accounting</span></div></div><h1>Заповніть профіль</h1><p>Вкажіть ваше ім’я — воно буде видно адміністраторам та учасникам команди.</p><label for="macc-initial-profile-name">Ім’я та прізвище *</label><input id="macc-initial-profile-name" type="text" required autocomplete="name"><label for="macc-initial-profile-email">Електронна пошта</label><input id="macc-initial-profile-email" type="email" value="${esc(profile?.email||'')}" readonly><button id="macc-initial-profile-submit" type="submit">Зберегти і відкрити сайт</button><div id="macc-initial-profile-message" class="macc-auth-message"></div></form>`;
+    document.getElementById('macc-initial-profile-form').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const fullName=document.getElementById('macc-initial-profile-name').value.trim(),message=document.getElementById('macc-initial-profile-message'),button=document.getElementById('macc-initial-profile-submit');
+      if(!fullName){message.textContent='Вкажіть ім’я та прізвище.';return;}
+      button.disabled=true;message.textContent='Зберігаємо дані…';
+      const {error}=await db.from('macc_profiles').update({full_name:fullName}).eq('id',session.user.id);
+      if(error){message.textContent='Не вдалося зберегти ім’я: '+error.message;button.disabled=false;return;}
+      profile.full_name=fullName;overlay.remove();await activate(session);
     });
   }
   async function getProfile(){
@@ -377,6 +392,7 @@
     if(!profile){await db.auth.signOut();showLogin('Доступ надається лише після запрошення адміністратора.');return;}
     if(isPasswordRecovery||location.hash.includes('type=recovery')||!profile.active){if(profile.revoked_at){await db.auth.signOut();showLogin('Доступ закрито адміністратором.');return;}showPasswordSetup();return;}
     if(!profile?.active){await db.auth.signOut();showLogin('Для цієї пошти доступ закрито адміністратором.');return;}
+    if(!profile.full_name?.trim()){showInitialProfileSetup();return;}
     try{await getCompany();}catch(e){await db.auth.signOut();showLogin('Не вдалося відкрити робочий простір: '+e.message);return;}
     document.getElementById('macc-auth')?.remove();if(isAdmin())await refreshTeamMembers();addUserBox();enableNavigation();
     await db.from('macc_access_log').insert({company_id:profile.company_id,user_id:session.user.id,event:'login'});
