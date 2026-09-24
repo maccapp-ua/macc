@@ -16,9 +16,12 @@
     .macc-auth-logo{display:flex;align-items:center;gap:12px;margin-bottom:24px}.macc-auth-logo b{color:#f0b429;font-size:20px;letter-spacing:.08em}.macc-auth-logo span{font-size:11px;color:#a0b4c8}
     .macc-auth-card h1{font-size:20px;margin:0 0 8px}.macc-auth-card p{font-size:13px;color:#c7d4e3;line-height:1.5;margin:0 0 20px}.macc-auth-card label{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;color:#a0b4c8;margin:13px 0 5px;text-transform:uppercase}
     .macc-auth-card input,.macc-auth-card select{width:100%;padding:10px 12px;border-radius:7px;border:1px solid #3f5f84;background:#162030;color:#fff;font-size:14px}.macc-auth-card button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:7px;background:#f0b429;color:#162030;font-weight:800;cursor:pointer}.macc-auth-card button:disabled{opacity:.6;cursor:wait}.macc-auth-message{min-height:20px;margin-top:13px;font-size:12px;color:#fbbf24}.macc-auth-help{font-size:11px!important;color:#a0b4c8!important;margin-top:18px!important}
-    #macc-user-box{position:fixed;right:16px;bottom:16px;z-index:450;padding:11px 13px;border:1px solid var(--border2);border-radius:9px;background:var(--bg2);box-shadow:0 10px 28px #0005;min-width:190px}.macc-user-email{font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.macc-user-role{font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-top:3px}.macc-user-actions{display:flex;gap:6px;margin-top:8px}.macc-user-actions button{background:none;border:1px solid var(--border2);border-radius:5px;color:var(--text3);font-size:10px;padding:5px 7px;cursor:pointer}.macc-user-actions button:hover{color:var(--text);border-color:var(--accent)}@media(max-width:640px){#macc-user-box{bottom:70px;right:10px}}
-    #nav-access{display:none}.macc-access-note{font-size:12px;color:var(--text3);line-height:1.5}.macc-access-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.macc-access-grid .card{margin-bottom:0}.macc-company-brand{margin:0 14px 12px;padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--bg3);display:none;align-items:center;gap:8px}.macc-company-brand img{width:30px;height:30px;object-fit:contain;border-radius:6px;background:#fff}.macc-company-brand b{display:block;font-size:11px;color:var(--text)}.macc-company-brand span{font-size:9px;color:var(--text3)}@media(max-width:700px){.macc-access-grid{grid-template-columns:1fr}}
+    #macc-user-box{position:fixed;right:18px;top:16px;z-index:450;width:214px;padding:12px 13px;border:1px solid var(--border2);border-radius:11px;background:rgba(28,43,62,.96);box-shadow:0 12px 30px #0006;backdrop-filter:blur(10px)}.macc-user-email{font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}.macc-user-role{font-size:9px;color:var(--accent);font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-top:4px}.macc-user-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.macc-user-actions button{appearance:none;background:transparent;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:10px;font-weight:700;padding:6px 8px;cursor:pointer;line-height:1}.macc-user-actions button:hover{color:var(--text);border-color:var(--accent);background:var(--bg3)}.macc-user-actions button:last-child{color:#fca5a5;border-color:#7f3f4a}@media(max-width:760px){#macc-user-box{top:auto;bottom:70px;right:10px;width:auto;min-width:190px}}
+    #nav-access{display:none}.macc-access-note{font-size:12px;color:var(--text3);line-height:1.5}.macc-access-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.macc-access-grid .card{margin-bottom:0}.macc-company-brand{margin:10px 12px 4px;padding:10px;border:1px solid var(--border);border-radius:10px;background:linear-gradient(135deg,rgba(240,180,41,.10),rgba(34,51,72,.72));display:none;align-items:center;gap:9px;min-width:0}.macc-company-brand img,.macc-company-mark{width:34px;height:34px;flex:0 0 34px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid rgba(240,180,41,.28)}.macc-company-mark{display:grid;place-items:center;background:rgba(240,180,41,.15);color:var(--accent);font-size:13px;font-weight:900;border-color:rgba(240,180,41,.38)}.macc-company-brand div{min-width:0}.macc-company-brand b{display:block;font-size:11px;line-height:1.25;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.macc-company-brand span{display:block;font-size:9px;color:var(--text3);margin-top:2px;letter-spacing:.04em;text-transform:uppercase}.macc-logo-file{margin-top:6px;font-size:11px;color:var(--text2)}@media(max-width:700px){.macc-access-grid{grid-template-columns:1fr}}
   `;
+  function ensureStyles(){
+    if(!document.getElementById('macc-secure-styles'))document.head.insertAdjacentHTML('beforeend',`<style id="macc-secure-styles">${css}</style>`);
+  }
   function esc(v){return String(v||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
   function roleLabel(role){return({admin:'Адміністратор',financial_analyst:'Фінансовий аналітик',accountant:'Бухгалтер',project_manager:'Керівник проєкту'})[role]||role;}
   function roleOptions(selected){return[['financial_analyst','Фінансовий аналітик'],['accountant','Бухгалтер'],['project_manager','Керівник проєкту'],['admin','Адміністратор']].map(([value,label])=>`<option value="${value}"${value===selected?' selected':''}>${label}</option>`).join('');}
@@ -29,7 +32,16 @@
     if(!brand)return;
     if(!company?.name){brand.style.display='none';return;}
     brand.style.display='flex';
-    brand.innerHTML=`${company.logo_url?`<img src="${esc(company.logo_url)}" alt="Логотип ${esc(company.name)}">`:''}<div><b>${esc(company.name)}</b><span>Робочий простір</span></div>`;
+    const initial=esc(company.name.trim().slice(0,1).toUpperCase()||'М');
+    brand.innerHTML=`${company.logo_url?`<img src="${esc(company.logo_url)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">`:''}<span class="macc-company-mark" style="display:${company.logo_url?'none':'grid'}">${initial}</span><div><b title="${esc(company.name)}">${esc(company.name)}</b><span>Робочий простір</span></div>`;
+  }
+  function logoDataFromInput(fileId,urlId){
+    const file=document.getElementById(fileId)?.files?.[0];
+    const link=document.getElementById(urlId)?.value.trim()||'';
+    if(!file)return Promise.resolve(link);
+    if(!file.type.startsWith('image/'))return Promise.reject(new Error('Оберіть файл зображення.'));
+    if(file.size>800000)return Promise.reject(new Error('Логотип має бути меншим за 800 КБ.'));
+    return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('Не вдалося прочитати логотип.'));reader.readAsDataURL(file);});
   }
   async function getCompany(){
     if(!profile?.company_id)return null;
@@ -145,8 +157,8 @@
   window.maccShowUserProjects=(email,label)=>{window.maccProjectFilterEmail=email;window.maccProjectFilterLabel=label||email;window.navigate('sites');};
   window.maccClearProjectFilter=()=>{window.maccProjectFilterEmail='';window.maccProjectFilterLabel='';window.render();};
   function authOverlay(){
+    ensureStyles();
     if(document.getElementById('macc-auth'))return;
-    document.head.insertAdjacentHTML('beforeend',`<style>${css}</style>`);
     document.body.insertAdjacentHTML('beforeend',`<div id="macc-auth"><form class="macc-auth-card" id="macc-auth-form"><div class="macc-auth-logo"><img src="logo.png" width="42" height="42" style="border-radius:50%"><div><b>MACC</b><br><span>Management Accounting</span></div></div><h1>Вхід до робочого простору</h1><p>Доступ надає адміністратор команди. Увійдіть за вашою корпоративною поштою та паролем.</p><label for="macc-login-email">Електронна пошта</label><input id="macc-login-email" type="email" required autocomplete="email"><label for="macc-login-password">Пароль</label><input id="macc-login-password" type="password" required autocomplete="current-password"><button id="macc-login-submit" type="submit">Увійти</button><button id="macc-password-reset" type="button" style="margin-top:9px;background:transparent;color:#c7d4e3;border:1px solid #3f5f84">Забули пароль?</button><div id="macc-login-message" class="macc-auth-message"></div><p class="macc-auth-help">Відновлення пароля надійде на вказану пошту. Доступ мають лише запрошені адміністратором користувачі.</p></form></div>`);
     document.getElementById('macc-auth-form').addEventListener('submit',signIn);
     document.getElementById('macc-password-reset').addEventListener('click',sendPasswordReset);
@@ -176,13 +188,17 @@
   function showPasswordSetup(){
     authOverlay();
     const overlay=document.getElementById('macc-auth');
-    overlay.innerHTML=`<form class="macc-auth-card" id="macc-password-form"><div class="macc-auth-logo"><img src="logo.png" width="42" height="42" style="border-radius:50%"><div><b>MACC</b><br><span>Management Accounting</span></div></div><h1>Створіть пароль</h1><p>Задайте пароль для наступних входів до закритого робочого простору MACC.</p><label for="macc-new-password">Новий пароль</label><input id="macc-new-password" type="password" required minlength="8" autocomplete="new-password"><label for="macc-new-password-repeat">Повторіть пароль</label><input id="macc-new-password-repeat" type="password" required minlength="8" autocomplete="new-password"><button id="macc-password-submit" type="submit">Зберегти пароль і відкрити сайт</button><div id="macc-password-message" class="macc-auth-message"></div></form>`;
+    const firstAdminSetup=profile?.role==='admin'&&!profile.active;
+    const companySetup=firstAdminSetup?`<div style="margin:18px 0 4px;padding:14px;border:1px solid #3f5f84;border-radius:10px;background:#1c2b3e"><b style="font-size:13px;color:#fff">Налаштуйте робочий простір</b><p style="font-size:11px;margin:6px 0 10px">Назва компанії буде показана у верхньому лівому куті. Логотип — необов’язковий.</p><label for="macc-first-company-name">Назва компанії *</label><input id="macc-first-company-name" type="text" required value="${esc(company?.name||'')}"><label for="macc-first-company-logo-url">Посилання на логотип</label><input id="macc-first-company-logo-url" type="url" placeholder="https://…"><label for="macc-first-company-logo-file">або файл логотипу</label><input class="macc-logo-file" id="macc-first-company-logo-file" type="file" accept="image/*"></div>`:'';
+    overlay.innerHTML=`<form class="macc-auth-card" id="macc-password-form"><div class="macc-auth-logo"><img src="logo.png" width="42" height="42" style="border-radius:50%"><div><b>MACC</b><br><span>Management Accounting</span></div></div><h1>Створіть пароль</h1><p>Задайте пароль для наступних входів до закритого робочого простору MACC.</p>${companySetup}<label for="macc-new-password">Новий пароль</label><input id="macc-new-password" type="password" required minlength="8" autocomplete="new-password"><label for="macc-new-password-repeat">Повторіть пароль</label><input id="macc-new-password-repeat" type="password" required minlength="8" autocomplete="new-password"><button id="macc-password-submit" type="submit">${firstAdminSetup?'Зберегти та відкрити робочий простір':'Зберегти пароль і відкрити сайт'}</button><div id="macc-password-message" class="macc-auth-message"></div></form>`;
     document.getElementById('macc-password-form').addEventListener('submit',async e=>{
       e.preventDefault();
       const password=document.getElementById('macc-new-password').value;
       const repeat=document.getElementById('macc-new-password-repeat').value;
       const message=document.getElementById('macc-password-message'), button=document.getElementById('macc-password-submit');
       if(password!==repeat){message.textContent='Паролі не збігаються.';return;}
+      const companyName=firstAdminSetup?document.getElementById('macc-first-company-name').value.trim():'';
+      if(firstAdminSetup&&!companyName){message.textContent='Вкажіть назву компанії.';return;}
       button.disabled=true; message.textContent='Зберігаємо пароль…';
       const {error}=await db.auth.updateUser({password});
       if(error){message.textContent='Не вдалося зберегти пароль: '+error.message;button.disabled=false;return;}
@@ -190,6 +206,13 @@
         const {error:activationError}=await db.functions.invoke('manage-users',{body:{action:'activate_self'}});
         if(activationError){message.textContent='Пароль збережено, але доступ не підтверджено: '+activationError.message;button.disabled=false;return;}
         profile.active=true;profile.revoked_at=null;
+      }
+      if(firstAdminSetup){
+        let logoUrl='';
+        try{logoUrl=await logoDataFromInput('macc-first-company-logo-file','macc-first-company-logo-url');}catch(e){message.textContent=e.message;button.disabled=false;return;}
+        const {data,error:companyError}=await db.from('macc_companies').update({name:companyName,logo_url:logoUrl||null}).eq('id',profile.company_id).select('id,name,logo_url').single();
+        if(companyError){message.textContent='Пароль збережено, але компанію не вдалося налаштувати: '+companyError.message;button.disabled=false;return;}
+        company=data;applyCompanyBrand();
       }
       history.replaceState(null,'',location.pathname);
       overlay.remove(); addUserBox(); enableNavigation();
@@ -300,13 +323,14 @@
     if(!isAdmin()||!company)return;
     let overlay=document.getElementById('macc-company-settings');
     if(!overlay){overlay=document.createElement('div');overlay.id='macc-company-settings';overlay.className='modal-overlay';overlay.style.zIndex='600';document.body.appendChild(overlay);}
-    overlay.innerHTML=`<div class="modal" style="width:460px"><div class="modal-head"><span class="modal-title">Налаштування компанії</span><button class="modal-close" onclick="document.getElementById('macc-company-settings').classList.remove('open')">×</button></div><div class="modal-body"><div class="macc-access-note" style="margin-bottom:14px">Назва відображається у робочому просторі компанії. Логотип можна додати посиланням на зображення; поле необов’язкове.</div><div class="form-group"><label class="form-label">Назва компанії *</label><input id="macc-company-name" class="form-input" value="${esc(company.name)}" required></div><div class="form-group"><label class="form-label">Посилання на логотип</label><input id="macc-company-logo-url" class="form-input" type="url" value="${esc(company.logo_url||'')}" placeholder="https://…"></div><div id="macc-company-result" class="macc-access-note"></div></div><div class="modal-footer"><button class="btn secondary" onclick="document.getElementById('macc-company-settings').classList.remove('open')">Скасувати</button><button class="btn primary" onclick="maccSaveCompanySettings()">Зберегти</button></div></div>`;
+    overlay.innerHTML=`<div class="modal" style="width:460px"><div class="modal-head"><span class="modal-title">Налаштування компанії</span><button class="modal-close" onclick="document.getElementById('macc-company-settings').classList.remove('open')">×</button></div><div class="modal-body"><div class="macc-access-note" style="margin-bottom:14px">Назва відображається у робочому просторі. Логотип можна додати посиланням або вибрати файл; поле необов’язкове.</div><div class="form-group"><label class="form-label">Назва компанії *</label><input id="macc-company-name" class="form-input" value="${esc(company.name)}" required></div><div class="form-group"><label class="form-label">Посилання на логотип</label><input id="macc-company-logo-url" class="form-input" type="url" value="${esc(company.logo_url||'')}" placeholder="https://…"></div><div class="form-group"><label class="form-label">Або виберіть файл логотипу</label><input id="macc-company-logo-file" type="file" accept="image/*" class="macc-logo-file"></div><div id="macc-company-result" class="macc-access-note"></div></div><div class="modal-footer"><button class="btn secondary" onclick="document.getElementById('macc-company-settings').classList.remove('open')">Скасувати</button><button class="btn primary" onclick="maccSaveCompanySettings()">Зберегти</button></div></div>`;
     overlay.classList.add('open');
   };
   window.maccSaveCompanySettings=async()=>{
-    const name=document.getElementById('macc-company-name').value.trim(),logoUrl=document.getElementById('macc-company-logo-url').value.trim(),out=document.getElementById('macc-company-result');
+    const name=document.getElementById('macc-company-name').value.trim(),out=document.getElementById('macc-company-result');
     if(!name){out.textContent='Вкажіть назву компанії.';return;}
     out.textContent='Зберігаємо…';
+    let logoUrl='';try{logoUrl=await logoDataFromInput('macc-company-logo-file','macc-company-logo-url');}catch(e){out.textContent=e.message;return;}
     const {data,error}=await db.from('macc_companies').update({name,logo_url:logoUrl||null}).eq('id',company.id).select('id,name,logo_url').single();
     if(error){out.textContent='Не вдалося зберегти: '+error.message;return;}
     company=data;applyCompanyBrand();out.textContent='Збережено.';setTimeout(()=>document.getElementById('macc-company-settings')?.classList.remove('open'),500);
@@ -331,6 +355,7 @@
   }
   window.maccAccessBoot=async function(){
     if(booted)return;booted=true;
+    ensureStyles();
     originalRender=window.render;window.render=function(){originalRender();if(profile)applyReadOnly();};
     originalNavigate=window.navigate;window.navigate=function(page){sessionStorage.setItem('macc_last_page',page);if(page==='access'){curPage='access';document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));document.getElementById('nav-access')?.classList.add('active');renderAccess();return;}originalNavigate(page);};
     window.save=secureSave;
