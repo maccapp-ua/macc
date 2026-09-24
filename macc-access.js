@@ -4,6 +4,7 @@
   const URL='https://wfdkprsszmvhqsycjwuh.supabase.co';
   const KEY='sb_publishable_e95XvrX-cpaj7-dITbc67g__KYosuXT';
   const recoveryFromLink=/(?:[?#&])type=recovery(?:&|$)/.test(window.location.href);
+  const expiredLink=/(?:[?#&])error=(?:access_denied|otp_expired)(?:&|$)/.test(window.location.href)||/(?:[?#&])error_code=otp_expired(?:&|$)/.test(window.location.href);
   // Авторизація діє лише в межах поточної сесії браузера.
   // Після оновлення сторінки вона зберігається, а після закриття браузера — ні.
   const db=window.supabase.createClient(URL,KEY,{auth:{storage:window.sessionStorage,persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -389,6 +390,12 @@
     originalRender=window.render;window.render=function(){originalRender();if(profile)applyReadOnly();};
     originalNavigate=window.navigate;window.navigate=function(page){sessionStorage.setItem('macc_last_page',page);if(page==='access'){curPage='access';document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));document.getElementById('nav-access')?.classList.add('active');renderAccess();return;}originalNavigate(page);};
     window.save=secureSave;
+    if(expiredLink){
+      history.replaceState(null,'',location.pathname);
+      await db.auth.signOut({scope:'local'});
+      showLogin('Посилання для входу або зміни пароля вже не дійсне. Введіть пошту та пароль або надішліть новий лист.');
+      return;
+    }
     const {data:{session:existing}}=await db.auth.getSession();await activate(existing,recoveryFromLink);
     db.auth.onAuthStateChange((event,next)=>{if(event==='SIGNED_IN'||event==='SIGNED_OUT'||event==='PASSWORD_RECOVERY')setTimeout(()=>activate(next,event==='PASSWORD_RECOVERY'),0);});
   };
