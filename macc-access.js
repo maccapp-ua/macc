@@ -176,9 +176,10 @@
   function authOverlay(){
     ensureStyles();
     if(document.getElementById('macc-auth'))return;
-    document.body.insertAdjacentHTML('beforeend',`<div id="macc-auth"><form class="macc-auth-card" id="macc-auth-form"><div class="macc-auth-logo"><img src="logo.png" width="42" height="42" style="border-radius:50%"><div><b>MACC</b><br><span>Management Accounting</span></div></div><h1>Вхід до робочого простору</h1><p>Доступ надає адміністратор команди. Увійдіть за вашою корпоративною поштою та паролем.</p><label for="macc-login-email">Електронна пошта</label><input id="macc-login-email" type="email" required autocomplete="email"><label for="macc-login-password">Пароль</label><input id="macc-login-password" type="password" required autocomplete="current-password"><button id="macc-login-submit" type="submit">Увійти</button><button id="macc-password-reset" type="button" style="margin-top:9px;background:transparent;color:#c7d4e3;border:1px solid #3f5f84">Забули пароль?</button><div id="macc-login-message" class="macc-auth-message"></div><p class="macc-auth-help">Відновлення пароля надійде на вказану пошту. Доступ мають лише запрошені адміністратором користувачі.</p></form></div>`);
+    document.body.insertAdjacentHTML('beforeend',`<div id="macc-auth"><form class="macc-auth-card" id="macc-auth-form"><div class="macc-auth-logo"><img src="logo.png" width="42" height="42" style="border-radius:50%"><div><b>MACC</b><br><span>Management Accounting</span></div></div><h1>Вхід до робочого простору</h1><p>Увійдіть за корпоративною поштою та паролем. Доступ до існуючої компанії надає її адміністратор.</p><label for="macc-login-email">Електронна пошта</label><input id="macc-login-email" type="email" required autocomplete="email"><label for="macc-login-password">Пароль</label><input id="macc-login-password" type="password" required autocomplete="current-password"><button id="macc-login-submit" type="submit">Увійти</button><button id="macc-password-reset" type="button" style="margin-top:9px;background:transparent;color:#c7d4e3;border:1px solid #3f5f84">Забули пароль?</button><button id="macc-create-workspace" type="button" style="margin-top:9px;background:transparent;color:#f0b429;border:1px solid #f0b429">Створити новий робочий простір</button><div id="macc-login-message" class="macc-auth-message"></div><p class="macc-auth-help">Якщо вас запросили до команди, відкрийте лист-запрошення та задайте власний пароль.</p></form></div>`);
     document.getElementById('macc-auth-form').addEventListener('submit',signIn);
     document.getElementById('macc-password-reset').addEventListener('click',sendPasswordReset);
+    document.getElementById('macc-create-workspace').addEventListener('click',showWorkspaceCreation);
   }
   function showLogin(message=''){
     authOverlay(); document.getElementById('macc-auth').style.display='flex';
@@ -206,6 +207,29 @@
     const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
     if(error){message.textContent='Не вдалося надіслати лист: '+error.message;button.disabled=false;return;}
     message.textContent='Лист для встановлення нового пароля надіслано. Перевірте також папку «Спам».';
+  }
+  function showWorkspaceCreation(){
+    authOverlay();
+    const overlay=document.getElementById('macc-auth');
+    overlay.innerHTML=`<form class="macc-auth-card" id="macc-workspace-form"><div class="macc-auth-logo"><img src="logo.png" width="42" height="42" style="border-radius:50%"><div><b>MACC</b><br><span>Management Accounting</span></div></div><h1>Створити робочий простір</h1><p>Заповніть дані компанії. Ви одразу станете її адміністратором і зможете запросити команду.</p><label for="macc-bootstrap-company">Назва компанії *</label><input id="macc-bootstrap-company" type="text" required autocomplete="organization"><label for="macc-bootstrap-name">Ім’я та прізвище адміністратора *</label><input id="macc-bootstrap-name" type="text" required autocomplete="name"><label for="macc-bootstrap-email">Електронна пошта *</label><input id="macc-bootstrap-email" type="email" required autocomplete="email"><label for="macc-bootstrap-password">Пароль *</label><input id="macc-bootstrap-password" type="password" required minlength="8" autocomplete="new-password"><label for="macc-bootstrap-password-repeat">Повторіть пароль *</label><input id="macc-bootstrap-password-repeat" type="password" required minlength="8" autocomplete="new-password"><button id="macc-bootstrap-submit" type="submit">Створити компанію і відкрити сайт</button><button id="macc-bootstrap-back" type="button" style="margin-top:9px;background:transparent;color:#c7d4e3;border:1px solid #3f5f84">Повернутися до входу</button><div id="macc-bootstrap-message" class="macc-auth-message"></div></form>`;
+    document.getElementById('macc-bootstrap-back').onclick=()=>{overlay.remove();showLogin();};
+    document.getElementById('macc-workspace-form').addEventListener('submit',bootstrapWorkspace);
+  }
+  async function bootstrapWorkspace(e){
+    e.preventDefault();
+    const companyName=document.getElementById('macc-bootstrap-company').value.trim(),fullName=document.getElementById('macc-bootstrap-name').value.trim(),email=document.getElementById('macc-bootstrap-email').value.trim(),password=document.getElementById('macc-bootstrap-password').value,repeat=document.getElementById('macc-bootstrap-password-repeat').value;
+    const message=document.getElementById('macc-bootstrap-message'),button=document.getElementById('macc-bootstrap-submit');
+    if(password!==repeat){message.textContent='Паролі не збігаються.';return;}
+    button.disabled=true;message.textContent='Створюємо компанію…';
+    try{
+      const {data,error}=await db.functions.invoke('manage-users',{body:{action:'bootstrap',companyName,fullName,email,password}});
+      let reason=error?.message;
+      if(error?.context){try{const detail=await error.context.json();reason=detail.error||reason;}catch(_) {}}
+      if(error||!data?.ok)throw new Error(reason||data?.error||'Не вдалося створити компанію.');
+      message.textContent='Компанію створено. Входимо…';
+      const {error:loginError}=await db.auth.signInWithPassword({email,password});
+      if(loginError)throw loginError;
+    }catch(error){message.textContent='Не вдалося створити робочий простір: '+error.message;button.disabled=false;}
   }
   function showPasswordSetup(){
     authOverlay();
@@ -395,10 +419,11 @@
     if(!session){profile=null;showLogin(signedOutByUser?'Ви вийшли з робочого простору. Для повторного входу введіть пошту та пароль.':'');return;}
     try{profile=await getProfile();}catch(e){showLogin('Помилка перевірки доступу: '+e.message);return;}
     if(!profile){await db.auth.signOut();showLogin('Доступ надається лише після запрошення адміністратора.');return;}
+    // An invited user must see the company they are joining before choosing a password.
+    try{await getCompany();}catch(e){await db.auth.signOut();showLogin('Не вдалося відкрити компанію: '+e.message);return;}
     if(isPasswordRecovery||location.hash.includes('type=recovery')||!profile.active){if(profile.revoked_at){await db.auth.signOut();showLogin('Доступ закрито адміністратором.');return;}showPasswordSetup();return;}
     if(!profile?.active){await db.auth.signOut();showLogin('Для цієї пошти доступ закрито адміністратором.');return;}
     if(!profile.full_name?.trim()){showInitialProfileSetup();return;}
-    try{await getCompany();}catch(e){await db.auth.signOut();showLogin('Не вдалося відкрити робочий простір: '+e.message);return;}
     document.getElementById('macc-auth')?.remove();if(isAdmin())await refreshTeamMembers();addUserBox();enableNavigation();
     await db.from('macc_access_log').insert({company_id:profile.company_id,user_id:session.user.id,event:'login'});
     await secureLoad();
