@@ -184,14 +184,19 @@
     authOverlay(); document.getElementById('macc-auth').style.display='flex';
     document.getElementById('macc-login-message').textContent=message;
   }
+  function waitFor(promise,ms,message){
+    return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(message)),ms))]);
+  }
   async function signIn(e){
     e.preventDefault();
     const email=document.getElementById('macc-login-email').value.trim();
     const password=document.getElementById('macc-login-password').value;
     const button=document.getElementById('macc-login-submit'), message=document.getElementById('macc-login-message');
     button.disabled=true; message.textContent='Перевіряємо дані…';
-    const {error}=await db.auth.signInWithPassword({email,password});
-    if(error){message.textContent='Не вдалося увійти: '+error.message;button.disabled=false;}
+    try{
+      const {error}=await waitFor(db.auth.signInWithPassword({email,password}),15000,'Сервер не відповів протягом 15 секунд. Перевірте інтернет і спробуйте ще раз.');
+      if(error){message.textContent='Не вдалося увійти: '+error.message;button.disabled=false;}
+    }catch(error){message.textContent='Не вдалося увійти: '+error.message;button.disabled=false;}
   }
   async function sendPasswordReset(){
     const email=document.getElementById('macc-login-email').value.trim();
