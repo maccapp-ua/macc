@@ -63,7 +63,13 @@
   async function getCompany(){
     if(!profile?.company_id)return null;
     const {data,error}=await db.from('macc_companies').select('id,name,logo_url').eq('id',profile.company_id).maybeSingle();
-    if(error)throw error; company=data; applyCompanyBrand(); return company;
+    if(data&&!error){company=data;applyCompanyBrand();return company;}
+    // An invited person has an inactive profile until the password is set.
+    // The protected database function exposes only that user's company brand.
+    const {data:identity,error:identityError}=await db.rpc('macc_invited_company_brand');
+    const workspace=Array.isArray(identity)?identity[0]:identity;
+    if(identityError||!workspace)throw(error||identityError||new Error('Компанію не знайдено.'));
+    company=workspace;applyCompanyBrand();return company;
   }
   function assignedSiteIds(data=fullState){return new Set((data?.sites||[]).filter(s=>String(s.projectManagerEmail||'').toLowerCase()===String(profile?.email||'').toLowerCase()).map(s=>s.id));}
   function clone(data){return JSON.parse(JSON.stringify(data||{}));}
@@ -309,7 +315,12 @@
       const b=document.createElement('button');b.id='nav-access';b.className='nav-item';b.innerHTML='<span class="nav-icon">🔐</span>Доступ команди';b.onclick=()=>navigate('access');
       document.getElementById('nav-service').before(b);
     }
+    if(!document.getElementById('nav-company')){
+      const b=document.createElement('button');b.id='nav-company';b.className='nav-item';b.innerHTML='<span class="nav-icon">🏢</span>Компанія';b.onclick=()=>window.maccOpenCompanySettings();
+      document.getElementById('nav-service').before(b);
+    }
     document.getElementById('nav-access').style.display=profile.role==='admin'?'flex':'none';
+    document.getElementById('nav-company').style.display=profile.role==='admin'?'flex':'none';
   }
   function applyReadOnly(){
     const role=profile?.role;const accountantLimited=role==='accountant'&&curPage!=='cashflow';const readOnly=role==='financial_analyst'||accountantLimited;
@@ -317,7 +328,7 @@
     if(accountantLimited)document.querySelectorAll('#main-content [data-macc-accountant-allowed]').forEach(el=>el.disabled=false);
     if(role==='financial_analyst')document.querySelectorAll('#main-content button[onclick*="export"]').forEach(el=>el.disabled=false);
     if(role==='project_manager'){
-      document.querySelectorAll('.nav-item').forEach(el=>{if(el.id!=='nav-access')el.style.display='';});
+      document.querySelectorAll('.nav-item').forEach(el=>{if(el.id!=='nav-access'&&el.id!=='nav-company')el.style.display='';});
       document.querySelectorAll('#main-content button[onclick*="delete"],#main-content button[onclick*="Delete"]').forEach(el=>{if(el.dataset.maccPmDelete!=='assignment'){el.disabled=true;el.style.display='none';}});
     }
     if(readOnly)document.querySelectorAll('#main-content .page-header').forEach(el=>{if(!el.querySelector('.macc-viewer-note'))el.insertAdjacentHTML('beforeend',`<span class="macc-viewer-note" style="font-size:11px;color:var(--accent)">${role==='financial_analyst'?'Перегляд і вивантаження':'Бухгалтер може також додавати виконавців і підрядників до об’єктів'}</span>`)});
