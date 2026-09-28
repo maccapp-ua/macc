@@ -9,7 +9,7 @@
   // Після оновлення сторінки вона зберігається, а після закриття браузера — ні.
   const db=window.supabase.createClient(URL,KEY,{auth:{storage:window.sessionStorage,persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
   let session=null, profile=null, company=null, originalRender=null, originalNavigate=null, fullState=null, teamMembers=[], signedOutByUser=false;
-  let booted=false, latestData='';
+  let booted=false, latestData='', skipSignInEvent=false;
 
   const css=`
     #macc-auth{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at top,#2c4260,#162030 65%)}
@@ -201,9 +201,14 @@
     const button=document.getElementById('macc-login-submit'), message=document.getElementById('macc-login-message');
     button.disabled=true; message.textContent='Перевіряємо дані…';
     try{
-      const {error}=await waitFor(db.auth.signInWithPassword({email,password}),15000,'Сервер не відповів протягом 15 секунд. Перевірте інтернет і спробуйте ще раз.');
-      if(error){message.textContent='Не вдалося увійти: '+error.message;button.disabled=false;}
-    }catch(error){message.textContent='Не вдалося увійти: '+error.message;button.disabled=false;}
+      skipSignInEvent=true;
+      const {data,error}=await waitFor(db.auth.signInWithPassword({email,password}),15000,'Сервер не відповів протягом 15 секунд. Перевірте інтернет і спробуйте ще раз.');
+      if(error){skipSignInEvent=false;message.textContent='Не вдалося увійти: '+error.message;button.disabled=false;return;}
+      if(!data?.session)throw new Error('Сесію входу не створено. Спробуйте ще раз.');
+      await activate(data.session);
+      skipSignInEvent=false;
+      if(document.getElementById('macc-auth'))button.disabled=false;
+    }catch(error){skipSignInEvent=false;message.textContent='Не вдалося увійти: '+error.message;button.disabled=false;}
   }
   async function sendPasswordReset(){
     const email=document.getElementById('macc-login-email').value.trim();
@@ -455,6 +460,6 @@
       return;
     }
     const {data:{session:existing}}=await db.auth.getSession();await activate(existing,recoveryFromLink);
-    db.auth.onAuthStateChange((event,next)=>{if(event==='SIGNED_IN'||event==='SIGNED_OUT'||event==='PASSWORD_RECOVERY')setTimeout(()=>activate(next,event==='PASSWORD_RECOVERY'),0);});
+    db.auth.onAuthStateChange((event,next)=>{if(event==='SIGNED_IN'&&skipSignInEvent)return;if(event==='SIGNED_IN'||event==='SIGNED_OUT'||event==='PASSWORD_RECOVERY')setTimeout(()=>activate(next,event==='PASSWORD_RECOVERY'),0);});
   };
 })();
