@@ -2492,12 +2492,14 @@ function saveTransfer(){
   const outId=uid(), inId=uid();
   state.cashflows.push({
     id:outId, type:'transfer-out', form:fromForm,
+    companyId:activeCompanyId,
     transferTo:toForm, transferReceived:received, lossPercent:loss,
     transferGroupId:groupId, transferRole:'out',
     date, amount, category, notes,
   });
   state.cashflows.push({
     id:inId, type:'income', form:toForm,
+    companyId:activeCompanyId,
     transferGroupId:groupId, transferRole:'in',
     date, amount:received, category, notes,
   });
@@ -3066,6 +3068,22 @@ function saveGroupCompany(){
 }
 
 function selectDashboardScope(scope){dashboardScope=scope;renderDashboard();}
+function isInvestmentCategory(category){return /інвест|внесок власника|поповнення капітал/i.test(category||'')}
+function isFinancingCategory(category){return isInvestmentCategory(category)||/позик|кредит|дивіденд|повернення капітал/i.test(category||'')}
+function dashboardStats(companyId=''){
+  const sites=(state.sites||[]).filter(s=>!companyId||s.companyId===companyId);
+  const cashflows=(state.cashflows||[]).filter(c=>!companyId||c.companyId===companyId);
+  const planIncome=sites.reduce((sum,s)=>sum+(+s.amountGross||0),0);
+  let planExpense=0;sites.forEach(s=>{((state.budgets||{})[s.id]?.rows||[]).forEach(r=>planExpense+=(+r.planCost||0));});
+  const operating=c=>!c.transferGroupId&&!isFinancingCategory(c.category);
+  const factIncome=cashflows.filter(c=>c.type==='income'&&operating(c)).reduce((sum,c)=>sum+(+c.amount||0),0);
+  const factExpense=cashflows.filter(c=>c.type==='expense'&&operating(c)).reduce((sum,c)=>sum+(+c.amount||0),0);
+  const investmentsIn=cashflows.filter(c=>c.type==='income'&&!c.transferGroupId&&isInvestmentCategory(c.category)).reduce((sum,c)=>sum+(+c.amount||0),0);
+  const investmentsOut=cashflows.filter(c=>c.type==='expense'&&isInvestmentCategory(c.category)).reduce((sum,c)=>sum+(+c.amount||0),0);
+  const balance=form=>cashflows.filter(c=>c.form===form).reduce((sum,c)=>sum+(c.type==='income'?+c.amount||0:c.type==='expense'||c.type==='transfer-out'?-(+c.amount||0):0),0);
+  const factProfit=factIncome-factExpense,planProfit=planIncome-planExpense;
+  return{sites,planIncome,planExpense,factIncome,factExpense,planProfit,factProfit,profitability:factIncome?factProfit/factIncome*100:0,planProfitability:planIncome?planProfit/planIncome*100:0,bank:balance('bank'),cash:balance('cash'),investments:investmentsIn-investmentsOut};
+}
 function renderDashboard(){
   const el=document.getElementById('main-content');
   const companies=getCompanies();
@@ -3074,13 +3092,22 @@ function renderDashboard(){
   const scopeTitle=isGroup?'Загальний':selectedCompany?.name||'Компанія';
   const scopeNote=isGroup?'Консолідована інформація по всіх компаніях групи ЕВМ.':'Інформація тільки по вибраній компанії.';
   const scopeCard=(id,title,note,active)=>`<button class="card" type="button" onclick="selectDashboardScope('${id}')" style="text-align:left;min-height:124px;padding:17px;border-color:${active?'var(--accent)':'var(--border)'};background:${active?'var(--bg3)':'var(--card)'};cursor:pointer"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div style="font-size:15px;font-weight:700;color:var(--text)">${esc(title)}</div><div style="font-size:11px;color:var(--text3);margin-top:7px;line-height:1.45">${esc(note)}</div></div><span style="color:var(--accent);font-size:18px">→</span></div></button>`;
+  const groupStats=dashboardStats();
+  const metric=(label,value,note,color='var(--accent)')=>`<div class="metric" style="--mc:${color}"><div class="metric-label">${label}</div><div class="metric-value" style="font-size:18px;color:${color}">${value}</div>${note?`<div style="font-size:10px;color:var(--text3);margin-top:6px">${note}</div>`:''}</div>`;
+  const compare=(title,plan,fact,color)=>{const max=Math.max(plan,fact,1);return `<div class="card" style="padding:16px"><div class="card-title">${title}</div><div style="margin-top:16px"><div style="display:grid;grid-template-columns:52px 1fr 100px;gap:8px;align-items:center;margin:10px 0;font-size:11px"><span>План</span><div style="height:12px;background:var(--bg3);border-radius:8px;overflow:hidden"><div style="width:${plan/max*100}%;height:100%;background:var(--text3)"></div></div><b class="mono" style="text-align:right">${fmtN(plan)}</b></div><div style="display:grid;grid-template-columns:52px 1fr 100px;gap:8px;align-items:center;margin:10px 0;font-size:11px"><span>Факт</span><div style="height:12px;background:var(--bg3);border-radius:8px;overflow:hidden"><div style="width:${fact/max*100}%;height:100%;background:${color}"></div></div><b class="mono" style="text-align:right">${fmtN(fact)}</b></div></div></div>`;};
+  const companyRows=companies.map(c=>({company:c,stats:dashboardStats(c.id)}));
+  const moneyMax=Math.max(...companyRows.map(x=>Math.max(0,x.stats.bank)+Math.max(0,x.stats.cash)),1);
+  const moneyChart=companyRows.map(x=>{const total=Math.max(0,x.stats.bank)+Math.max(0,x.stats.cash);return `<div style="display:grid;grid-template-columns:minmax(120px,1fr) 2fr 110px;gap:10px;align-items:center;margin:12px 0;font-size:11px"><span>${esc(x.company.name)}</span><div style="display:flex;height:14px;background:var(--bg3);border-radius:8px;overflow:hidden"><div title="Рахунки" style="width:${Math.max(0,x.stats.bank)/moneyMax*100}%;background:#38bdf8"></div><div title="Каса" style="width:${Math.max(0,x.stats.cash)/moneyMax*100}%;background:var(--accent)"></div></div><b class="mono" style="text-align:right">${fmtN(total)}</b></div>`;}).join('');
+  const profitMax=Math.max(...companyRows.map(x=>Math.abs(x.stats.factProfit)),1);
+  const profitChart=companyRows.map(x=>`<div style="display:grid;grid-template-columns:minmax(120px,1fr) 2fr 110px 58px;gap:10px;align-items:center;margin:12px 0;font-size:11px"><span>${esc(x.company.name)}</span><div style="height:14px;background:var(--bg3);border-radius:8px;overflow:hidden"><div style="width:${Math.abs(x.stats.factProfit)/profitMax*100}%;height:100%;background:${x.stats.factProfit>=0?'var(--green)':'var(--red)'}"></div></div><b class="mono" style="text-align:right;color:${x.stats.factProfit>=0?'var(--green)':'var(--red)'}">${fmtN(x.stats.factProfit)}</b><span style="text-align:right;color:var(--text3)">${x.stats.profitability.toFixed(1)}%</span></div>`).join('');
+  const generalContent=`<div class="metrics" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr));margin-bottom:16px">${metric('Всього об’єктів',groupStats.sites.length,`${groupStats.sites.filter(s=>s.status==='active').length} активних`)}${metric('Загальний дохід',fmtN(groupStats.factIncome),`План: ${fmtN(groupStats.planIncome)}`,'var(--green)')}${metric('Загальний розхід',fmtN(groupStats.factExpense),`План: ${fmtN(groupStats.planExpense)}`,'var(--red)')}${metric('Гроші компаній',fmtN(groupStats.bank+groupStats.cash),`Рахунки: ${fmtN(groupStats.bank)} · Каса: ${fmtN(groupStats.cash)}`,'#38bdf8')}${metric('Загальний прибуток',fmtN(groupStats.factProfit),`План: ${fmtN(groupStats.planProfit)}`,groupStats.factProfit>=0?'var(--green)':'var(--red)')}${metric('Прибутковість',`${groupStats.profitability.toFixed(1)}%`,`План: ${groupStats.planProfitability.toFixed(1)}%`,'var(--violet)')}${metric('Інвестиції',fmtN(groupStats.investments),'Чистий обсяг вкладень','var(--amber)')}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">${compare('Загальний дохід: план / факт',groupStats.planIncome,groupStats.factIncome,'var(--green)')}${compare('Загальний розхід: план / факт',groupStats.planExpense,groupStats.factExpense,'var(--red)')}</div><div class="card" style="padding:16px;margin-bottom:14px"><div class="card-title">Гроші компаній</div><div style="display:flex;gap:16px;margin-top:8px;font-size:10px;color:var(--text3)"><span>■ Рахунки</span><span style="color:var(--accent)">■ Каса</span></div>${moneyChart}</div><div class="card" style="padding:16px"><div class="card-title">Прибуток і прибутковість компаній</div>${profitChart}</div>`;
   el.innerHTML=`
     <div class="page-header"><div><h1 class="page-title">📋 Дашборд</h1><div style="font-size:12px;color:var(--text3);margin-top:3px">Оберіть контур для перегляду</div></div><button class="btn primary" type="button" disabled title="Налаштуємо склад цієї форми наступним кроком">+ Додати компанію</button></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:12px;margin-bottom:20px">
       ${scopeCard('group','Загальний','Консолідована інформація по всіх компаніях',isGroup)}
       ${companies.map(c=>scopeCard(c.id,`Компанія «${c.name}»`,c.tax||'Окремий управлінський контур',dashboardScope===c.id)).join('')}
     </div>
-    <div class="card" style="padding:20px;min-height:150px"><div style="font-size:15px;font-weight:700;color:var(--text)">${esc(scopeTitle)}</div><div style="font-size:12px;color:var(--text3);margin-top:6px">${esc(scopeNote)}</div><div style="margin-top:27px;padding:15px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2)">Внутрішні блоки цього дашборду додамо після того, як ви визначите їхній склад.</div></div>`;
+    ${isGroup?generalContent:`<div class="card" style="padding:20px;min-height:150px"><div style="font-size:15px;font-weight:700;color:var(--text)">${esc(scopeTitle)}</div><div style="font-size:12px;color:var(--text3);margin-top:6px">${esc(scopeNote)}</div><div style="margin-top:27px;padding:15px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2)">Внутрішні блоки дашборду компанії додамо окремо.</div></div>`}`;
 }
 
 // ══════════════════════════════════════════════════════════════
