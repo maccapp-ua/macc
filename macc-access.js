@@ -139,7 +139,7 @@
       if(!old&&knownContractors.has(contractor.id))return false;
     }
     if([...visibleContractors.keys()].some(id=>!(after?.contractors||[]).some(x=>x.id===id)))return false;
-    for(const key of ['cfCategories','cfCounterparties','tenders'])if(JSON.stringify(visibleBefore?.[key]??null)!==JSON.stringify(after?.[key]??null))return false;
+    for(const key of ['financeArticles','cfCategories','cfCounterparties','tenders'])if(JSON.stringify(visibleBefore?.[key]??null)!==JSON.stringify(after?.[key]??null))return false;
     return true;
   }
   function mergeProjectManagerChanges(before,after){
@@ -168,7 +168,7 @@
   }
   function accountantMaySave(before,after){
     if(!siteAssignmentsOnlyAdd(before?.sites,after?.sites)||!listOnlyAdds(before?.contractors,after?.contractors)||!listOnlyAdds(before?.executors,after?.executors))return false;
-    return ['budgets','meetings','tasks','tenders'].every(key=>JSON.stringify(before?.[key]??null)===JSON.stringify(after?.[key]??null));
+    return ['financeArticles','budgets','meetings','tasks','tenders'].every(key=>JSON.stringify(before?.[key]??null)===JSON.stringify(after?.[key]??null));
   }
   window.maccCanManageProjects=()=>isAdmin();
   window.maccCanAddDirectory=()=>!!profile&&profile.role!=='financial_analyst';
@@ -318,10 +318,11 @@
   function enableNavigation(){
     if(!document.getElementById('macc-company-nav')){
       const wrap=document.createElement('div');wrap.id='macc-company-nav';wrap.className='macc-company-nav';
-      wrap.innerHTML='<button id="nav-company" class="nav-item"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-2.83 2.83-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21h-4v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06-2.83-2.83.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3v-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06 2.83-2.83.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.51V3h4v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06 2.83 2.83-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1H21v4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Адміністрування <span class="macc-company-caret">⌄</span></button><div id="macc-company-menu"><button id="nav-company-settings" class="macc-company-subitem">⚙️ Налаштування робочого простору</button><button id="nav-access" class="macc-company-subitem">🔐 Доступ команди</button></div>';
+      wrap.innerHTML='<button id="nav-company" class="nav-item"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-2.83 2.83-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21h-4v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06-2.83-2.83.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3v-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06 2.83-2.83.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.51V3h4v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06 2.83 2.83-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1H21v4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Адміністрування <span class="macc-company-caret">⌄</span></button><div id="macc-company-menu"><button id="nav-company-settings" class="macc-company-subitem">⚙️ Налаштування робочого простору</button><button id="nav-finance-directory" class="macc-company-subitem">📚 Єдиний фінансовий довідник</button><button id="nav-access" class="macc-company-subitem">🔐 Доступ команди</button></div>';
       document.getElementById('nav-service').before(wrap);
       wrap.querySelector('#nav-company').onclick=()=>{wrap.classList.toggle('open');wrap.querySelector('#macc-company-menu').classList.toggle('open');};
       wrap.querySelector('#nav-company-settings').onclick=()=>window.maccOpenCompanySettings();
+      wrap.querySelector('#nav-finance-directory').onclick=()=>navigate('finance-directory');
       wrap.querySelector('#nav-access').onclick=()=>navigate('access');
     }
     document.getElementById('macc-company-nav').style.display=profile.role==='admin'?'block':'none';
@@ -338,7 +339,7 @@
     if(readOnly)document.querySelectorAll('#main-content .page-header').forEach(el=>{if(!el.querySelector('.macc-viewer-note'))el.insertAdjacentHTML('beforeend',`<span class="macc-viewer-note" style="font-size:11px;color:var(--accent)">${role==='financial_analyst'?'Перегляд і вивантаження':'Бухгалтер може також додавати виконавців і підрядників до об’єктів'}</span>`)});
   }
   function topLevelChanges(before,after){
-    const changed=[];['sites','contractors','executors','cashflows','budgets','meetings','tasks','tenders'].forEach(k=>{if(JSON.stringify(before?.[k]??null)!==JSON.stringify(after?.[k]??null))changed.push(k)});return changed;
+    const changed=[];['sites','contractors','executors','cashflows','financeArticles','budgets','meetings','tasks','tenders'].forEach(k=>{if(JSON.stringify(before?.[k]??null)!==JSON.stringify(after?.[k]??null))changed.push(k)});return changed;
   }
   function auditChanges(before,after){
     const changes=[];
@@ -368,8 +369,8 @@
     const savedTheme=localStorage.getItem('macc_theme')||'dark';document.body.classList.toggle('light-theme',savedTheme==='light');
     const {data,error}=await db.from('macc_company_state').select('data,updated_at').eq('company_id',profile.company_id).maybeSingle();
     if(error)throw error;
-    if(data?.data){fullState=data.data;window.applyState(scopedState(data.data));latestData=JSON.stringify(data.data);localStorage.setItem(companyStateKey(),JSON.stringify(state));}
-    else {fullState={sites:[],contractors:[],executors:[],cashflows:[],cfCategories:[],cfCounterparties:[],budgets:{},meetings:[],tasks:[],tenders:[]};window.applyState(fullState);latestData=JSON.stringify(fullState);}
+    if(data?.data){fullState=data.data;if(!Array.isArray(fullState.financeArticles))fullState.financeArticles=[];window.applyState(scopedState(fullState));latestData=JSON.stringify(fullState);localStorage.setItem(companyStateKey(),JSON.stringify(state));}
+    else {fullState={sites:[],contractors:[],executors:[],cashflows:[],financeArticles:[],cfCategories:[],cfCounterparties:[],budgets:{},meetings:[],tasks:[],tenders:[]};window.applyState(fullState);latestData=JSON.stringify(fullState);}
     window.render();applyReadOnly();
   }
   function renderAccess(){
@@ -444,7 +445,7 @@
     await db.from('macc_access_log').insert({company_id:profile.company_id,user_id:session.user.id,event:'login'});
     await secureLoad();
     const rememberedPage=sessionStorage.getItem('macc_last_page');if(rememberedPage&&rememberedPage!==curPage)window.navigate(rememberedPage);
-    db.channel('macc-company-state-'+profile.company_id).on('postgres_changes',{event:'UPDATE',schema:'public',table:'macc_company_state',filter:'company_id=eq.'+profile.company_id},payload=>{if(payload.new.updated_by!==session.user.id){fullState=payload.new.data;window.applyState(scopedState(payload.new.data));latestData=JSON.stringify(payload.new.data);window.render();applyReadOnly();}}).subscribe();
+    db.channel('macc-company-state-'+profile.company_id).on('postgres_changes',{event:'UPDATE',schema:'public',table:'macc_company_state',filter:'company_id=eq.'+profile.company_id},payload=>{if(payload.new.updated_by!==session.user.id){fullState=payload.new.data;if(!Array.isArray(fullState.financeArticles))fullState.financeArticles=[];window.applyState(scopedState(fullState));latestData=JSON.stringify(fullState);window.render();applyReadOnly();}}).subscribe();
   }
   window.maccAccessBoot=async function(){
     if(booted)return;booted=true;

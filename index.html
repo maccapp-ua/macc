@@ -6,7 +6,7 @@
 <title>MACC — Management Accounting</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="macc-access.js?v=20260928-1955"></script>
+<script src="macc-access.js?v=20261001-1"></script>
 <script src="site-integration.js"></script>
 <link rel="icon" type="image/png" href="logo.png">
 <style>
@@ -366,7 +366,6 @@ select.form-input option{background:var(--bg3)}
         <div class="form-group"><label class="form-label">Телефон</label>
           <input class="form-input" id="c-phone" placeholder="+38 (0XX) XXX-XX-XX"></div>
       </div>
-      <div class="form-group"><label class="form-label">Компанія групи *</label><select class="form-input" id="cf-company"></select></div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Email</label>
           <input class="form-input" id="c-email" type="email" placeholder="email@company.ua"></div>
@@ -428,9 +427,10 @@ select.form-input option{background:var(--bg3)}
       <button class="modal-close" onclick="closeModal('cf')">×</button>
     </div>
     <div class="modal-body">
+      <div class="form-group"><label class="form-label">Компанія групи *</label><select class="form-input" id="cf-company" disabled></select></div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Тип *</label>
-          <select class="form-input" id="cf-type">
+          <select class="form-input" id="cf-type" onchange="updateCFArticleOptions()">
             <option value="income">📈 Дохід</option>
             <option value="expense">📉 Розхід</option>
           </select></div>
@@ -446,11 +446,10 @@ select.form-input option{background:var(--bg3)}
         <div class="form-group"><label class="form-label">Сума, грн *</label>
           <input class="form-input" type="number" id="cf-amount" placeholder="0" min="0" step="0.01"></div>
       </div>
-      <datalist id="cf-cat-list"></datalist>
       <datalist id="cf-cp-list"></datalist>
       <div class="form-row2">
-        <div class="form-group"><label class="form-label">Категорія</label>
-          <input class="form-input" id="cf-category" list="cf-cat-list" placeholder="введіть або оберіть..."></div>
+        <div class="form-group"><label class="form-label">Стаття фінансового довідника *</label>
+          <select class="form-input" id="cf-category"><option value="">— Оберіть статтю —</option></select></div>
         <div class="form-group"><label class="form-label">Об'єкт</label>
           <select class="form-input" id="cf-site" onchange="updateCFWorkTypes()">
             <option value="">— Без об'єкта —</option>
@@ -526,6 +525,8 @@ select.form-input option{background:var(--bg3)}
     <div class="modal-body">
       <div class="form-group"><label class="form-label">Назва статті *</label>
         <input class="form-input" id="br-work" placeholder="напр. Улаштування фундаменту..."></div>
+      <div class="form-group"><label class="form-label">Стаття витрат фінансового довідника</label>
+        <select class="form-input" id="br-finance-article"><option value="">— Не вибрано —</option></select></div>
       <div class="form-group"><label class="form-label">Виконавець / підрядник</label>
         <input class="form-input" id="br-executor" list="br-executor-list" placeholder="— не вказано —" autocomplete="off">
         <datalist id="br-executor-list"></datalist></div>
@@ -767,6 +768,40 @@ select.form-input option{background:var(--bg3)}
   </div>
 </div>
 
+<!-- Стаття єдиного фінансового довідника -->
+<div class="modal-overlay" id="modal-finance-article">
+  <div class="modal" style="width:620px">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-finance-article-title">Нова фінансова стаття</span>
+      <button class="modal-close" onclick="closeModal('finance-article')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">Розділ *</label>
+          <select class="form-input" id="fa-type" onchange="updateFinanceArticleDefaults()">
+            <option value="expense">Статті витрат</option>
+            <option value="income">Статті доходів</option>
+            <option value="investment">Інвестиції та капітал</option>
+            <option value="loan">Позики та фінансування</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">Код *</label><input class="form-input" id="fa-code" placeholder="EXP-01-01"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Назва статті *</label><input class="form-input" id="fa-name" placeholder="Напр. Будівельні матеріали"></div>
+      <div class="form-group"><label class="form-label">Група / підрозділ</label><input class="form-input" id="fa-group" placeholder="Напр. Прямі витрати"></div>
+      <div class="form-group"><label class="form-label">Застосування до компаній</label><div id="fa-companies" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px"></div><div style="font-size:10px;color:var(--text3);margin-top:5px">Якщо не вибрано жодної — стаття діє для всіх компаній.</div></div>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">ПДВ</label><select class="form-input" id="fa-vat"><option value="default">За налаштуванням компанії</option><option value="with_vat">З ПДВ</option><option value="no_vat">Без ПДВ</option></select></div>
+        <div class="form-group"><label class="form-label">Вплив на прибуток</label><select class="form-input" id="fa-profit"><option value="yes">Враховувати</option><option value="no">Не враховувати</option></select></div>
+      </div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;padding-top:4px">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2)"><input type="checkbox" id="fa-requires-site"> Об’єкт обов’язковий</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2)"><input type="checkbox" id="fa-active" checked> Активна стаття</label>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('finance-article')">Скасувати</button><button class="btn primary" onclick="saveFinanceArticle()">Зберегти статтю</button></div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════════
 //  CONSTANTS
@@ -785,6 +820,9 @@ const CONTRACT_COLOR={
 const STATUS_LABEL={active:'В роботі',pause:'Призупинено',done:'Завершено'};
 const STATUS_COLOR={active:'#4ade80',pause:'#9ca3af',done:'#38bdf8'};
 const CF_FORM_LABEL={cash:'💵 Готівка',bank:'🏦 Рахунок'};
+const FINANCE_ARTICLE_TYPES={expense:'Статті витрат',income:'Статті доходів',investment:'Інвестиції та капітал',loan:'Позики та фінансування'};
+const FINANCE_ARTICLE_PREFIX={expense:'EXP',income:'INC',investment:'INV',loan:'LOAN'};
+const FINANCE_ARTICLE_COLOR={expense:'var(--red)',income:'var(--green)',investment:'var(--amber)',loan:'#a78bfa'};
 const GROUP_COMPANIES=[
   {id:'AP',name:'АП — Армабудпроект',tax:'ФОП · ЄП 5%'},
   {id:'AK',name:'АК — ремонтно-будівельна',tax:'ПДВ · комерційні об’єкти'},
@@ -804,6 +842,7 @@ let state={
   contractors:[],
   executors:[],
   cashflows:[],
+  financeArticles:[],
   cfCategories:[],
   cfCounterparties:[],
   budgets:{},
@@ -824,6 +863,8 @@ let editingMeetingId=null, curMeetingDetailId=null;
 let curSubActsSiteId=null, curSubActsSubId=null;
 let editingTaskId=null;
 let editingGroupCompanyId=null;
+let editingFinanceArticleId=null;
+let financeDirectoryTab='expense';
 let pendingGroupCompanyLogo='';
 let activeTaskFilter='all';
 let ganttSiteFilter='';
@@ -881,6 +922,7 @@ function applyState(d){
   state.contractors=d.contractors||d.subs||[];
   state.executors=d.executors||d.itrs||[];
   state.cashflows=d.cashflows||[];
+  state.financeArticles=Array.isArray(d.financeArticles)?d.financeArticles:[];
   state.cfCategories=d.cfCategories||[];
   state.cfCounterparties=d.cfCounterparties||[];
   state.budgets=d.budgets||{};
@@ -928,6 +970,7 @@ function render(){
   else if(curPage==='tasks')       renderTasksPage();
   else if(curPage==='companies')   renderCompanies();
   else if(curPage==='dashboard')   renderDashboard();
+  else if(curPage==='finance-directory') renderFinanceDirectory();
   else if(curPage==='service')     renderService();
   else if(curPage==='gantt')       renderGantt();
   else if(curPage==='procurement') renderProcurement();
@@ -1527,9 +1570,10 @@ function renderBudgetDetail(){
       const execLabel=r.executor||'—';
       const execColor=r.executor==='СС'?'var(--green)':r.executor?'var(--blue)':'var(--text3)';
       const hasItems=r.items&&r.items.length>0;
+      const financeArticle=financeArticleById(r.financeArticleId);
       tbody+=`<tr onclick="openBudgetRowModal('${s.id}','${r.id}')" style="cursor:pointer">
         <td style="color:var(--text3);text-align:center;vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${i+1}</td>
-        <td style="color:var(--text);font-weight:600;min-width:160px;vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${esc(r.workType||'—')}</td>
+        <td style="color:var(--text);font-weight:600;min-width:160px;vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${esc(r.workType||'—')}${financeArticle?`<div style="font-size:9px;color:var(--accent);margin-top:4px">${esc(financeArticle.code)} · ${esc(financeArticle.name)}</div>`:''}</td>
         <td style="font-size:11px;font-weight:600;color:${execColor};vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${esc(execLabel)}</td>
         <td class="r mono" style="vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${dc?fmtN(dc):'—'}</td>
         <td class="r mono" style="color:var(--red);vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${pc?fmtN(pc):'—'}</td>
@@ -1645,6 +1689,8 @@ function openBudgetRowModal(siteId,rowId){
   document.getElementById('br-end-date').value=r?.endDate||'';
   // executor combobox datalist
   const site=(state.sites||[]).find(x=>x.id===siteId);
+  const expenseArticles=financeArticlesForCompany(site?.companyId||activeCompanyId,'expense');
+  document.getElementById('br-finance-article').innerHTML='<option value="">— Не вибрано —</option>'+expenseArticles.map(a=>`<option value="${a.id}"${r?.financeArticleId===a.id?' selected':''}>${esc(a.code)} · ${esc(a.name)}</option>`).join('');
   const subs=(site?.subContracts||[]).map(sc=>sc.name).filter(Boolean);
   const contractors=(state.contractors||[]).map(c=>c.name).filter(Boolean);
   const allExec=[...new Set([...subs,...contractors])].sort();
@@ -1711,6 +1757,7 @@ function saveBudgetRow(){
   const data={
     id:editingBudgetRowId||uid(),
     workType,
+    financeArticleId:document.getElementById('br-finance-article').value,
     executor:document.getElementById('br-executor').value.trim()||'',
     items,
     startDate:document.getElementById('br-start-date').value||'',
@@ -2314,7 +2361,7 @@ function renderCashflow(){
         <button class="btn" onclick="openCFModal(null,'income')" style="background:#22c55e;color:#fff;border-color:#22c55e">+ 📈 Дохід</button>
         <button class="btn" onclick="openCFModal(null,'expense')" style="background:#ef4444;color:#fff;border-color:#ef4444">+ 📉 Розхід</button>
         <button class="btn" onclick="openTransferModal(null)" style="background:#8b5cf6;color:#fff;border-color:#8b5cf6">+ 🔄 Переказ</button>
-        <button class="btn sm" onclick="manageCFCategories()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9">⚙ Категорії</button>
+        ${window.maccCanManageProjects?.()===true?'<button class="btn sm" onclick="navigate(\'finance-directory\')" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9">📚 Фінансовий довідник</button>':''}
         <button class="btn sm" onclick="manageCFCounterparties()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9">⚙ Контрагенти</button>
         <button class="btn sm" onclick="exportCashflowExcel()" title="Excel">📥 Excel</button>
         <button class="btn sm" onclick="exportCashflowPDF()" title="PDF">🖨 PDF</button>
@@ -2367,9 +2414,8 @@ function openCFModal(id,defaultType){
   siteSel.innerHTML='<option value="">— Без об\'єкта —</option>'+(state.sites||[]).filter(s=>s.companyId===activeCompanyId).map(s=>`<option value="${s.id}"${r?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
   document.getElementById('cf-worktype').value=r?.workType||'';
   updateCFWorkTypes(r?.siteId);
-  const cats=[...new Set([...(state.cfCategories||[]),...(state.cashflows||[]).map(x=>x.category).filter(Boolean)])].sort();
-  document.getElementById('cf-cat-list').innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
-  document.getElementById('cf-category').value=r?.category||'';
+  const matchedArticle=r?.articleId?financeArticleById(r.articleId):(state.financeArticles||[]).find(a=>a.name===r?.category);
+  updateCFArticleOptions(matchedArticle?.id||(r?.category?`legacy:${r.category}`:''));
   const contractorNames=(state.contractors||[]).map(c=>c.name).filter(Boolean);
   const clientNames=(state.sites||[]).map(s=>s.client).filter(Boolean);
   const usedCP=[...new Set((state.cashflows||[]).map(x=>x.counterparty).filter(Boolean))];
@@ -2377,6 +2423,19 @@ function openCFModal(id,defaultType){
   document.getElementById('cf-cp-list').innerHTML=allCP.map(c=>`<option value="${esc(c)}">`).join('');
   document.getElementById('cf-counterparty').value=r?.counterparty||'';
   document.getElementById('modal-cf').classList.add('open');
+}
+function updateCFArticleOptions(selectedValue){
+  const select=document.getElementById('cf-category');if(!select)return;
+  const current=selectedValue!==undefined?selectedValue:select.value;
+  const flowType=document.getElementById('cf-type').value;
+  const companyId=document.getElementById('cf-company').value||activeCompanyId;
+  const allowed=flowType==='income'?['income','investment','loan']:['expense','investment','loan'];
+  const articles=(state.financeArticles||[]).filter(a=>a.active!==false&&allowed.includes(a.type)&&(!(a.companyIds||[]).length||(a.companyIds||[]).includes(companyId))).sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),'uk'));
+  const groups=allowed.map(type=>{const rows=articles.filter(a=>a.type===type);return rows.length?`<optgroup label="${esc(FINANCE_ARTICLE_TYPES[type])}">${rows.map(a=>`<option value="${a.id}">${esc(a.code)} · ${esc(a.name)}</option>`).join('')}</optgroup>`:''}).join('');
+  let legacy='';
+  if(current&&String(current).startsWith('legacy:')){const name=String(current).slice(7);legacy=`<option value="${esc(current)}">${esc(name)} · раніше внесена категорія</option>`;}
+  select.innerHTML='<option value="">— Оберіть статтю —</option>'+legacy+groups;
+  if(current&&[...select.options].some(o=>o.value===current))select.value=current;
 }
 function updateCFWorkTypes(siteId){
   const id=siteId||document.getElementById('cf-site').value;
@@ -2389,18 +2448,26 @@ function saveCF(){
   if(!state.cashflows)state.cashflows=[];
   const amount=+document.getElementById('cf-amount').value||0;
   const date=document.getElementById('cf-date').value;
-  const category=document.getElementById('cf-category').value.trim();
+  const articleValue=document.getElementById('cf-category').value;
+  const article=financeArticleById(articleValue);
+  const existing=editingCFId?(state.cashflows||[]).find(x=>x.id===editingCFId):null;
+  const category=article?.name||(articleValue.startsWith('legacy:')?articleValue.slice(7):'');
   const companyId=document.getElementById('cf-company').value;
   if(!date){alert('Введіть дату');return;}
   if(!amount){alert('Введіть суму');return;}
   if(!companyId){alert('Оберіть компанію');return;}
-  if(category&&!(state.cfCategories||[]).includes(category)){state.cfCategories=state.cfCategories||[];state.cfCategories.push(category);}
+  if(!category){alert('Оберіть статтю з єдиного фінансового довідника.');return;}
+  const siteId=document.getElementById('cf-site').value;
+  if(article?.requiresSite&&!siteId){alert('Для цієї статті потрібно обов’язково обрати об’єкт.');return;}
   const data={
     id:editingCFId||uid(),
     type:document.getElementById('cf-type').value,
     form:document.getElementById('cf-form').value,
     date,amount,category,companyId,
-    siteId:document.getElementById('cf-site').value,
+    articleId:article?.id||existing?.articleId||'',
+    articleType:article?.type||existing?.articleType||'',
+    vatMode:article?.vatMode||existing?.vatMode||'default',
+    siteId,
     counterparty:document.getElementById('cf-counterparty').value.trim(),
     notes:document.getElementById('cf-notes').value.trim(),
     workType:document.getElementById('cf-worktype').value.trim(),
@@ -3067,19 +3134,83 @@ function saveGroupCompany(){
   save();closeModal('group-company');renderCompanies();
 }
 
+function financeArticleById(id){return (state.financeArticles||[]).find(a=>a.id===id)}
+function financeArticlesForCompany(companyId,type='',includeInactive=false){
+  return (state.financeArticles||[]).filter(a=>(includeInactive||a.active!==false)&&(!type||a.type===type)&&(!(a.companyIds||[]).length||(a.companyIds||[]).includes(companyId))).sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),'uk'));
+}
+function setFinanceDirectoryTab(type){financeDirectoryTab=type;renderFinanceDirectory();}
+function renderFinanceDirectory(){
+  const el=document.getElementById('main-content');
+  const rows=(state.financeArticles||[]).filter(a=>a.type===financeDirectoryTab).sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),'uk'));
+  const tabs=Object.entries(FINANCE_ARTICLE_TYPES).map(([type,label])=>`<button class="btn ${financeDirectoryTab===type?'primary':''}" onclick="setFinanceDirectoryTab('${type}')" style="border-color:${financeDirectoryTab===type?'var(--accent)':'var(--border)'}">${esc(label)} <span style="opacity:.7">${(state.financeArticles||[]).filter(a=>a.type===type).length}</span></button>`).join('');
+  const tbody=rows.length?rows.map(a=>{
+    const companies=(a.companyIds||[]).length?(a.companyIds||[]).map(companyName).join(', '):'Усі компанії';
+    return `<tr onclick="openFinanceArticleModal('${a.id}')" style="cursor:pointer;opacity:${a.active===false?0.55:1}"><td><b class="mono" style="color:${FINANCE_ARTICLE_COLOR[a.type]||'var(--accent)'}">${esc(a.code)}</b></td><td><b>${esc(a.name)}</b><div style="font-size:10px;color:var(--text3);margin-top:3px">${esc(a.group||'Без групи')}</div></td><td style="font-size:11px">${esc(companies)}</td><td style="font-size:11px">${a.requiresSite?'Обов’язковий':'Необов’язковий'}</td><td style="font-size:11px">${a.affectsProfit===false?'Ні':'Так'}</td><td><span class="badge ${a.active===false?'gray':'green'}">${a.active===false?'Архівна':'Активна'}</span></td><td onclick="event.stopPropagation()"><button class="btn sm" onclick="toggleFinanceArticle('${a.id}')">${a.active===false?'Активувати':'В архів'}</button></td></tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="empty"><div class="empty-icon">📚</div><h3>Статей у цьому розділі ще немає</h3><p>Створіть першу статтю єдиного довідника.</p></div></td></tr>`;
+  el.innerHTML=`<div class="page-header"><div><h1 class="page-title">📚 Єдиний фінансовий довідник</h1><div style="font-size:12px;color:var(--text3);margin-top:3px">Єдина класифікація доходів, витрат, інвестицій і фінансування для всіх компаній</div></div><button class="btn primary" onclick="openFinanceArticleModal(null,'${financeDirectoryTab}')">+ Додати статтю</button></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">${tabs}</div><div class="card"><div class="table-wrap"><table><thead><tr><th>Код</th><th>Назва і група</th><th>Компанії</th><th>Об’єкт</th><th>У прибутку</th><th>Статус</th><th></th></tr></thead><tbody>${tbody}</tbody></table></div></div><div class="card" style="margin-top:14px;padding:15px;font-size:11px;color:var(--text3);line-height:1.55"><b style="color:var(--text2)">Правило консолідації:</b> інвестиції, тіло позик та внутрішні перекази не входять до операційного прибутку. Відсотки за позикою створюйте як статтю витрат із впливом на прибуток.</div>`;
+}
+function nextFinanceArticleCode(type){
+  const prefix=FINANCE_ARTICLE_PREFIX[type]||'ART';
+  const nums=(state.financeArticles||[]).filter(a=>a.type===type).map(a=>+(String(a.code||'').match(/(\d+)(?!.*\d)/)?.[1]||0));
+  return `${prefix}-${String(Math.max(0,...nums)+1).padStart(2,'0')}`;
+}
+function openFinanceArticleModal(id,type){
+  editingFinanceArticleId=id||null;
+  const article=id?financeArticleById(id):null;
+  const articleType=article?.type||type||financeDirectoryTab;
+  document.getElementById('modal-finance-article-title').textContent=id?'Редагувати фінансову статтю':'Нова фінансова стаття';
+  document.getElementById('fa-type').value=articleType;
+  document.getElementById('fa-code').value=article?.code||nextFinanceArticleCode(articleType);
+  document.getElementById('fa-name').value=article?.name||'';
+  document.getElementById('fa-group').value=article?.group||'';
+  document.getElementById('fa-vat').value=article?.vatMode||'default';
+  document.getElementById('fa-profit').value=(article?.affectsProfit??(articleType==='income'||articleType==='expense'))?'yes':'no';
+  document.getElementById('fa-requires-site').checked=article?.requiresSite===true;
+  document.getElementById('fa-active').checked=article?.active!==false;
+  document.getElementById('fa-companies').innerHTML=getCompanies().map(c=>`<label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text2)"><input type="checkbox" value="${esc(c.id)}" ${(article?.companyIds||[]).includes(c.id)?'checked':''}> ${esc(c.name)}</label>`).join('');
+  document.getElementById('modal-finance-article').classList.add('open');
+}
+function updateFinanceArticleDefaults(){
+  if(editingFinanceArticleId)return;
+  const type=document.getElementById('fa-type').value;
+  document.getElementById('fa-code').value=nextFinanceArticleCode(type);
+  document.getElementById('fa-profit').value=(type==='income'||type==='expense')?'yes':'no';
+}
+function saveFinanceArticle(){
+  const type=document.getElementById('fa-type').value;
+  const code=document.getElementById('fa-code').value.trim().toUpperCase();
+  const name=document.getElementById('fa-name').value.trim();
+  if(!code||!name){alert('Вкажіть код і назву статті.');return;}
+  if((state.financeArticles||[]).some(a=>a.id!==editingFinanceArticleId&&String(a.code||'').toUpperCase()===code)){alert('Стаття з таким кодом уже існує.');return;}
+  const previous=editingFinanceArticleId?financeArticleById(editingFinanceArticleId):null;
+  const usedInCashflow=(state.cashflows||[]).some(c=>c.articleId===editingFinanceArticleId);
+  const usedInBudget=Object.values(state.budgets||{}).some(b=>(b.rows||[]).some(r=>r.financeArticleId===editingFinanceArticleId));
+  if(previous&&previous.type!==type&&(usedInCashflow||usedInBudget)){alert('Тип уже використаної статті змінювати не можна. Архівуйте її та створіть нову.');return;}
+  const data={id:editingFinanceArticleId||uid(),type,code,name,group:document.getElementById('fa-group').value.trim(),companyIds:[...document.querySelectorAll('#fa-companies input:checked')].map(x=>x.value),vatMode:document.getElementById('fa-vat').value,affectsProfit:document.getElementById('fa-profit').value==='yes',requiresSite:document.getElementById('fa-requires-site').checked,active:document.getElementById('fa-active').checked};
+  if(!state.financeArticles)state.financeArticles=[];
+  if(editingFinanceArticleId){const i=state.financeArticles.findIndex(a=>a.id===editingFinanceArticleId);if(i>=0)state.financeArticles[i]=data;(state.cashflows||[]).forEach(c=>{if(c.articleId===editingFinanceArticleId){c.category=name;c.articleType=type;c.vatMode=data.vatMode;}});}
+  else state.financeArticles.push(data);
+  financeDirectoryTab=type;save();closeModal('finance-article');renderFinanceDirectory();
+}
+function toggleFinanceArticle(id){
+  const article=financeArticleById(id);if(!article)return;
+  article.active=article.active===false;save();renderFinanceDirectory();
+}
+
 function selectDashboardScope(scope){dashboardScope=scope;renderDashboard();}
-function isInvestmentCategory(category){return /інвест|внесок власника|поповнення капітал/i.test(category||'')}
-function isFinancingCategory(category){return isInvestmentCategory(category)||/позик|кредит|дивіденд|повернення капітал/i.test(category||'')}
+function cashflowFinanceArticle(c){return financeArticleById(c?.articleId)||(state.financeArticles||[]).find(a=>a.name===c?.category)||null}
+function isInvestmentCategory(category,articleId){const article=financeArticleById(articleId)||(state.financeArticles||[]).find(a=>a.name===category);return article?article.type==='investment':/інвест|внесок власника|поповнення капітал/i.test(category||'')}
+function isFinancingCategory(category,articleId){const article=financeArticleById(articleId)||(state.financeArticles||[]).find(a=>a.name===category);return article?article.affectsProfit===false:isInvestmentCategory(category,articleId)||/позик|кредит|дивіденд|повернення капітал/i.test(category||'')}
 function dashboardStats(companyId=''){
   const sites=(state.sites||[]).filter(s=>!companyId||s.companyId===companyId);
   const cashflows=(state.cashflows||[]).filter(c=>!companyId||c.companyId===companyId);
   const planIncome=sites.reduce((sum,s)=>sum+(+s.amountGross||0),0);
   let planExpense=0;sites.forEach(s=>{((state.budgets||{})[s.id]?.rows||[]).forEach(r=>planExpense+=(+r.planCost||0));});
-  const operating=c=>!c.transferGroupId&&!isFinancingCategory(c.category);
+  const operating=c=>!c.transferGroupId&&!isFinancingCategory(c.category,c.articleId);
   const factIncome=cashflows.filter(c=>c.type==='income'&&operating(c)).reduce((sum,c)=>sum+(+c.amount||0),0);
   const factExpense=cashflows.filter(c=>c.type==='expense'&&operating(c)).reduce((sum,c)=>sum+(+c.amount||0),0);
-  const investmentsIn=cashflows.filter(c=>c.type==='income'&&!c.transferGroupId&&isInvestmentCategory(c.category)).reduce((sum,c)=>sum+(+c.amount||0),0);
-  const investmentsOut=cashflows.filter(c=>c.type==='expense'&&isInvestmentCategory(c.category)).reduce((sum,c)=>sum+(+c.amount||0),0);
+  const investmentsIn=cashflows.filter(c=>c.type==='income'&&!c.transferGroupId&&isInvestmentCategory(c.category,c.articleId)).reduce((sum,c)=>sum+(+c.amount||0),0);
+  const investmentsOut=cashflows.filter(c=>c.type==='expense'&&isInvestmentCategory(c.category,c.articleId)).reduce((sum,c)=>sum+(+c.amount||0),0);
   const balance=form=>cashflows.filter(c=>c.form===form).reduce((sum,c)=>sum+(c.type==='income'?+c.amount||0:c.type==='expense'||c.type==='transfer-out'?-(+c.amount||0):0),0);
   const factProfit=factIncome-factExpense,planProfit=planIncome-planExpense;
   return{sites,planIncome,planExpense,factIncome,factExpense,planProfit,factProfit,profitability:factIncome?factProfit/factIncome*100:0,planProfitability:planIncome?planProfit/planIncome*100:0,bank:balance('bank'),cash:balance('cash'),investments:investmentsIn-investmentsOut};
