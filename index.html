@@ -308,6 +308,7 @@ select.form-input option{background:var(--bg3)}
       <div class="form-group"><label class="form-label">Назва об'єкту *</label>
         <input class="form-input" id="s-name" placeholder="напр. ЖК Сонячний, вул. Паркова 12"></div>
       <div class="form-row2">
+        <div class="form-group"><label class="form-label">Компанія групи *</label><select class="form-input" id="s-company"></select></div>
         <div class="form-group"><label class="form-label">Тип договору</label>
           <select class="form-input" id="s-contract-type">
             <option value="general">Генпідряд</option>
@@ -364,6 +365,7 @@ select.form-input option{background:var(--bg3)}
         <div class="form-group"><label class="form-label">Телефон</label>
           <input class="form-input" id="c-phone" placeholder="+38 (0XX) XXX-XX-XX"></div>
       </div>
+      <div class="form-group"><label class="form-label">Компанія групи *</label><select class="form-input" id="cf-company"></select></div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Email</label>
           <input class="form-input" id="c-email" type="email" placeholder="email@company.ua"></div>
@@ -772,6 +774,8 @@ const GROUP_COMPANIES=[
   {id:'VB',name:'ВБ — будівельна',tax:'ПДВ · держ + комерційні об’єкти'}
 ];
 function getCompanies(){return state.companies?.length?state.companies:GROUP_COMPANIES}
+function companyName(id){return getCompanies().find(c=>c.id===id)?.name||'Не вказано'}
+function companyOptions(selected=''){return `<option value="">— Оберіть компанію —</option>${getCompanies().map(c=>`<option value="${esc(c.id)}"${c.id===selected?' selected':''}>${esc(c.name)}</option>`).join('')}`}
 
 // ══════════════════════════════════════════════════════════════
 //  STATE
@@ -791,6 +795,8 @@ let state={
 };
 let curPage='dashboard';
 let dashboardScope='group';
+let activeCompanyId='';
+const COMPANY_SCOPED_PAGES=['sites','budgets','cashflow','executors','tasks','meetings','gantt','procurement'];
 let editingSiteId=null, editingContractorId=null, editingExecutorId=null, editingCFId=null, editingBudgetRowId=null;
 let editingSiteSubId=null, editingSiteITRId=null;
 let execTab='contractors';
@@ -871,6 +877,7 @@ function navigate(page){
   // Closing the browser or signing out starts from the dashboard again.
   try{sessionStorage.setItem('macc_last_page',page);}catch(_){}
   curPage=page;
+  if(COMPANY_SCOPED_PAGES.includes(page))activeCompanyId='';
   curSiteDetailId=null;
   curBudgetSiteId=null;
   curContractorDetailId=null;
@@ -892,6 +899,7 @@ function closeMobMore(){
   document.getElementById('mob-more-overlay').style.display='none';
 }
 function render(){
+  if(COMPANY_SCOPED_PAGES.includes(curPage)&&!activeCompanyId){renderCompanyPicker();return;}
   if(curPage==='sites')       {if(curSiteDetailId)renderSiteDetail();else renderSites();}
   else if(curPage==='budgets')     renderBudgets();
   else if(curPage==='executors')   renderExecutors();
@@ -903,6 +911,14 @@ function render(){
   else if(curPage==='gantt')       renderGantt();
   else if(curPage==='procurement') renderProcurement();
 }
+function selectCompanyForPage(companyId){activeCompanyId=companyId;render();}
+function renderCompanyPicker(){
+  const el=document.getElementById('main-content');
+  const titles={sites:'Об’єкти',budgets:'Бюджети об’єктів',cashflow:'Грошові потоки',executors:'Виконавці',tasks:'Задачі',meetings:'Наради',gantt:'Діаграма Ганта',procurement:'Закупівлі'};
+  const title=titles[curPage]||'Розділ';
+  el.innerHTML=`<div class="page-header"><div><h1 class="page-title">${esc(title)}</h1><div style="font-size:12px;color:var(--text3);margin-top:3px">Оберіть компанію для роботи в цьому розділі</div></div></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:12px">${getCompanies().map(c=>`<button class="card" type="button" onclick="selectCompanyForPage('${c.id}')" style="text-align:left;min-height:110px;padding:17px;cursor:pointer"><div style="font-size:15px;font-weight:700;color:var(--text)">${esc(c.name)}</div><div style="font-size:11px;color:var(--text3);margin-top:7px">${esc(c.tax||'Окремий управлінський контур')}</div><div style="color:var(--accent);font-size:17px;margin-top:15px">Відкрити →</div></button>`).join('')}</div>`;
+}
+function companyPageTitle(label){return `<div style="font-size:11px;color:var(--text3);margin-top:3px"><button class="btn sm" onclick="activeCompanyId='';render()" style="margin-right:8px">← Компанії</button>${esc(companyName(activeCompanyId))} · ${esc(label)}</div>`}
 function closeModal(name){document.getElementById('modal-'+name).classList.remove('open')}
 
 // ══════════════════════════════════════════════════════════════
@@ -912,7 +928,8 @@ function renderSites(){
   const el=document.getElementById('main-content');
   const allSites=state.sites||[];
   const managerFilter=window.maccProjectFilterEmail||'';
-  const sites=managerFilter?allSites.filter(s=>s.projectManagerEmail===managerFilter):allSites;
+  const scopedSites=allSites.filter(s=>s.companyId===activeCompanyId);
+  const sites=managerFilter?scopedSites.filter(s=>s.projectManagerEmail===managerFilter):scopedSites;
   const canManageProjects=window.maccCanManageProjects?.()===true;
 
   // aggregate totals
@@ -984,6 +1001,7 @@ function openSiteModal(id){
   const s=id?(state.sites||[]).find(x=>x.id===id):null;
   document.getElementById('modal-site-title').textContent=id?'Редагувати об\'єкт':'Новий об\'єкт';
   document.getElementById('s-name').value=s?.name||'';
+  document.getElementById('s-company').innerHTML=companyOptions(s?.companyId||activeCompanyId);
   document.getElementById('s-contract-type').value=s?.contractType||'general';
   document.getElementById('s-client').value=s?.client||'';
   document.getElementById('s-address').value=s?.address||'';
@@ -1003,10 +1021,13 @@ function openSiteModal(id){
 function saveSite(){
   if(editingSiteId?window.maccCanEditSite?.(editingSiteId)!==true:window.maccCanManageProjects?.()!==true){alert('Основні дані об’єкта може змінювати лише адміністратор або призначений керівник проєкту.');return;}
   const name=document.getElementById('s-name').value.trim();
+  const companyId=document.getElementById('s-company').value;
   if(!name){alert('Введіть назву об\'єкту');return;}
+  if(!companyId){alert('Оберіть компанію');return;}
   const data={
     id:editingSiteId||uid(),
     name,
+    companyId,
     contractType:document.getElementById('s-contract-type').value,
     client:document.getElementById('s-client').value.trim(),
     address:document.getElementById('s-address').value.trim(),
@@ -1345,8 +1366,8 @@ function renderBudgets(){
 
 function renderBudgetList(){
   const el=document.getElementById('main-content');
-  const sites=state.sites||[];
-  const cfs=state.cashflows||[];
+  const sites=(state.sites||[]).filter(s=>s.companyId===activeCompanyId);
+  const cfs=(state.cashflows||[]).filter(c=>c.companyId===activeCompanyId);
 
   // ── Зведені показники: ітеруємо всі об'єкти → всі рядки бюджету ──
   let sumDC=0, sumPlanCost=0, sumFactCost=0;
@@ -2143,7 +2164,7 @@ function deleteExecutor(id){
 // ══════════════════════════════════════════════════════════════
 function renderCashflow(){
   const el=document.getElementById('main-content');
-  const all=state.cashflows||[];
+  const all=(state.cashflows||[]).filter(r=>r.companyId===activeCompanyId);
 
   let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
   if(cfFilters.type)        rows=rows.filter(r=>r.type===cfFilters.type);
@@ -2317,11 +2338,12 @@ function openCFModal(id,defaultType){
   document.getElementById('modal-cf-title').textContent=id?'Редагувати транзакцію':'Нова транзакція';
   document.getElementById('cf-type').value=r?.type||defaultType||'income';
   document.getElementById('cf-form').value=r?.form||'bank';
+  document.getElementById('cf-company').innerHTML=companyOptions(r?.companyId||activeCompanyId);
   document.getElementById('cf-date').value=r?.date||new Date().toISOString().slice(0,10);
   document.getElementById('cf-amount').value=r?.amount||'';
   document.getElementById('cf-notes').value=r?.notes||'';
   const siteSel=document.getElementById('cf-site');
-  siteSel.innerHTML='<option value="">— Без об\'єкта —</option>'+(state.sites||[]).map(s=>`<option value="${s.id}"${r?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+  siteSel.innerHTML='<option value="">— Без об\'єкта —</option>'+(state.sites||[]).filter(s=>s.companyId===activeCompanyId).map(s=>`<option value="${s.id}"${r?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
   document.getElementById('cf-worktype').value=r?.workType||'';
   updateCFWorkTypes(r?.siteId);
   const cats=[...new Set([...(state.cfCategories||[]),...(state.cashflows||[]).map(x=>x.category).filter(Boolean)])].sort();
@@ -2347,14 +2369,16 @@ function saveCF(){
   const amount=+document.getElementById('cf-amount').value||0;
   const date=document.getElementById('cf-date').value;
   const category=document.getElementById('cf-category').value.trim();
+  const companyId=document.getElementById('cf-company').value;
   if(!date){alert('Введіть дату');return;}
   if(!amount){alert('Введіть суму');return;}
+  if(!companyId){alert('Оберіть компанію');return;}
   if(category&&!(state.cfCategories||[]).includes(category)){state.cfCategories=state.cfCategories||[];state.cfCategories.push(category);}
   const data={
     id:editingCFId||uid(),
     type:document.getElementById('cf-type').value,
     form:document.getElementById('cf-form').value,
-    date,amount,category,
+    date,amount,category,companyId,
     siteId:document.getElementById('cf-site').value,
     counterparty:document.getElementById('cf-counterparty').value.trim(),
     notes:document.getElementById('cf-notes').value.trim(),
@@ -2572,7 +2596,7 @@ function _gSaveEdit(type,sid,rid){
 function renderGantt(){
   const el=document.getElementById('main-content');
   if(!el)return;
-  const sites=state.sites||[];
+  const sites=(state.sites||[]).filter(s=>s.companyId===activeCompanyId);
   if(!(sites.length)){
     el.innerHTML=`<div class="page-header"><h1 class="page-title">📅 Діаграма Ганта</h1></div><div class="empty"><div class="empty-icon">📅</div><h3>Об'єктів ще немає</h3><p>Додайте об'єкти з датами початку та завершення</p></div>`;
     return;
@@ -2639,7 +2663,7 @@ function ganttExportPDF(){
 
 function renderGanttInto(container, compact){
   if(!container)return;
-  const sites=state.sites||[];
+  const sites=(state.sites||[]).filter(s=>s.companyId===activeCompanyId);
 
   const vis=ganttSiteFilter?sites.filter(s=>s.id===ganttSiteFilter):sites;
 
@@ -3003,11 +3027,12 @@ function setTaskSort(s){
 
 function renderTasksPage(){
   const el=document.getElementById('main-content');
-  const sites=state.sites||[];
+  const sites=(state.sites||[]).filter(s=>s.companyId===activeCompanyId);
+  const siteIds=new Set(sites.map(s=>s.id));
   const executors=state.executors||[];
 
   // metrics
-  const all=state.tasks||[];
+  const all=(state.tasks||[]).filter(t=>siteIds.has(t.siteId));
   const totTodo=all.filter(t=>(t.status||'todo')==='todo').length;
   const totProgress=all.filter(t=>t.status==='progress').length;
   const totDone=all.filter(t=>t.status==='done').length;
@@ -3299,8 +3324,9 @@ let _mtgAttendees=[];
 function renderMeetings(){
   if(curMeetingDetailId){renderMeetingDetail();return;}
   const el=document.getElementById('main-content');
-  const all=state.meetings||[];
-  const sites=state.sites||[];
+  const sites=(state.sites||[]).filter(s=>s.companyId===activeCompanyId);
+  const siteIds=new Set(sites.map(s=>s.id));
+  const all=(state.meetings||[]).filter(m=>siteIds.has(m.siteId));
 
   // apply filters
   let rows=[...all].sort((a,b)=>b.datetime.localeCompare(a.datetime));
