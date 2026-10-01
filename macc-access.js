@@ -318,7 +318,7 @@
   function enableNavigation(){
     if(!document.getElementById('macc-company-nav')){
       const wrap=document.createElement('div');wrap.id='macc-company-nav';wrap.className='macc-company-nav';
-      wrap.innerHTML='<button id="nav-company" class="nav-item"><span class="nav-icon">🏢</span>Компанія <span class="macc-company-caret">⌄</span></button><div id="macc-company-menu"><button id="nav-company-settings" class="macc-company-subitem">⚙️ Налаштування компанії</button><button id="nav-access" class="macc-company-subitem">🔐 Доступ команди</button></div>';
+      wrap.innerHTML='<button id="nav-company" class="nav-item"><span class="nav-icon">⚙️</span>Адміністрування <span class="macc-company-caret">⌄</span></button><div id="macc-company-menu"><button id="nav-company-settings" class="macc-company-subitem">⚙️ Налаштування робочого простору</button><button id="nav-access" class="macc-company-subitem">🔐 Доступ команди</button></div>';
       document.getElementById('nav-service').before(wrap);
       wrap.querySelector('#nav-company').onclick=()=>{wrap.classList.toggle('open');wrap.querySelector('#macc-company-menu').classList.toggle('open');};
       wrap.querySelector('#nav-company-settings').onclick=()=>window.maccOpenCompanySettings();
