@@ -765,11 +765,19 @@ const CONTRACT_COLOR={
 const STATUS_LABEL={active:'В роботі',pause:'Призупинено',done:'Завершено'};
 const STATUS_COLOR={active:'#4ade80',pause:'#9ca3af',done:'#38bdf8'};
 const CF_FORM_LABEL={cash:'💵 Готівка',bank:'🏦 Рахунок'};
+const GROUP_COMPANIES=[
+  {id:'AP',name:'АП — Армабудпроект',tax:'ФОП · ЄП 5%'},
+  {id:'AK',name:'АК — ремонтно-будівельна',tax:'ПДВ · комерційні об’єкти'},
+  {id:'NK',name:'НК — будівельна',tax:'ПДВ · держ/бюджетні об’єкти'},
+  {id:'VB',name:'ВБ — будівельна',tax:'ПДВ · держ + комерційні об’єкти'}
+];
+function getCompanies(){return state.companies?.length?state.companies:GROUP_COMPANIES}
 
 // ══════════════════════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════════════════════
 let state={
+  companies:GROUP_COMPANIES.map(x=>({...x})),
   sites:[],
   contractors:[],
   executors:[],
@@ -782,6 +790,7 @@ let state={
   tenders:[]
 };
 let curPage='dashboard';
+let dashboardScope='group';
 let editingSiteId=null, editingContractorId=null, editingExecutorId=null, editingCFId=null, editingBudgetRowId=null;
 let editingSiteSubId=null, editingSiteITRId=null;
 let execTab='contractors';
@@ -841,6 +850,7 @@ function load(){
   render();
 }
 function applyState(d){
+  state.companies=d.companies?.length?d.companies:GROUP_COMPANIES.map(x=>({...x}));
   state.sites=d.sites||[];
   state.contractors=d.contractors||d.subs||[];
   state.executors=d.executors||d.itrs||[];
@@ -2946,64 +2956,22 @@ function importJsonBackup(input){
   };
   reader.readAsText(file);
 }
+function selectDashboardScope(scope){dashboardScope=scope;renderDashboard();}
 function renderDashboard(){
   const el=document.getElementById('main-content');
-  const sites=state.sites||[];
-  const cfs=state.cashflows||[];
-
-  // 1. Кількість об'єктів
-  const sitesCount=sites.length;
-
-  // 2. Сума договорів з замовниками = сума contractPrice по всіх об'єктах
-  const totalContractPrice=sites.reduce((a,s)=>a+(+s.amountGross||0),0);
-
-  // 3. Планові витрати + 4. Плановий прибуток — з бюджетів
-  let planCost=0, planIncome=0;
-  sites.forEach(s=>{
-    const rows=((state.budgets||{})[s.id]||{rows:[]}).rows||[];
-    rows.forEach(r=>{
-      planCost  +=(+r.planCost ||0);
-      planIncome+=(+r.dcPrice  ||0)-(+r.planCost||0);
-    });
-  });
-
-  // 5. Фактичні витрати — всі витрати з грошових потоків
-  const factExp=cfs.filter(c=>c.type==='expense').reduce((a,c)=>a+(+c.amount||0),0);
-
-  // 6. Середня маржинальність = planIncome / totalContractPrice * 100
-  const avgMargin=totalContractPrice>0?Math.round(planIncome/totalContractPrice*100*10)/10:0;
-
+  const companies=getCompanies();
+  const isGroup=dashboardScope==='group';
+  const selectedCompany=companies.find(c=>c.id===dashboardScope);
+  const scopeTitle=isGroup?'Загальний':selectedCompany?.name||'Компанія';
+  const scopeNote=isGroup?'Консолідована інформація по всіх компаніях групи ЕВМ.':'Інформація тільки по вибраній компанії.';
+  const scopeCard=(id,title,note,active)=>`<button class="card" type="button" onclick="selectDashboardScope('${id}')" style="text-align:left;min-height:124px;padding:17px;border-color:${active?'var(--accent)':'var(--border)'};background:${active?'var(--bg3)':'var(--card)'};cursor:pointer"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div style="font-size:15px;font-weight:700;color:var(--text)">${esc(title)}</div><div style="font-size:11px;color:var(--text3);margin-top:7px;line-height:1.45">${esc(note)}</div></div><span style="color:var(--accent);font-size:18px">→</span></div></button>`;
   el.innerHTML=`
-    <div class="page-header"><h1 class="page-title">📋 Дашборд</h1></div>
-    <div class="metrics" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin-bottom:20px">
-      <div class="metric" style="--mc:var(--accent)">
-        <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21V12h6v9"/></svg></span>Всього об'єктів</div>
-        <div class="metric-value">${sitesCount}</div>
-      </div>
-      <div class="metric" style="--mc:#38bdf8">
-        <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>Сума договорів з замовниками</div>
-        <div class="metric-value" style="font-size:15px">${fmtN(totalContractPrice)}</div>
-      </div>
-      <div class="metric" style="--mc:var(--red)">
-        <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></span>Планові витрати</div>
-        <div class="metric-value" style="font-size:15px">${fmtN(planCost)}</div>
-      </div>
-      <div class="metric" style="--mc:var(--green)">
-        <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>Плановий прибуток</div>
-        <div class="metric-value" style="font-size:15px">${fmtN(planIncome)}</div>
-      </div>
-      <div class="metric" style="--mc:#f97316">
-        <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Фактичні витрати</div>
-        <div class="metric-value" style="font-size:15px">${fmtN(factExp)}</div>
-      </div>
-      <div class="metric" style="--mc:var(--violet)">
-        <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></span>Середня маржинальність</div>
-        <div class="metric-value" style="font-size:18px;color:${avgMargin>=0?'var(--green)':'var(--red)'}">${avgMargin}%</div>
-      </div>
+    <div class="page-header"><div><h1 class="page-title">📋 Дашборд</h1><div style="font-size:12px;color:var(--text3);margin-top:3px">Оберіть контур для перегляду</div></div><button class="btn primary" type="button" disabled title="Налаштуємо склад цієї форми наступним кроком">+ Додати компанію</button></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:12px;margin-bottom:20px">
+      ${scopeCard('group','Загальний','Консолідована інформація по всіх компаніях',isGroup)}
+      ${companies.map(c=>scopeCard(c.id,`Компанія «${c.name}»`,c.tax||'Окремий управлінський контур',dashboardScope===c.id)).join('')}
     </div>
-    <div id="dash-gantt-container"></div>`;
-  // render gantt inline below metrics
-  renderGanttInto(document.getElementById('dash-gantt-container'), true);
+    <div class="card" style="padding:20px;min-height:150px"><div style="font-size:15px;font-weight:700;color:var(--text)">${esc(scopeTitle)}</div><div style="font-size:12px;color:var(--text3);margin-top:6px">${esc(scopeNote)}</div><div style="margin-top:27px;padding:15px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2)">Внутрішні блоки цього дашборду додамо після того, як ви визначите їхній склад.</div></div>`;
 }
 
 // ══════════════════════════════════════════════════════════════
