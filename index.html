@@ -77,6 +77,40 @@ body{display:flex}
 .tbl th.r,.tbl td.r{text-align:right}
 .mono{font-family:monospace}
 
+/* ── FINANCIAL DIRECTORY ── */
+.finance-directory{font-family:Inter,"SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.finance-directory .page-header{align-items:flex-start;margin-bottom:22px}
+.finance-page-heading{display:flex;align-items:center;gap:12px}
+.finance-heading-icon{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;flex:0 0 42px;color:var(--accent);background:rgba(240,180,41,.12);border:1px solid rgba(240,180,41,.3)}
+.finance-directory .page-title{font-size:22px;font-weight:750;letter-spacing:-.025em;line-height:1.2}
+.finance-directory-subtitle{font-size:12px;color:var(--text3);margin-top:5px;line-height:1.45}
+.finance-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;padding:4px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;width:max-content;max-width:100%}
+.finance-tab{appearance:none;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--text3);padding:9px 13px;font:700 12px/1 Inter,"SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;transition:.16s;display:flex;align-items:center;gap:8px}
+.finance-tab:hover{background:var(--bg3);color:var(--text)}
+.finance-tab.active{background:var(--accent);color:#172131;box-shadow:0 4px 12px rgba(240,180,41,.18)}
+.finance-tab-count{min-width:20px;height:20px;padding:0 6px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.09);font-size:10px}
+.finance-tab.active .finance-tab-count{background:rgba(23,33,49,.13)}
+.finance-table-card{border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.10);overflow:hidden}
+.finance-table-summary{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:11px;color:var(--text3)}
+.finance-table-wrap{overflow-x:auto}
+.finance-table{width:100%;min-width:1040px;border-collapse:separate;border-spacing:0;table-layout:fixed}
+.finance-table th{padding:11px 13px;background:rgba(22,32,48,.42);border-bottom:1px solid var(--border);font-size:9px;font-weight:750;letter-spacing:.075em;text-transform:uppercase;color:var(--text3);text-align:left;white-space:normal;line-height:1.35}
+.finance-table td{padding:13px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);vertical-align:middle;line-height:1.35}
+.finance-table tbody tr:last-child td{border-bottom:0}
+.finance-table tbody tr{transition:background .14s}
+.finance-table tbody tr:hover{background:var(--bg3)}
+.finance-table th:nth-child(1){width:112px}.finance-table th:nth-child(2){width:230px}.finance-table th:nth-child(3){width:105px}.finance-table th:nth-child(4){width:100px}.finance-table th:nth-child(5){width:112px}.finance-table th:nth-child(6){width:105px}.finance-table th:nth-child(7){width:135px}.finance-table th:nth-child(8){width:105px}.finance-table th:nth-child(9){width:105px}
+.finance-article-name{font-size:13px;font-weight:700;color:var(--text);overflow-wrap:anywhere}
+.finance-code{display:inline-flex;padding:4px 8px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);font:700 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text2)}
+.finance-kind,.finance-account,.finance-answer,.finance-status{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:750;white-space:nowrap}
+.finance-account{background:rgba(56,189,248,.10);color:#7dd3fc;border:1px solid rgba(56,189,248,.22)}
+.finance-answer.yes{background:rgba(74,222,128,.10);color:var(--green);border:1px solid rgba(74,222,128,.2)}
+.finance-answer.no{background:rgba(160,180,200,.08);color:var(--text3);border:1px solid var(--border)}
+.finance-status.active{background:rgba(74,222,128,.10);color:var(--green);border:1px solid rgba(74,222,128,.2)}
+.finance-status.archived{background:rgba(160,180,200,.08);color:var(--text3);border:1px solid var(--border)}
+.finance-center{text-align:center!important}
+@media(max-width:700px){.finance-directory .page-title{font-size:18px}.finance-heading-icon{width:36px;height:36px;flex-basis:36px}.finance-tabs{width:100%}.finance-tab{flex:1;justify-content:center;min-width:120px}.finance-table-summary{padding:10px 12px}}
+
 /* ── BADGES ── */
 .badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.03em}
 
@@ -3156,11 +3190,14 @@ function renderFinanceDirectory(){
   const el=document.getElementById('main-content');
   const canEdit=window.maccCanManageProjects?.()===true;
   const rows=(state.financeArticles||[]).filter(a=>a.type===financeDirectoryTab).sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),'uk'));
-  const tabs=Object.entries(FINANCE_ARTICLE_TYPES).map(([type,label])=>`<button class="btn ${financeDirectoryTab===type?'primary':''}" data-macc-view-control onclick="setFinanceDirectoryTab('${type}')" style="border-color:${financeDirectoryTab===type?'var(--accent)':'var(--border)'}">${esc(label)} <span style="opacity:.7">${(state.financeArticles||[]).filter(a=>a.type===type).length}</span></button>`).join('');
+  const tabs=Object.entries(FINANCE_ARTICLE_TYPES).map(([type,label])=>`<button class="finance-tab ${financeDirectoryTab===type?'active':''}" data-macc-view-control onclick="setFinanceDirectoryTab('${type}')">${esc(label)} <span class="finance-tab-count">${(state.financeArticles||[]).filter(a=>a.type===type).length}</span></button>`).join('');
   const tbody=rows.length?rows.map(a=>{
-    return `<tr ${canEdit?`onclick="openFinanceArticleModal('${a.id}')"`:''} style="cursor:${canEdit?'pointer':'default'};opacity:${a.active===false?0.55:1}"><td><b style="color:${FINANCE_ARTICLE_COLOR[a.type]||'var(--accent)'}">${esc(FINANCE_ARTICLE_TYPES[a.type]||a.type)}</b></td><td><b>${esc(a.name)}</b></td><td><b class="mono">${esc(a.code)}</b></td><td style="font-size:11px">${esc(FINANCE_ACCOUNT_LABEL[a.account]||a.account||'Банк')}</td><td style="font-size:11px">${a.vatMode==='with_vat'?'З ПДВ':a.vatMode==='no_vat'?'Без ПДВ':'За компанією'}</td><td style="font-size:11px">${a.affectsProfit===false?'Ні':'Так'}</td><td style="font-size:11px">${a.requiresSite?'Так':'Ні'}</td><td><span class="badge ${a.active===false?'gray':'green'}">${a.active===false?'Архівна':'Активна'}</span></td>${canEdit?`<td onclick="event.stopPropagation()"><button class="btn sm" onclick="toggleFinanceArticle('${a.id}')">${a.active===false?'Активувати':'В архів'}</button></td>`:'<td></td>'}</tr>`;
+    const kindColor=FINANCE_ARTICLE_COLOR[a.type]||'var(--accent)';
+    const account=FINANCE_ACCOUNT_LABEL[a.account]||a.account||'Банк';
+    const vat=a.vatMode==='with_vat'?'З ПДВ':a.vatMode==='no_vat'?'Без ПДВ':'За компанією';
+    return `<tr ${canEdit?`onclick="openFinanceArticleModal('${a.id}')"`:''} style="cursor:${canEdit?'pointer':'default'};opacity:${a.active===false?0.68:1}"><td><span class="finance-kind" style="color:${kindColor};border:1px solid ${kindColor};background:var(--bg2)">${esc(FINANCE_ARTICLE_TYPES[a.type]||a.type)}</span></td><td><div class="finance-article-name">${esc(a.name)}</div></td><td><span class="finance-code">${esc(a.code)}</span></td><td><span class="finance-account">${account==='Банк'?'Банк':'Каса'}</span></td><td>${esc(vat)}</td><td class="finance-center"><span class="finance-answer ${a.affectsProfit===false?'no':'yes'}">${a.affectsProfit===false?'Ні':'Так'}</span></td><td class="finance-center"><span class="finance-answer ${a.requiresSite?'yes':'no'}">${a.requiresSite?'Так':'Ні'}</span></td><td><span class="finance-status ${a.active===false?'archived':'active'}">${a.active===false?'Архівна':'Активна'}</span></td>${canEdit?`<td onclick="event.stopPropagation()"><button class="btn sm" onclick="toggleFinanceArticle('${a.id}')">${a.active===false?'Активувати':'В архів'}</button></td>`:'<td></td>'}</tr>`;
   }).join(''):`<tr><td colspan="9"><div class="empty"><div class="empty-icon">📚</div><h3>Статей у цьому розділі ще немає</h3><p>${canEdit?'Створіть першу статтю єдиного довідника.':'Адміністратор ще не додав статті.'}</p></div></td></tr>`;
-  el.innerHTML=`<div class="page-header"><div><h1 class="page-title">📚 Єдиний фінансовий довідник</h1><div style="font-size:12px;color:var(--text3);margin-top:3px">Статті доходів, витрат, переказів і переміщень для всіх компаній</div></div>${canEdit?`<button class="btn primary" onclick="openFinanceArticleModal(null,'${financeDirectoryTab}')">+ Додати статтю</button>`:''}</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">${tabs}</div><div class="card"><div class="table-wrap"><table><thead><tr><th>Розділ</th><th>Назва статті</th><th>Код</th><th>Рахунок</th><th>ПДВ</th><th>У прибутку</th><th>Об’єкт обов’язковий</th><th>Статус</th><th></th></tr></thead><tbody>${tbody}</tbody></table></div></div>`;
+  el.innerHTML=`<div class="finance-directory"><div class="page-header"><div class="finance-page-heading"><span class="finance-heading-icon"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><div><h1 class="page-title">Єдиний фінансовий довідник</h1><div class="finance-directory-subtitle">Статті доходів, витрат, переказів і переміщень для всіх компаній</div></div></div>${canEdit?`<button class="btn primary" onclick="openFinanceArticleModal(null,'${financeDirectoryTab}')">+ Додати статтю</button>`:''}</div><div class="finance-tabs">${tabs}</div><div class="card finance-table-card"><div class="finance-table-summary"><span>${esc(FINANCE_ARTICLE_TYPES[financeDirectoryTab])}</span><b>Статей: ${rows.length}</b></div><div class="finance-table-wrap"><table class="finance-table"><thead><tr><th>Розділ</th><th>Назва статті</th><th>Код</th><th>Рахунок</th><th>ПДВ</th><th class="finance-center">У прибутку</th><th class="finance-center">Об’єкт обов’язковий</th><th>Статус</th><th>Дія</th></tr></thead><tbody>${tbody}</tbody></table></div></div></div>`;
 }
 function nextFinanceArticleCode(type){
   const prefix=FINANCE_ARTICLE_PREFIX[type]||'ART';
