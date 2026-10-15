@@ -6,7 +6,7 @@
 <title>MACC — Management Accounting</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="macc-access.js?v=20261015-1"></script>
+<script src="macc-access.js?v=20261015-2"></script>
 <script src="site-integration.js"></script>
 <link rel="icon" type="image/png" href="logo.png">
 <style>
@@ -861,13 +861,7 @@ const FINANCE_ARTICLE_TYPES={income:'Дохід',expense:'Витрата',transf
 const FINANCE_ARTICLE_PREFIX={income:'INC',expense:'EXP',transfer:'TRF',movement:'MOV'};
 const FINANCE_ARTICLE_COLOR={income:'var(--green)',expense:'var(--red)',transfer:'#a78bfa',movement:'var(--amber)'};
 const FINANCE_ACCOUNT_LABEL={bank:'Банк',cash:'Каса'};
-const GROUP_COMPANIES=[
-  {id:'AP',name:'АП — Армабудпроект',tax:'ФОП · ЄП 5%'},
-  {id:'AK',name:'АК — ремонтно-будівельна',tax:'ПДВ · комерційні об’єкти'},
-  {id:'NK',name:'НК — будівельна',tax:'ПДВ · держ/бюджетні об’єкти'},
-  {id:'VB',name:'ВБ — будівельна',tax:'ПДВ · держ + комерційні об’єкти'}
-];
-function getCompanies(){return state.companies?.length?state.companies:GROUP_COMPANIES}
+function getCompanies(){return Array.isArray(state.companies)?state.companies:[]}
 function companyName(id){return getCompanies().find(c=>c.id===id)?.name||'Не вказано'}
 function companyOptions(selected=''){return `<option value="">— Оберіть компанію —</option>${getCompanies().map(c=>`<option value="${esc(c.id)}"${c.id===selected?' selected':''}>${esc(c.name)}</option>`).join('')}`}
 
@@ -875,7 +869,7 @@ function companyOptions(selected=''){return `<option value="">— Оберіть
 //  STATE
 // ══════════════════════════════════════════════════════════════
 let state={
-  companies:GROUP_COMPANIES.map(x=>({...x})),
+  companies:[],
   sites:[],
   contractors:[],
   executors:[],
@@ -947,6 +941,9 @@ function save(){
 function load(){
   const savedTheme=localStorage.getItem('macc_theme')||'dark';
   document.body.classList.toggle('light-theme', savedTheme==='light');
+  // Secure workspaces load only their own company-scoped state from Supabase.
+  // Never hydrate them from the legacy shared browser/Firebase storage.
+  if(window.MACC_SECURE_BOOT){render();return;}
   const loc=localStorage.getItem('macc_state');
   if(loc){try{const d=JSON.parse(loc);if(d)applyState(d);}catch(e){}}
   fetch(`${FB_URL}/data.json`).then(r=>r.json()).then(d=>{
@@ -955,7 +952,7 @@ function load(){
   render();
 }
 function applyState(d){
-  state.companies=d.companies?.length?d.companies:GROUP_COMPANIES.map(x=>({...x}));
+  state.companies=Array.isArray(d.companies)?d.companies:[];
   state.sites=d.sites||[];
   state.contractors=d.contractors||d.subs||[];
   state.executors=d.executors||d.itrs||[];

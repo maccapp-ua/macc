@@ -380,7 +380,7 @@
     const {data,error}=await db.from('macc_company_state').select('data,updated_at').eq('company_id',profile.company_id).maybeSingle();
     if(error)throw error;
     if(data?.data){fullState=data.data;fullState.financeArticles=(Array.isArray(fullState.financeArticles)?fullState.financeArticles:[]).map(a=>({...a,type:a.type==='investment'||a.type==='loan'?'transfer':a.type,account:a.account||'bank'}));window.applyState(scopedState(fullState));latestData=JSON.stringify(fullState);localStorage.setItem(companyStateKey(),JSON.stringify(state));}
-    else {fullState={sites:[],contractors:[],executors:[],cashflows:[],financeArticles:[],cfCategories:[],cfCounterparties:[],budgets:{},meetings:[],tasks:[],tenders:[]};window.applyState(fullState);latestData=JSON.stringify(fullState);}
+    else {fullState={companies:[],sites:[],contractors:[],executors:[],cashflows:[],financeArticles:[],cfCategories:[],cfCounterparties:[],budgets:{},meetings:[],tasks:[],tenders:[]};window.applyState(fullState);latestData=JSON.stringify(fullState);}
     window.render();applyReadOnly();
   }
   function renderAccess(){
