@@ -238,9 +238,19 @@
       if(error?.context){try{const detail=await error.context.json();reason=detail.error||reason;}catch(_) {}}
       if(error||!data?.ok)throw new Error(reason||data?.error||'Не вдалося створити компанію.');
       message.textContent='Компанію створено. Входимо…';
-      const {error:loginError}=await db.auth.signInWithPassword({email,password});
+      skipSignInEvent=true;
+      const {data:loginData,error:loginError}=await waitFor(db.auth.signInWithPassword({email,password}),15000,'Компанію створено, але автоматичний вхід триває надто довго. Поверніться до входу та увійдіть із цією поштою і паролем.');
       if(loginError)throw loginError;
-    }catch(error){message.textContent='Не вдалося створити робочий простір: '+error.message;button.disabled=false;}
+      if(!loginData?.session)throw new Error('Компанію створено, але сесію входу не отримано. Поверніться до входу та увійдіть вручну.');
+      await activate(loginData.session);
+      skipSignInEvent=false;
+      if(document.getElementById('macc-auth'))button.disabled=false;
+    }catch(error){
+      skipSignInEvent=false;
+      const duplicate=/already (?:been )?registered|already exists/i.test(error.message||'');
+      message.textContent=duplicate?'Ця електронна пошта вже зареєстрована. Поверніться до входу або скористайтеся відновленням пароля.':'Не вдалося створити робочий простір: '+error.message;
+      button.disabled=false;
+    }
   }
   function showPasswordSetup(){
     authOverlay();
