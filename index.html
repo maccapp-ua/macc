@@ -258,7 +258,6 @@ select.form-input option{background:var(--bg3)}
   <div class="nav-section-label">Головне</div>
   <button class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>Дашборд</button>
   <button class="nav-item" id="nav-companies" onclick="navigate('companies')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-2h4v2"/></svg></span>Компанії</button>
-  <button class="nav-item" id="nav-finance-directory" onclick="navigate('finance-directory')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>Фінансовий довідник</button>
   <button class="nav-item" id="nav-sites" onclick="navigate('sites')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21V12h6v9"/></svg></span>Об'єкти</button>
   <button class="nav-item" id="nav-budgets" onclick="navigate('budgets')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>Бюджети об'єктів</button>
   <button class="nav-item" id="nav-cashflow" onclick="navigate('cashflow')"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.8 9A2 2 0 0 0 13 8h-2a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-2a2 2 0 0 1-1.8-1"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="18"/></svg></span>Грошові потоки</button>
@@ -321,10 +320,6 @@ select.form-input option{background:var(--bg3)}
     <button class="mob-more-item" onclick="closeMobMore();navigate('procurement')">
       <span class="mob-more-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
       Prozorro
-    </button>
-    <button class="mob-more-item" onclick="closeMobMore();navigate('finance-directory')">
-      <span class="mob-more-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
-      Фінансовий довідник
     </button>
     <button class="mob-more-item" onclick="closeMobMore();navigate('service')">
       <span class="mob-more-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><circle cx="12" cy="12" r="9"/></svg></span>
@@ -471,12 +466,12 @@ select.form-input option{background:var(--bg3)}
       <div class="form-group"><label class="form-label">Компанія групи *</label><select class="form-input" id="cf-company" disabled></select></div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Тип *</label>
-          <select class="form-input" id="cf-type" onchange="updateCFArticleOptions()">
+          <select class="form-input" id="cf-type">
             <option value="income">📈 Дохід</option>
             <option value="expense">📉 Витрата</option>
           </select></div>
         <div class="form-group"><label class="form-label">Форма оплати *</label>
-          <select class="form-input" id="cf-form" onchange="updateCFArticleOptions()">
+          <select class="form-input" id="cf-form">
             <option value="bank">🏦 Рахунок (банк)</option>
             <option value="cash">💵 Готівка</option>
           </select></div>
@@ -489,16 +484,13 @@ select.form-input option{background:var(--bg3)}
       </div>
       <datalist id="cf-cp-list"></datalist>
       <div class="form-row2">
-        <div class="form-group"><label class="form-label">Стаття фінансового довідника *</label>
-          <select class="form-input" id="cf-category"><option value="">— Оберіть статтю —</option></select></div>
-        <div class="form-group"><label class="form-label">Об'єкт</label>
-          <select class="form-input" id="cf-site" onchange="updateCFWorkTypes()">
-            <option value="">— Без об'єкта —</option>
+        <div class="form-group"><label class="form-label">Об'єкт *</label>
+          <select class="form-input" id="cf-site" onchange="updateCFBudgetOptions()">
+            <option value="">— Оберіть об'єкт —</option>
           </select></div>
+        <div class="form-group"><label class="form-label">Стаття бюджету *</label>
+          <select class="form-input" id="cf-category" disabled><option value="">— Спочатку оберіть об'єкт —</option></select></div>
       </div>
-      <datalist id="cf-wt-list"></datalist>
-      <div class="form-group"><label class="form-label">Вид робіт <span style="font-size:9px;color:var(--text3)">(прив'язка до бюджету)</span></label>
-        <input class="form-input" id="cf-worktype" list="cf-wt-list" placeholder="оберіть зі списку або введіть вручну..."></div>
       <div class="form-group"><label class="form-label">Контрагент</label>
         <input class="form-input" id="cf-counterparty" list="cf-cp-list" placeholder="введіть або оберіть..."></div>
       <div class="form-group"><label class="form-label">Примітки</label>
@@ -527,12 +519,12 @@ select.form-input option{background:var(--bg3)}
       </div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">З рахунку *</label>
-          <select class="form-input" id="tr-from" onchange="updateTransferArticleOptions();calcTransfer()">
+          <select class="form-input" id="tr-from" onchange="calcTransfer()">
             <option value="bank">🏦 Банківський рахунок</option>
             <option value="cash">💵 Каса (готівка)</option>
           </select></div>
         <div class="form-group"><label class="form-label">На рахунок *</label>
-          <select class="form-input" id="tr-to" onchange="updateTransferArticleOptions();calcTransfer()">
+          <select class="form-input" id="tr-to" onchange="calcTransfer()">
             <option value="cash">💵 Каса (готівка)</option>
             <option value="bank">🏦 Банківський рахунок</option>
           </select></div>
@@ -543,8 +535,6 @@ select.form-input option{background:var(--bg3)}
         <div class="form-group"><label class="form-label">Отримано (після втрат)</label>
           <input class="form-input" type="number" id="tr-received" placeholder="0" readonly style="opacity:.7"></div>
       </div>
-      <div class="form-group"><label class="form-label">Стаття фінансового довідника *</label>
-        <select class="form-input" id="tr-category"><option value="">— Оберіть статтю —</option></select></div>
       <div class="form-group"><label class="form-label">Примітки</label>
         <textarea class="form-input" id="tr-notes" rows="2"></textarea></div>
     </div>
@@ -565,8 +555,6 @@ select.form-input option{background:var(--bg3)}
     <div class="modal-body">
       <div class="form-group"><label class="form-label">Назва статті *</label>
         <input class="form-input" id="br-work" placeholder="напр. Улаштування фундаменту..."></div>
-      <div class="form-group"><label class="form-label">Стаття витрат фінансового довідника</label>
-        <select class="form-input" id="br-finance-article"><option value="">— Не вибрано —</option></select></div>
       <div class="form-group"><label class="form-label">Виконавець / підрядник</label>
         <input class="form-input" id="br-executor" list="br-executor-list" placeholder="— не вказано —" autocomplete="off">
         <datalist id="br-executor-list"></datalist></div>
@@ -986,6 +974,7 @@ function applyState(d){
 //  NAVIGATION
 // ══════════════════════════════════════════════════════════════
 function navigate(page){
+  if(page==='finance-directory')page='dashboard';
   // Remember the current section only for this browser session.
   // Closing the browser or signing out starts from the dashboard again.
   try{sessionStorage.setItem('macc_last_page',page);}catch(_){}
@@ -1021,7 +1010,6 @@ function render(){
   else if(curPage==='tasks')       renderTasksPage();
   else if(curPage==='companies')   renderCompanies();
   else if(curPage==='dashboard')   renderDashboard();
-  else if(curPage==='finance-directory') renderFinanceDirectory();
   else if(curPage==='service')     renderService();
   else if(curPage==='gantt')       renderGantt();
   else if(curPage==='procurement') renderProcurement();
@@ -1490,6 +1478,10 @@ function renderBudgets(){
   else renderBudgetList();
 }
 
+function cashflowMatchesBudgetRow(c,row){
+  return c.budgetRowId ? c.budgetRowId===row.id : c.workType===row.workType;
+}
+
 function renderBudgetList(){
   const el=document.getElementById('main-content');
   const sites=(state.sites||[]).filter(s=>s.companyId===activeCompanyId);
@@ -1504,7 +1496,7 @@ function renderBudgetList(){
       sumPlanCost += (+r.planCost  || 0);
       // factCost рядка = витрати з грош.потоків цього об'єкту по цьому виду робіт
       sumFactCost += cfs
-        .filter(c=>c.siteId===s.id && c.type==='expense' && c.workType===r.workType)
+        .filter(c=>c.siteId===s.id && c.type==='expense' && cashflowMatchesBudgetRow(c,r))
         .reduce((a,c)=>a+(+c.amount||0),0);
     });
   });
@@ -1562,7 +1554,7 @@ function renderBudgetList(){
       const totDC=rows.reduce((a,r)=>a+(+r.dcPrice||0),0);
       const totPlanCost=rows.reduce((a,r)=>a+(+r.planCost||0),0);
       const totPlanInc=totDC-totPlanCost;
-      const totFactCost=rows.reduce((a,r)=>a+(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a2,c)=>a2+(+c.amount||0),0),0);
+      const totFactCost=rows.reduce((a,r)=>a+(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&cashflowMatchesBudgetRow(c,r)).reduce((a2,c)=>a2+(+c.amount||0),0),0);
       const totFactInc=totDC-totFactCost;
       tbody+=`<tr onclick="openBudget('${s.id}')">
         <td style="color:var(--text);font-weight:600">${esc(s.name)}</td>
@@ -1609,7 +1601,7 @@ function renderBudgetDetail(){
   let totDC=0,totPC=0,totFC=0;
   rows.forEach(r=>{
     totDC+=rowDC(r);totPC+=rowPC(r);
-    totFC+=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
+    totFC+=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&cashflowMatchesBudgetRow(c,r)).reduce((a,c)=>a+(+c.amount||0),0);
   });
   const totPI=totDC-totPC, totFI=totDC-totFC;
   const totPIPct=totDC?totPI/totDC*100:0;
@@ -1627,15 +1619,14 @@ function renderBudgetDetail(){
   } else {
     rows.forEach((r,i)=>{
       const dc=rowDC(r), pc=rowPC(r);
-      const fc=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
+      const fc=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&cashflowMatchesBudgetRow(c,r)).reduce((a,c)=>a+(+c.amount||0),0);
       const pi=dc-pc, fi=dc-fc, diff=pc-fc;
       const execLabel=r.executor||'—';
       const execColor=r.executor==='СС'?'var(--green)':r.executor?'var(--blue)':'var(--text3)';
       const hasItems=r.items&&r.items.length>0;
-      const financeArticle=financeArticleById(r.financeArticleId);
       tbody+=`<tr onclick="openBudgetRowModal('${s.id}','${r.id}')" style="cursor:pointer">
         <td style="color:var(--text3);text-align:center;vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${i+1}</td>
-        <td style="color:var(--text);font-weight:600;min-width:160px;vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${esc(r.workType||'—')}${financeArticle?`<div style="font-size:9px;color:var(--accent);margin-top:4px">${esc(financeArticle.code)} · ${esc(financeArticle.name)}</div>`:''}</td>
+        <td style="color:var(--text);font-weight:600;min-width:160px;vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${esc(r.workType||'—')}</td>
         <td style="font-size:11px;font-weight:600;color:${execColor};vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${esc(execLabel)}</td>
         <td class="r mono" style="vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${dc?fmtN(dc):'—'}</td>
         <td class="r mono" style="color:var(--red);vertical-align:top;padding-top:${hasItems?'10px':'8px'}">${pc?fmtN(pc):'—'}</td>
@@ -1757,8 +1748,6 @@ function openBudgetRowModal(siteId,rowId){
   document.getElementById('br-end-date').value=r?.endDate||'';
   // executor combobox datalist
   const site=(state.sites||[]).find(x=>x.id===siteId);
-  const expenseArticles=financeArticlesForCompany(site?.companyId||activeCompanyId,'expense');
-  document.getElementById('br-finance-article').innerHTML='<option value="">— Не вибрано —</option>'+expenseArticles.map(a=>`<option value="${a.id}"${r?.financeArticleId===a.id?' selected':''}>${esc(a.code)} · ${esc(a.name)} · ${esc(FINANCE_ACCOUNT_LABEL[a.account]||'Банк')}</option>`).join('');
   const subs=(site?.subContracts||[]).map(sc=>sc.name).filter(Boolean);
   const contractors=(state.contractors||[]).map(c=>c.name).filter(Boolean);
   const allExec=[...new Set([...subs,...contractors])].sort();
@@ -1828,7 +1817,6 @@ function saveBudgetRow(){
   const data={
     id:editingBudgetRowId||uid(),
     workType,
-    financeArticleId:document.getElementById('br-finance-article').value,
     executor:document.getElementById('br-executor').value.trim()||'',
     items,
     startDate:document.getElementById('br-start-date').value||'',
@@ -2355,8 +2343,9 @@ function renderCashflow(){
   const balance=totInc-totExp, cashBal=cashInc-cashExp, bankBal=bankInc-bankExp;
 
   const usedCats=[...new Set(all.map(r=>r.category).filter(Boolean))];
-  const allCats=[...new Set([...(state.cfCategories||[]),...usedCats])].sort();
-  const sites=state.sites||[];
+  const sites=(state.sites||[]).filter(s=>s.companyId===activeCompanyId);
+  const budgetCats=sites.flatMap(s=>((state.budgets?.[s.id]?.rows)||[]).map(r=>r.workType)).filter(Boolean);
+  const allCats=[...new Set([...budgetCats,...usedCats])].sort();
 
   const sub=(label,val)=>`<div style="display:flex;justify-content:space-between;margin-top:5px;padding-top:4px;border-top:1px solid var(--border)"><span style="font-size:9px;color:var(--text3)">${label}</span><span style="font-size:11px;font-weight:600;color:var(--text2)">${fmtN(val)}</span></div>`;
 
@@ -2391,7 +2380,7 @@ function renderCashflow(){
       <option value="bank" ${cfFilters.form==='bank'?'selected':''}>🏦 Рахунок</option>
     </select>
     <select onchange="cfFilters.category=this.value;renderCashflow()" style="min-width:150px">
-      <option value="">Всі категорії</option>
+      <option value="">Всі статті бюджету</option>
       ${allCats.map(c=>`<option value="${esc(c)}"${cfFilters.category===c?' selected':''}>${esc(c)}</option>`).join('')}
     </select>
     <select onchange="cfFilters.site=this.value;renderCashflow()" style="min-width:130px">
@@ -2463,7 +2452,6 @@ function renderCashflow(){
         <button class="btn" onclick="openCFModal(null,'income')" style="background:#22c55e;color:#fff;border-color:#22c55e">+ 📈 Дохід</button>
         <button class="btn" onclick="openCFModal(null,'expense')" style="background:#ef4444;color:#fff;border-color:#ef4444">+ 📉 Витрата</button>
         <button class="btn" onclick="openTransferModal(null)" style="background:#8b5cf6;color:#fff;border-color:#8b5cf6">+ 🔄 Переказ</button>
-        ${window.maccCanManageProjects?.()===true?'<button class="btn sm" onclick="navigate(\'finance-directory\')" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9">📚 Фінансовий довідник</button>':''}
         <button class="btn sm" onclick="manageCFCounterparties()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9">⚙ Контрагенти</button>
         <button class="btn sm" onclick="exportCashflowExcel()" title="Excel">📥 Excel</button>
         <button class="btn sm" onclick="exportCashflowPDF()" title="PDF">🖨 PDF</button>
@@ -2475,7 +2463,7 @@ function renderCashflow(){
       <div style="overflow-x:auto">
         <table class="tbl">
           <thead><tr>
-            <th>Дата</th><th>Тип</th><th>Форма</th><th>Категорія</th>
+            <th>Дата</th><th>Тип</th><th>Форма</th><th>Стаття бюджету</th>
             <th>Об'єкт</th><th>Контрагент</th>
             <th class="r">Сума</th><th></th>
           </tr></thead>
@@ -2486,11 +2474,11 @@ function renderCashflow(){
     </div>
     ${catSummary.length?`<div class="card">
       <div class="card-head">
-        <span class="card-title">📊 Зведення по категоріях</span>
-        <span style="font-size:10px;color:var(--text3)">Натисніть на категорію щоб побачити деталі</span>
+        <span class="card-title">📊 Зведення за статтями бюджету</span>
+        <span style="font-size:10px;color:var(--text3)">Натисніть на статтю, щоб побачити деталі</span>
       </div>
       <div style="overflow-x:auto"><table class="tbl">
-        <thead><tr><th>Категорія</th><th class="r">Записів</th><th class="r">Доходи</th><th class="r">Витрати</th><th class="r">Баланс</th></tr></thead>
+        <thead><tr><th>Стаття бюджету</th><th class="r">Записів</th><th class="r">Доходи</th><th class="r">Витрати</th><th class="r">Баланс</th></tr></thead>
         <tbody>${catSummary.sort((a,b)=>(b.inc+b.exp)-(a.inc+a.exp)).map(c=>`<tr onclick="cfFilters.category='${esc(c.cat)}';renderCashflow();window.scrollTo({top:0,behavior:'smooth'})" style="cursor:pointer" title="Показати всі транзакції: ${esc(c.cat)}">
           <td style="font-weight:600;color:var(--accent)">${esc(c.cat)} <span style="font-size:9px;color:var(--text3)">→</span></td>
           <td class="r" style="color:var(--text3)">${c.count}</td>
@@ -2513,11 +2501,8 @@ function openCFModal(id,defaultType){
   document.getElementById('cf-amount').value=r?.amount||'';
   document.getElementById('cf-notes').value=r?.notes||'';
   const siteSel=document.getElementById('cf-site');
-  siteSel.innerHTML='<option value="">— Без об\'єкта —</option>'+(state.sites||[]).filter(s=>s.companyId===activeCompanyId).map(s=>`<option value="${s.id}"${r?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
-  document.getElementById('cf-worktype').value=r?.workType||'';
-  updateCFWorkTypes(r?.siteId);
-  const matchedArticle=r?.articleId?financeArticleById(r.articleId):(state.financeArticles||[]).find(a=>a.name===r?.category);
-  updateCFArticleOptions(matchedArticle?.id||(r?.category?`legacy:${r.category}`:''));
+  siteSel.innerHTML='<option value="">— Оберіть об\'єкт —</option>'+(state.sites||[]).filter(s=>s.companyId===activeCompanyId).map(s=>`<option value="${s.id}"${r?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+  updateCFBudgetOptions(r?.budgetRowId||'',r?.workType||r?.category||'');
   const contractorNames=(state.contractors||[]).map(c=>c.name).filter(Boolean);
   const clientNames=(state.sites||[]).map(s=>s.client).filter(Boolean);
   const usedCP=[...new Set((state.cashflows||[]).map(x=>x.counterparty).filter(Boolean))];
@@ -2526,52 +2511,43 @@ function openCFModal(id,defaultType){
   document.getElementById('cf-counterparty').value=r?.counterparty||'';
   document.getElementById('modal-cf').classList.add('open');
 }
-function updateCFArticleOptions(selectedValue){
+function updateCFBudgetOptions(selectedRowId='',legacyName=''){
   const select=document.getElementById('cf-category');if(!select)return;
-  const current=selectedValue!==undefined?selectedValue:select.value;
-  const flowType=document.getElementById('cf-type').value;
-  const account=document.getElementById('cf-form').value;
-  const articles=(state.financeArticles||[]).filter(a=>a.active!==false&&a.type===flowType&&(a.account||'bank')===account).sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),'uk'));
-  const groups=articles.map(a=>`<option value="${a.id}">${esc(a.code)} · ${esc(a.name)}</option>`).join('');
-  let legacy='';
-  if(current&&String(current).startsWith('legacy:')){const name=String(current).slice(7);legacy=`<option value="${esc(current)}">${esc(name)} · раніше внесена категорія</option>`;}
-  select.innerHTML='<option value="">— Оберіть статтю —</option>'+legacy+groups;
-  if(current&&[...select.options].some(o=>o.value===current))select.value=current;
-}
-function updateCFWorkTypes(siteId){
-  const id=siteId||document.getElementById('cf-site').value;
-  const rows=id?(state.budgets[id]||{rows:[]}).rows||[]:[];
-  const usedWT=[...new Set((state.cashflows||[]).filter(c=>c.workType).map(c=>c.workType))];
-  const all=[...new Set([...rows.map(r=>r.workType).filter(Boolean),...usedWT])].sort();
-  document.getElementById('cf-wt-list').innerHTML=all.map(w=>`<option value="${esc(w)}">`).join('');
+  const siteId=document.getElementById('cf-site')?.value||'';
+  const rows=siteId?((state.budgets?.[siteId]?.rows)||[]):[];
+  select.disabled=!siteId||!rows.length;
+  select.innerHTML=!siteId
+    ?'<option value="">— Спочатку оберіть об’єкт —</option>'
+    :!rows.length
+      ?'<option value="">— Бюджет об’єкта порожній —</option>'
+      :'<option value="">— Оберіть статтю бюджету —</option>'+rows.map((r,index)=>`<option value="${r.id}">${index+1}. ${esc(r.workType||'Без назви')}</option>`).join('');
+  let value=selectedRowId;
+  if(!value&&legacyName)value=rows.find(r=>r.workType===legacyName)?.id||'';
+  if(value&&[...select.options].some(o=>o.value===value))select.value=value;
 }
 function saveCF(){
   if(!state.cashflows)state.cashflows=[];
   const amount=+document.getElementById('cf-amount').value||0;
   const date=document.getElementById('cf-date').value;
-  const articleValue=document.getElementById('cf-category').value;
-  const article=financeArticleById(articleValue);
-  const existing=editingCFId?(state.cashflows||[]).find(x=>x.id===editingCFId):null;
-  const category=article?.name||(articleValue.startsWith('legacy:')?articleValue.slice(7):'');
+  const budgetRowId=document.getElementById('cf-category').value;
   const companyId=document.getElementById('cf-company').value;
+  const siteId=document.getElementById('cf-site').value;
+  const budgetRow=((state.budgets?.[siteId]?.rows)||[]).find(r=>r.id===budgetRowId);
   if(!date){alert('Введіть дату');return;}
   if(!amount){alert('Введіть суму');return;}
   if(!companyId){alert('Оберіть компанію');return;}
-  if(!category){alert('Оберіть статтю з єдиного фінансового довідника.');return;}
-  const siteId=document.getElementById('cf-site').value;
-  if(article?.requiresSite&&!siteId){alert('Для цієї статті потрібно обов’язково обрати об’єкт.');return;}
+  if(!siteId){alert('Оберіть об’єкт. Кожна фінансова операція має бути прив’язана до об’єкта.');return;}
+  if(!budgetRow){alert('Оберіть статтю з бюджету цього об’єкта.');return;}
   const data={
     id:editingCFId||uid(),
     type:document.getElementById('cf-type').value,
     form:document.getElementById('cf-form').value,
-    date,amount,category,companyId,
-    articleId:article?.id||existing?.articleId||'',
-    articleType:article?.type||existing?.articleType||'',
-    vatMode:article?.vatMode||existing?.vatMode||'default',
+    date,amount,category:budgetRow.workType||'Без назви',companyId,
+    budgetRowId:budgetRow.id,
     siteId,
     counterparty:document.getElementById('cf-counterparty').value.trim(),
     notes:document.getElementById('cf-notes').value.trim(),
-    workType:document.getElementById('cf-worktype').value.trim(),
+    workType:budgetRow.workType||'',
   };
   if(editingCFId){const i=state.cashflows.findIndex(x=>x.id===editingCFId);if(i>=0)state.cashflows[i]=data;}
   else state.cashflows.push(data);
@@ -2629,21 +2605,9 @@ function openTransferModal(id){
   document.getElementById('tr-to').value=r?.transferTo||'cash';
   document.getElementById('tr-loss').value=r?.lossPercent||'';
   document.getElementById('tr-notes').value=r?.notes||'';
-  const matchedArticle=r?.articleId?financeArticleById(r.articleId):(state.financeArticles||[]).find(a=>a.name===r?.category);
-  updateTransferArticleOptions(matchedArticle?.id||(r?.category?`legacy:${r.category}`:''));
   calcTransfer();
   document.getElementById('modal-transfer').classList.add('open');
 }
-function updateTransferArticleOptions(selectedValue){
-  const select=document.getElementById('tr-category');if(!select)return;
-  const current=selectedValue!==undefined?selectedValue:select.value;
-  const account=document.getElementById('tr-from').value;
-  const articles=(state.financeArticles||[]).filter(a=>a.active!==false&&['transfer','movement'].includes(a.type)&&(a.account||'bank')===account).sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),'uk'));
-  let legacy='';if(current&&String(current).startsWith('legacy:')){const name=String(current).slice(7);legacy=`<option value="${esc(current)}">${esc(name)} · раніше внесена категорія</option>`;}
-  select.innerHTML='<option value="">— Оберіть статтю —</option>'+legacy+articles.map(a=>`<option value="${a.id}">${esc(FINANCE_ARTICLE_TYPES[a.type])} · ${esc(a.code)} · ${esc(a.name)}</option>`).join('');
-  if(current&&[...select.options].some(o=>o.value===current))select.value=current;
-}
-
 function saveTransfer(){
   const date=document.getElementById('tr-date').value;
   const amount=+document.getElementById('tr-amount').value||0;
@@ -2651,14 +2615,11 @@ function saveTransfer(){
   const toForm=document.getElementById('tr-to').value;
   const loss=+document.getElementById('tr-loss').value||0;
   const received=+(amount*(1-loss/100)).toFixed(2);
-  const articleValue=document.getElementById('tr-category').value;
-  const article=financeArticleById(articleValue);
-  const category=article?.name||(articleValue.startsWith('legacy:')?articleValue.slice(7):'');
+  const category='Переказ між рахунками';
   const notes=document.getElementById('tr-notes').value.trim();
   if(!date){alert('Введіть дату');return;}
   if(!amount){alert('Введіть суму');return;}
   if(fromForm===toForm){alert('Рахунок відправника та отримувача не можуть співпадати');return;}
-  if(!category){alert('Оберіть статтю з єдиного фінансового довідника.');return;}
   if(!state.cashflows)state.cashflows=[];
   // якщо редагуємо — видаляємо старий переказ (out + in)
   if(editingTransferId){
@@ -2673,13 +2634,13 @@ function saveTransfer(){
     companyId:activeCompanyId,
     transferTo:toForm, transferReceived:received, lossPercent:loss,
     transferGroupId:groupId, transferRole:'out',
-    date, amount, category, articleId:article?.id||'',articleType:article?.type||'',vatMode:article?.vatMode||'default',notes,
+    date, amount, category, notes,
   });
   state.cashflows.push({
     id:inId, type:'income', form:toForm,
     companyId:activeCompanyId,
     transferGroupId:groupId, transferRole:'in',
-    date, amount:received, category, articleId:article?.id||'',articleType:article?.type||'',vatMode:article?.vatMode||'default',notes,
+    date, amount:received, category, notes,
   });
   save();closeModal('transfer');renderCashflow();
 }
@@ -4076,7 +4037,7 @@ function exportBudgetPDF(siteId){
   let totDC=0,totPC=0,totFC=0;
   const trs=rows.map((r,i)=>{
     const dc=rowDC(r),pc=rowPC(r);
-    const fc=(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense'&&c.workType===r.workType).reduce((a,c)=>a+(+c.amount||0),0);
+    const fc=(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense'&&cashflowMatchesBudgetRow(c,r)).reduce((a,c)=>a+(+c.amount||0),0);
     totDC+=dc;totPC+=pc;totFC+=fc;
     const pi=dc-pc,fi=dc-fc,diff=pc-fc;
     const p=(n,d)=>d?(n/d*100).toFixed(1)+'%':'—';
@@ -4101,7 +4062,7 @@ function exportBudgetPDF(siteId){
 
 // ── Грошові потоки ────────────────────────────────────────────
 function exportCashflowExcel(){
-  const all=state.cashflows||[];
+  const all=(state.cashflows||[]).filter(r=>r.companyId===activeCompanyId);
   let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
   // apply current filters
   if(cfFilters.type)    rows=rows.filter(r=>r.type===cfFilters.type);
@@ -4111,16 +4072,16 @@ function exportCashflowExcel(){
   if(cfFilters.month)   rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
   if(cfFilters.tag)     rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
   if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q));}
-  const header=['Дата','Тип','Форма оплати','Категорія','Об\'єкт','Контрагент','Вид робіт','Сума','Примітки'];
+  const header=['Дата','Тип','Форма оплати','Стаття бюджету','Об\'єкт','Контрагент','Сума','Примітки'];
   const data=[header,...rows.map(r=>{
     const site=(state.sites||[]).find(s=>s.id===r.siteId);
-    return[r.date,r.type==='income'?'Дохід':'Розхід',CF_FORM_LABEL[r.form]||r.form,r.category||'',site?.name||'',r.counterparty||'',r.workType||'',r.tag||'',+r.amount||0,r.notes||''];
+    return[r.date,r.type==='income'?'Дохід':'Розхід',CF_FORM_LABEL[r.form]||r.form,r.category||'',site?.name||'',r.counterparty||'',+r.amount||0,r.notes||''];
   })];
   xlsxDownload(data,'Грошові потоки',`MACC_ГрошовіПотоки_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 function exportCashflowPDF(){
-  const all=state.cashflows||[];
+  const all=(state.cashflows||[]).filter(r=>r.companyId===activeCompanyId);
   let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
   if(cfFilters.type)    rows=rows.filter(r=>r.type===cfFilters.type);
   if(cfFilters.form)    rows=rows.filter(r=>r.form===cfFilters.form);
@@ -4141,17 +4102,16 @@ function exportCashflowPDF(){
       <td>${esc(r.category||'—')}</td>
       <td>${esc(site?.name||'—')}</td>
       <td>${esc(r.counterparty||'—')}</td>
-      <td>${esc(r.workType||'—')}</td>
       <td class="r" style="font-weight:700;color:${isInc?'green':'red'}">${isInc?'+':'-'}${fmtN(r.amount)}</td>
       <td style="font-size:10px;color:#666">${esc(r.notes||'')}</td>
     </tr>`;
   }).join('');
-  const activeFilters=Object.entries({Тип:cfFilters.type,Форма:cfFilters.form,Категорія:cfFilters.category,Місяць:cfFilters.month,Тег:cfFilters.tag}).filter(([,v])=>v).map(([k,v])=>`${k}: ${v}`).join(' · ');
+  const activeFilters=Object.entries({Тип:cfFilters.type,Форма:cfFilters.form,'Стаття бюджету':cfFilters.category,Місяць:cfFilters.month,Тег:cfFilters.tag}).filter(([,v])=>v).map(([k,v])=>`${k}: ${v}`).join(' · ');
   const html=`${activeFilters?`<div style="margin-bottom:10px;padding:6px 10px;background:#f5f5f5;border-radius:4px;font-size:11px;color:#555">Фільтри: ${activeFilters}</div>`:''}
   <table>
-    <thead><tr><th>Дата</th><th>Тип</th><th>Форма</th><th>Категорія</th><th>Об'єкт</th><th>Контрагент</th><th>Вид робіт</th><th class="r">Сума</th><th>Примітки</th></tr></thead>
+    <thead><tr><th>Дата</th><th>Тип</th><th>Форма</th><th>Стаття бюджету</th><th>Об'єкт</th><th>Контрагент</th><th class="r">Сума</th><th>Примітки</th></tr></thead>
     <tbody>${trs}</tbody>
-    <tfoot><tr><td colspan="7">РАЗОМ (${rows.length} записів) · Доходи: ${fmtN(totInc)} · Витрати: ${fmtN(totExp)}</td><td class="r" style="color:${totInc-totExp>=0?'green':'red'}">${fmtN(totInc-totExp)}</td><td></td></tr></tfoot>
+    <tfoot><tr><td colspan="6">РАЗОМ (${rows.length} записів) · Доходи: ${fmtN(totInc)} · Витрати: ${fmtN(totExp)}</td><td class="r" style="color:${totInc-totExp>=0?'green':'red'}">${fmtN(totInc-totExp)}</td><td></td></tr></tfoot>
   </table>`;
   printPDF(`Грошові потоки — MACC`,html);
 }
