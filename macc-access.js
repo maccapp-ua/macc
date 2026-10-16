@@ -71,7 +71,11 @@
     if(identityError||!workspace)throw(error||identityError||new Error('Компанію не знайдено.'));
     company=workspace;applyCompanyBrand();return company;
   }
-  function assignedSiteIds(data=fullState){return new Set((data?.sites||[]).filter(s=>String(s.projectManagerEmail||'').toLowerCase()===String(profile?.email||'').toLowerCase()).map(s=>s.id));}
+  function assignedSiteIds(data=fullState){
+    const email=String(profile?.email||'').toLowerCase();
+    const executors=new Map((data?.executors||[]).map(e=>[e.id,e]));
+    return new Set((data?.sites||[]).filter(s=>String(s.projectManagerEmail||'').toLowerCase()===email||String(executors.get(s.projectManagerId)?.email||'').toLowerCase()===email).map(s=>s.id));
+  }
   function clone(data){return JSON.parse(JSON.stringify(data||{}));}
   function recordIds(rows){return new Set((rows||[]).filter(x=>x&&typeof x==='object'&&x.id).map(x=>x.id));}
   function hasDeletedRecords(before,after){

@@ -6,7 +6,7 @@
 <title>MACC — Management Accounting</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="macc-access.js?v=20261015-2"></script>
+<script src="macc-access.js?v=20261016-1"></script>
 <script src="site-integration.js"></script>
 <link rel="icon" type="image/png" href="logo.png">
 <style>
@@ -371,7 +371,7 @@ select.form-input option{background:var(--bg3)}
             <option value="done">Завершено</option>
           </select></div>
       </div>
-      <div class="form-group"><label class="form-label">Керівник проєкту</label>
+      <div class="form-group"><label class="form-label">Керівник проєкту *</label>
         <select class="form-input" id="s-project-manager"><option value="">— Не призначено —</option></select></div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Дата підписання договору</label>
@@ -434,10 +434,12 @@ select.form-input option{background:var(--bg3)}
       <button class="modal-close" onclick="closeModal('executor')">×</button>
     </div>
     <div class="modal-body">
+      <div class="form-group"><label class="form-label">Компанія *</label>
+        <select class="form-input" id="e-company"></select></div>
       <div class="form-group"><label class="form-label">Ім'я та прізвище *</label>
         <input class="form-input" id="e-name" placeholder="Іваненко Іван Іванович"></div>
       <div class="form-row2">
-        <div class="form-group"><label class="form-label">Посада</label>
+        <div class="form-group"><label class="form-label">Посада *</label>
           <input class="form-input" id="e-position" placeholder="напр. Виконроб, Інженер, ПМ..."></div>
         <div class="form-group"><label class="form-label">Рівень ЗП, грн/міс</label>
           <input class="form-input" type="number" id="e-salary" placeholder="0"></div>
@@ -799,8 +801,6 @@ select.form-input option{background:var(--bg3)}
         <div class="form-group"><label class="form-label">Керівник компанії *</label><input class="form-input" id="gc-manager" placeholder="ПІБ керівника"></div>
       </div>
       <div class="form-group"><label class="form-label">Логотип</label><input class="form-input" type="file" id="gc-logo" accept="image/*" onchange="previewGroupCompanyLogo(this)"><div id="gc-logo-preview" style="margin-top:8px"></div></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin:18px 0 8px"><div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Співробітники</div><button class="btn sm" type="button" onclick="addGroupEmployeeRow()">+ Додати співробітника</button></div>
-      <div id="gc-employees"></div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('group-company')">Скасувати</button><button class="btn primary" onclick="saveGroupCompany()">Зберегти компанію</button></div>
   </div>
@@ -864,6 +864,10 @@ const FINANCE_ACCOUNT_LABEL={bank:'Банк',cash:'Каса'};
 function getCompanies(){return Array.isArray(state.companies)?state.companies:[]}
 function companyName(id){return getCompanies().find(c=>c.id===id)?.name||'Не вказано'}
 function companyOptions(selected=''){return `<option value="">— Оберіть компанію —</option>${getCompanies().map(c=>`<option value="${esc(c.id)}"${c.id===selected?' selected':''}>${esc(c.name)}</option>`).join('')}`}
+function projectManagerName(site){
+  const executor=(state.executors||[]).find(e=>e.id===site?.projectManagerId)||(state.executors||[]).find(e=>site?.projectManagerEmail&&String(e.email||'').toLowerCase()===String(site.projectManagerEmail).toLowerCase());
+  return executor?.name||site?.projectManagerName||site?.projectManagerEmail||'—';
+}
 
 // ══════════════════════════════════════════════════════════════
 //  STATE
@@ -955,7 +959,19 @@ function applyState(d){
   state.companies=Array.isArray(d.companies)?d.companies:[];
   state.sites=d.sites||[];
   state.contractors=d.contractors||d.subs||[];
-  state.executors=d.executors||d.itrs||[];
+  state.executors=(d.executors||d.itrs||[]).map(e=>({...e}));
+  state.executors.forEach(executor=>{
+    if(executor.companyId)return;
+    const assignedSite=state.sites.find(site=>(site.itrAssignments||[]).some(a=>a.executorId===executor.id));
+    executor.companyId=assignedSite?.companyId||(state.companies.length===1?state.companies[0].id:'');
+  });
+  // One-time compatibility: employees previously stored inside a company
+  // become company-scoped executors without losing the entered data.
+  state.companies.forEach(c=>(c.employees||[]).forEach((employee,index)=>{
+    if(!state.executors.some(e=>e.companyId===c.id&&String(e.name||'').trim().toLowerCase()===String(employee.name||'').trim().toLowerCase())){
+      state.executors.push({id:`legacy_${c.id}_${index}`,companyId:c.id,name:employee.name||'',position:employee.position||'',salaryLevel:+employee.salary||0,phone:'',email:'',notes:''});
+    }
+  }));
   state.cashflows=d.cashflows||[];
   state.financeArticles=(Array.isArray(d.financeArticles)?d.financeArticles:[]).map(a=>({...a,type:a.type==='investment'||a.type==='loan'?'transfer':a.type,account:a.account||'bank'}));
   state.cfCategories=d.cfCategories||[];
@@ -1098,19 +1114,24 @@ function openSiteModal(id){
   if(id?window.maccCanEditSite?.(id)!==true:window.maccCanManageProjects?.()!==true){alert('Основні дані об’єкта може змінювати лише адміністратор або призначений керівник проєкту.');return;}
   editingSiteId=id||null;
   const s=id?(state.sites||[]).find(x=>x.id===id):null;
+  const siteCompanyId=s?.companyId||activeCompanyId;
+  const employees=(state.executors||[]).filter(e=>e.companyId===siteCompanyId);
+  if(!id&&!employees.length){
+    alert('Спочатку додайте хоча б одного співробітника у розділі «Виконавці», а потім створюйте об’єкт.');
+    curPage='executors';execTab='executors';activeCompanyId=siteCompanyId;render();return;
+  }
   document.getElementById('modal-site-title').textContent=id?'Редагувати об\'єкт':'Новий об\'єкт';
   document.getElementById('s-name').value=s?.name||'';
-  document.getElementById('s-company').innerHTML=companyOptions(s?.companyId||activeCompanyId);
+  document.getElementById('s-company').innerHTML=companyOptions(siteCompanyId);
+  document.getElementById('s-company').disabled=true;
   document.getElementById('s-contract-type').value=s?.contractType||'general';
   document.getElementById('s-client').value=s?.client||'';
   document.getElementById('s-address').value=s?.address||'';
   document.getElementById('s-amount').value=s?.amountGross||'';
   document.getElementById('s-status').value=s?.status||'active';
-  const managers=[...(window.maccProjectManagers?.()||[])];
-  if(s?.projectManagerEmail&&!managers.some(m=>m.email===s.projectManagerEmail))managers.push({email:s.projectManagerEmail,full_name:s.projectManagerEmail});
   const managerSelect=document.getElementById('s-project-manager');
-  managerSelect.innerHTML='<option value="">— Не призначено —</option>'+managers.map(m=>`<option value="${esc(m.email)}">${esc(m.full_name||m.email)}${m.position?' — '+esc(m.position):''}</option>`).join('');
-  managerSelect.value=s?.projectManagerEmail||'';
+  managerSelect.innerHTML='<option value="">— Оберіть співробітника —</option>'+employees.map(e=>`<option value="${esc(e.id)}">${esc(e.name)}${e.position?' — '+esc(e.position):''}</option>`).join('');
+  managerSelect.value=s?.projectManagerId||employees.find(e=>s?.projectManagerEmail&&String(e.email||'').toLowerCase()===String(s.projectManagerEmail).toLowerCase())?.id||'';
   managerSelect.disabled=window.maccCanManageProjects?.()!==true;
   document.getElementById('s-sign-date').value=s?.signDate||'';
   document.getElementById('s-deadline').value=s?.deadline||'';
@@ -1121,8 +1142,12 @@ function saveSite(){
   if(editingSiteId?window.maccCanEditSite?.(editingSiteId)!==true:window.maccCanManageProjects?.()!==true){alert('Основні дані об’єкта може змінювати лише адміністратор або призначений керівник проєкту.');return;}
   const name=document.getElementById('s-name').value.trim();
   const companyId=document.getElementById('s-company').value;
+  const projectManagerId=document.getElementById('s-project-manager').value;
+  const projectManager=(state.executors||[]).find(e=>e.id===projectManagerId&&e.companyId===companyId);
+  const existingSite=editingSiteId?(state.sites||[]).find(e=>e.id===editingSiteId):null;
   if(!name){alert('Введіть назву об\'єкту');return;}
   if(!companyId){alert('Оберіть компанію');return;}
+  if(!projectManager){alert('Оберіть керівника проєкту зі списку співробітників компанії');return;}
   const data={
     id:editingSiteId||uid(),
     name,
@@ -1132,7 +1157,9 @@ function saveSite(){
     address:document.getElementById('s-address').value.trim(),
     amountGross:+document.getElementById('s-amount').value||0,
     status:document.getElementById('s-status').value,
-    projectManagerEmail:document.getElementById('s-project-manager').value,
+    projectManagerId:projectManager.id,
+    projectManagerName:projectManager.name,
+    projectManagerEmail:window.maccCanManageProjects?.()===true?(projectManager.email||''):(existingSite?.projectManagerEmail||projectManager.email||''),
     signDate:document.getElementById('s-sign-date').value,
     deadline:document.getElementById('s-deadline').value,
     notes:document.getElementById('s-notes').value.trim(),
@@ -1265,7 +1292,7 @@ function renderSiteDetail(){
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px">
           <div>
             ${infoRow('Замовник', esc(s.client||'—'))}
-            ${infoRow('Керівник проєкту', esc(s.projectManagerEmail||'—'))}
+            ${infoRow('Керівник проєкту', esc(projectManagerName(s)))}
             ${infoRow('Адреса', esc(s.address||'—'))}
             ${infoRow('Сума договору', `<b style="color:var(--accent)">${fmtN(s.amountGross)}</b> грн`)}
           </div>
@@ -1977,7 +2004,7 @@ function renderExecutors(){
   const el=document.getElementById('main-content');
   el.innerHTML=`
     <div class="page-header">
-      <h1 class="page-title">👷 Виконавці та підрядники</h1>
+      <div><h1 class="page-title">👷 Виконавці та підрядники</h1>${companyPageTitle('Виконавці та підрядники')}</div>
       <div style="display:flex;gap:8px">
         ${(typeof maccCanAddDirectory!=='function'||maccCanAddDirectory())?(execTab==='contractors'?`<button class="btn primary" data-macc-accountant-allowed="directory" onclick="openContractorModal(null)">+ Новий підрядник</button>`:
                                    `<button class="btn primary" data-macc-accountant-allowed="directory" onclick="openExecutorModal(null)">+ Новий виконавець</button>`):''}
@@ -2013,16 +2040,17 @@ function renderContractorsTable(){
 }
 
 function renderExecutorsTable(){
-  const list=state.executors||[];
+  const list=(state.executors||[]).filter(e=>e.companyId===activeCompanyId);
   if(!list.length)return`<div class="empty"><div class="empty-icon">👤</div><h3>Виконавців ще немає</h3><p>Натисніть «+ Новий виконавець»</p></div>`;
   return`<table class="tbl">
     <thead><tr>
-      <th>Ім'я та прізвище</th><th>Посада</th><th>ЗП, грн/міс</th>
+      <th>Ім'я та прізвище</th><th>Посада</th><th>Компанія</th><th>ЗП, грн/міс</th>
       <th>Телефон</th><th>Email</th><th></th>
     </tr></thead>
     <tbody>${list.map(e=>`<tr onclick="curExecutorDetailId='${e.id}';renderExecutors()" style="cursor:pointer">
       <td style="color:var(--text);font-weight:600">${esc(e.name)}</td>
       <td style="color:var(--text2)">${esc(e.position||'—')}</td>
+      <td style="color:var(--text3)">${esc(companyName(e.companyId))}</td>
       <td class="r mono">${e.salaryLevel?fmtN(e.salaryLevel):'—'}</td>
       <td style="white-space:nowrap">${esc(e.phone||'—')}</td>
       <td style="color:var(--text3)">${esc(e.email||'—')}</td>
@@ -2141,8 +2169,9 @@ function renderExecutorDetail(){
   // find all site ITR assignments for this executor
   const projects=[];
   (state.sites||[]).forEach(s=>{
+    if(s.projectManagerId===e.id)projects.push({site:s,a:{role:'Керівник проєкту'}});
     (s.itrAssignments||[]).forEach(a=>{
-      if(a.executorId===e.id)projects.push({site:s,a});
+      if(a.executorId===e.id&&!projects.some(p=>p.site.id===s.id&&p.a.role===a.role))projects.push({site:s,a});
     });
   });
   const projectRows=projects.length?projects.map((p,i)=>`<tr>
@@ -2166,6 +2195,7 @@ function renderExecutorDetail(){
       <div class="card">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:12px">Контактна інформація</div>
         ${[
+          ['Компанія', companyName(e.companyId)],
           ['Посада', e.position],
           ['ЗП, грн/міс', e.salaryLevel?fmtN(e.salaryLevel):'—'],
           ['Телефон', e.phone?`<a href="tel:${esc(e.phone)}" style="color:var(--accent)">${esc(e.phone)}</a>`:'—'],
@@ -2231,6 +2261,8 @@ function openExecutorModal(id){
   editingExecutorId=id||null;
   const e=id?(state.executors||[]).find(x=>x.id===id):null;
   document.getElementById('modal-executor-title').textContent=id?'Редагувати виконавця':'Новий виконавець';
+  document.getElementById('e-company').innerHTML=companyOptions(e?.companyId||activeCompanyId);
+  document.getElementById('e-company').disabled=true;
   document.getElementById('e-name').value=e?.name||'';
   document.getElementById('e-position').value=e?.position||'';
   document.getElementById('e-salary').value=e?.salaryLevel||'';
@@ -2240,13 +2272,18 @@ function openExecutorModal(id){
   document.getElementById('modal-executor').classList.add('open');
 }
 function saveExecutor(){
+  const companyId=document.getElementById('e-company').value;
   const name=document.getElementById('e-name').value.trim();
+  const position=document.getElementById('e-position').value.trim();
+  if(!companyId){alert('Оберіть компанію');return;}
   if(!name){alert('Введіть ім\'я');return;}
+  if(!position){alert('Вкажіть посаду');return;}
   const existing=editingExecutorId?(state.executors||[]).find(x=>x.id===editingExecutorId):null;
   const data={
     id:editingExecutorId||uid(),
+    companyId,
     name,
-    position:document.getElementById('e-position').value.trim(),
+    position,
     salaryLevel:+document.getElementById('e-salary').value||0,
     phone:document.getElementById('e-phone').value.trim(),
     email:document.getElementById('e-email').value.trim(),
@@ -3122,7 +3159,7 @@ function renderCompanies(){
   const el=document.getElementById('main-content');
   const companies=getCompanies();
   const cards=companies.map(c=>{
-    const employees=c.employees||[];
+    const employees=(state.executors||[]).filter(e=>e.companyId===c.id);
     const initials=(c.name||'?').trim().slice(0,2).toUpperCase();
     return `<div class="card" style="padding:17px;min-height:180px;display:flex;flex-direction:column">
       <div style="display:flex;gap:13px;align-items:center">
@@ -3145,9 +3182,6 @@ function openGroupCompanyModal(id){
   document.getElementById('gc-manager').value=c?.manager||'';
   document.getElementById('gc-logo').value='';
   renderGroupCompanyLogoPreview();
-  const list=document.getElementById('gc-employees');list.innerHTML='';
-  (c?.employees||[]).forEach(e=>addGroupEmployeeRow(e));
-  if(!(c?.employees||[]).length)addGroupEmployeeRow();
   document.getElementById('modal-group-company').classList.add('open');
 }
 function renderGroupCompanyLogoPreview(){
@@ -3159,21 +3193,14 @@ function previewGroupCompanyLogo(input){
   if(file.size>2*1024*1024){alert('Файл логотипу має бути не більше 2 МБ');input.value='';return;}
   const reader=new FileReader();reader.onload=()=>{pendingGroupCompanyLogo=String(reader.result||'');renderGroupCompanyLogoPreview();};reader.readAsDataURL(file);
 }
-function addGroupEmployeeRow(employee={}){
-  const row=document.createElement('div');row.dataset.employeeRow='1';row.style.cssText='display:grid;grid-template-columns:1.3fr 1fr 140px 34px;gap:8px;margin-bottom:8px;align-items:center';
-  row.innerHTML=`<input class="form-input gc-employee-name" placeholder="ПІБ" value="${esc(employee.name||'')}"><input class="form-input gc-employee-position" placeholder="Посада" value="${esc(employee.position||'')}"><input class="form-input gc-employee-salary" type="number" min="0" step="0.01" placeholder="Зарплата, грн" value="${employee.salary||''}"><button class="btn sm danger" type="button" onclick="this.parentElement.remove()">×</button>`;
-  document.getElementById('gc-employees').appendChild(row);
-}
 function saveGroupCompany(){
   const name=document.getElementById('gc-name').value.trim();
   const manager=document.getElementById('gc-manager').value.trim();
   if(!name){alert('Введіть назву компанії');return;}
   if(!manager){alert('Вкажіть керівника компанії');return;}
-  const employees=[...document.querySelectorAll('#gc-employees [data-employee-row]')].map(row=>({name:row.querySelector('.gc-employee-name').value.trim(),position:row.querySelector('.gc-employee-position').value.trim(),salary:+row.querySelector('.gc-employee-salary').value||0})).filter(e=>e.name||e.position||e.salary);
-  if(employees.some(e=>!e.name||!e.position)){alert('Для кожного співробітника вкажіть ПІБ та посаду');return;}
-  const data={id:editingGroupCompanyId||('CMP_'+uid()),name,manager,logo:pendingGroupCompanyLogo,employees};
+  const data={id:editingGroupCompanyId||('CMP_'+uid()),name,manager,logo:pendingGroupCompanyLogo};
   if(!state.companies)state.companies=[];
-  if(editingGroupCompanyId){const i=state.companies.findIndex(c=>c.id===editingGroupCompanyId);if(i>=0)state.companies[i]={...state.companies[i],...data};}
+  if(editingGroupCompanyId){const i=state.companies.findIndex(c=>c.id===editingGroupCompanyId);if(i>=0){const {employees,...company}=state.companies[i];state.companies[i]={...company,...data};}}
   else state.companies.push(data);
   save();closeModal('group-company');renderCompanies();
 }
