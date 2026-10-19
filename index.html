@@ -922,6 +922,11 @@ function statusBadge(s){
 // site income/expense from cashflow
 function siteIncome(siteId){return(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='income').reduce((a,c)=>a+(+c.amount||0),0)}
 function siteExpense(siteId){return(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense').reduce((a,c)=>a+(+c.amount||0),0)}
+function siteBudgetRows(siteId){return((state.budgets||{})[siteId]?.rows||[])}
+function siteBudgetIncome(siteId){return siteBudgetRows(siteId).reduce((a,r)=>a+rowDC(r),0)}
+function siteBudgetExpense(siteId){return siteBudgetRows(siteId).reduce((a,r)=>a+rowPC(r),0)}
+// If the contract amount was not entered manually, use the imported budget income.
+function sitePlannedIncome(site){return(+site?.amountGross||0)||siteBudgetIncome(site?.id)}
 
 // ══════════════════════════════════════════════════════════════
 //  STORAGE
@@ -1036,20 +1041,23 @@ function renderSites(){
   const canManageProjects=window.maccCanManageProjects?.()===true;
 
   // aggregate totals
-  let totAmount=0, totIncome=0, totExpense=0;
+  let totAmount=0, totPlanExpense=0, totIncome=0, totExpense=0;
   sites.forEach(s=>{
-    totAmount+=(+s.amountGross||0);
+    totAmount+=sitePlannedIncome(s);
+    totPlanExpense+=siteBudgetExpense(s.id);
     totIncome+=siteIncome(s.id);
     totExpense+=siteExpense(s.id);
   });
 
   let tbody='';
   if(!sites.length){
-    tbody=`<tr><td colspan="8"><div class="empty"><div class="empty-icon">🏗️</div><h3>Об'єктів ще немає</h3><p>${canManageProjects?'Натисніть «+ Новий об’єкт», щоб додати перший':'Додавати об’єкти може лише адміністратор.'}</p></div></td></tr>`;
+    tbody=`<tr><td colspan="10"><div class="empty"><div class="empty-icon">🏗️</div><h3>Об'єктів ще немає</h3><p>${canManageProjects?'Натисніть «+ Новий об’єкт», щоб додати перший':'Додавати об’єкти може лише адміністратор.'}</p></div></td></tr>`;
   } else {
     sites.forEach(s=>{
       const inc=siteIncome(s.id);
       const exp=siteExpense(s.id);
+      const planIncome=sitePlannedIncome(s);
+      const planExpense=siteBudgetExpense(s.id);
       const bal=inc-exp;
       const dl=daysLeft(s.deadline);
       const dlColor=!s.deadline||s.status==='done'?'var(--text3)':dl<0?'var(--red)':dl<=30?'var(--amber)':'var(--green)';
@@ -1057,7 +1065,8 @@ function renderSites(){
         <td style="color:var(--text);font-weight:600">${esc(s.name)}</td>
         <td>${contractBadge(s.contractType)}</td>
         <td>${esc(s.client||'—')}</td>
-        <td class="r mono">${fmtN(s.amountGross)}</td>
+        <td class="r mono">${fmtN(planIncome)}</td>
+        <td class="r mono" style="color:#38bdf8">${fmtN(planExpense)}</td>
         <td class="r mono" style="color:var(--green)">${fmtN(inc)}</td>
         <td class="r mono" style="color:var(--red)">${fmtN(exp)}</td>
         <td class="r mono" style="font-weight:700;color:${bal>=0?'var(--accent)':'var(--red)'}">${fmtN(bal)}</td>
@@ -1079,18 +1088,19 @@ function renderSites(){
     </div>
     <div class="metrics">
       <div class="metric" style="--mc:var(--accent)"><div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21V12h6v9"/></svg></span>Всього об'єктів</div><div class="metric-value">${sites.length}</div></div>
-      <div class="metric" style="--mc:var(--text3)"><div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>Сума договорів</div><div class="metric-value" style="font-size:15px">${fmtN(totAmount)}</div></div>
-      <div class="metric" style="--mc:var(--green)"><div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.8 9A2 2 0 0 0 13 8h-2a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-2a2 2 0 0 1-1.8-1"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="18"/></svg></span>Отримано</div><div class="metric-value" style="font-size:15px">${fmtN(totIncome)}</div></div>
-      <div class="metric" style="--mc:var(--red)"><div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Витрачено</div><div class="metric-value" style="font-size:15px">${fmtN(totExpense)}</div></div>
-      <div class="metric" style="--mc:${totIncome-totExpense>=0?'var(--amber)':'var(--red)'}"><div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>Баланс</div><div class="metric-value" style="font-size:15px;color:${totIncome-totExpense>=0?'var(--accent)':'var(--red)'}">${fmtN(totIncome-totExpense)}</div></div>
+      <div class="metric" style="--mc:var(--text3)"><div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>Договір / дохід (план)</div><div class="metric-value" style="font-size:15px">${fmtN(totAmount)}</div></div>
+      <div class="metric" style="--mc:#38bdf8"><div class="metric-label"><span class="mi">📊</span>Витрати (план)</div><div class="metric-value" style="font-size:15px;color:#38bdf8">${fmtN(totPlanExpense)}</div></div>
+      <div class="metric" style="--mc:var(--green)"><div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.8 9A2 2 0 0 0 13 8h-2a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-2a2 2 0 0 1-1.8-1"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="18"/></svg></span>Отримано (факт)</div><div class="metric-value" style="font-size:15px">${fmtN(totIncome)}</div></div>
+      <div class="metric" style="--mc:var(--red)"><div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Витрачено (факт)</div><div class="metric-value" style="font-size:15px">${fmtN(totExpense)}</div></div>
+      <div class="metric" style="--mc:${totIncome-totExpense>=0?'var(--amber)':'var(--red)'}"><div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>Баланс (факт)</div><div class="metric-value" style="font-size:15px;color:${totIncome-totExpense>=0?'var(--accent)':'var(--red)'}">${fmtN(totIncome-totExpense)}</div></div>
     </div>
     <div class="card">
       <div style="overflow-x:auto">
         <table class="tbl">
           <thead><tr>
             <th>Назва об'єкту</th><th>Тип договору</th><th>Замовник</th>
-            <th class="r">Сума договору</th><th class="r">Отримано</th>
-            <th class="r">Витрачено</th><th class="r">Баланс</th><th>Дата виконання</th><th></th>
+            <th class="r">Договір / дохід план</th><th class="r">Витрати план</th><th class="r">Отримано факт</th>
+            <th class="r">Витрачено факт</th><th class="r">Баланс факт</th><th>Дата виконання</th><th></th>
           </tr></thead>
           <tbody>${tbody}</tbody>
         </table>
@@ -1184,6 +1194,7 @@ function renderSiteDetail(){
   const dl=daysLeft(s.deadline);
   const dlColor=!s.deadline||s.status==='done'?'var(--text3)':dl<0?'var(--red)':dl<=30?'var(--amber)':'var(--green)';
   const inc=siteIncome(s.id), exp=siteExpense(s.id);
+  const planIncome=sitePlannedIncome(s), planExpense=siteBudgetExpense(s.id);
 
   // info rows helper
   const infoRow=(label,val)=>`<div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--text3);min-width:180px">${label}</span><span style="font-size:12px;color:var(--text);font-weight:500">${val}</span></div>`;
@@ -1282,12 +1293,13 @@ function renderSiteDetail(){
             ${infoRow('Замовник', esc(s.client||'—'))}
             ${infoRow('Керівник проєкту', esc(projectManagerName(s)))}
             ${infoRow('Адреса', esc(s.address||'—'))}
-            ${infoRow('Сума договору', `<b style="color:var(--accent)">${fmtN(s.amountGross)}</b> грн`)}
+            ${infoRow('Договір / дохід (план)', `<b style="color:var(--accent)">${fmtN(planIncome)}</b> грн`)}
+            ${infoRow('Витрати за бюджетом (план)', `<b style="color:#38bdf8">${fmtN(planExpense)}</b> грн`)}
           </div>
           <div>
             ${infoRow('Дата підписання', fmtD(s.signDate))}
             ${infoRow('Дата виконання', `<span style="color:${dlColor};font-weight:600">${fmtD(s.deadline)}</span>`)}
-            ${infoRow('Отримано / Витрачено', `<span style="color:var(--green)">${fmtN(inc)}</span> / <span style="color:var(--red)">${fmtN(exp)}</span>`)}
+            ${infoRow('Отримано / Витрачено (факт)', `<span style="color:var(--green)">${fmtN(inc)}</span> / <span style="color:var(--red)">${fmtN(exp)}</span>`)}
           </div>
         </div>
         ${s.notes?`<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--text2)">${esc(s.notes)}</div>`:''}
@@ -3325,7 +3337,7 @@ function isFinancingCategory(category,articleId){const article=financeArticleByI
 function dashboardStats(companyId=''){
   const sites=(state.sites||[]).filter(s=>!companyId||s.companyId===companyId);
   const cashflows=(state.cashflows||[]).filter(c=>!companyId||c.companyId===companyId);
-  const planIncome=sites.reduce((sum,s)=>sum+(+s.amountGross||0),0);
+  const planIncome=sites.reduce((sum,s)=>sum+sitePlannedIncome(s),0);
   let planExpense=0;sites.forEach(s=>{((state.budgets||{})[s.id]?.rows||[]).forEach(r=>planExpense+=rowPC(r));});
   const operating=c=>!c.transferGroupId&&!isFinancingCategory(c.category,c.articleId);
   const factIncome=cashflows.filter(c=>c.type==='income'&&operating(c)).reduce((sum,c)=>sum+(+c.amount||0),0);
@@ -4034,7 +4046,7 @@ function exportSitesExcel(){
   const header=['№','Назва','Тип договору','Замовник','Адреса','Сума договору','Статус','Дата підписання','Дата виконання','Отримано','Витрачено','Баланс'];
   const rows=[header,...sites.map((s,i)=>[
     i+1, s.name, CONTRACT_TYPE[s.contractType]||s.contractType||'',
-    s.client||'', s.address||'', +s.amountGross||0,
+    s.client||'', s.address||'', sitePlannedIncome(s),
     STATUS_LABEL[s.status]||s.status||'',
     s.signDate?fmtD(s.signDate):'', s.deadline?fmtD(s.deadline):'',
     siteIncome(s.id), siteExpense(s.id), siteIncome(s.id)-siteExpense(s.id)
@@ -4050,7 +4062,7 @@ function exportSitesPDF(){
       <td>${i+1}</td><td><b>${esc(s.name)}</b></td>
       <td>${CONTRACT_TYPE[s.contractType]||''}</td>
       <td>${esc(s.client||'—')}</td>
-      <td class="r">${fmtN(s.amountGross)}</td>
+      <td class="r">${fmtN(sitePlannedIncome(s))}</td>
       <td>${STATUS_LABEL[s.status]||''}</td>
       <td>${fmtD(s.signDate)}</td><td>${fmtD(s.deadline)}</td>
       <td class="r" style="color:green">${fmtN(inc)}</td>
