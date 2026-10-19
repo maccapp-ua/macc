@@ -1856,8 +1856,8 @@ const BUDGET_COLS=[
 
 function downloadBudgetTemplate(){
   const link=document.createElement('a');
-  link.href='budget-template.xlsx?v=20261019';
-  link.download='Шаблон бюджета Компані.xlsx';
+  link.href='budget-template.xlsx?v=20261019-2';
+  link.download='ШАБЛОН БЮДЖЕТУ.xlsx';
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -1915,7 +1915,7 @@ function _normalBudgetLabel(value){
 
 function _parseCompanyBudgetTemplate(raw){
   const labels=raw.map(row=>_normalBudgetLabel(row[0]));
-  if(!labels.some(v=>v==='дохід')||!labels.some(v=>v==='витрати'))return null;
+  if(!labels.some(v=>v==='дохід'||/^дохід дц\b/.test(v))||!labels.some(v=>v==='витрати'))return null;
   const sections=[
     {match:/^прям(ые|і) переменн(ые|і) расход(ы|и)/,name:'Прямі змінні витрати'},
     {match:/^прям(ые|і) переменно-постоянн(ые|і) расход(ы|и)/,name:'Прямі змінно-постійні витрати'},
@@ -1929,7 +1929,8 @@ function _parseCompanyBudgetTemplate(raw){
     const label=_normalBudgetLabel(original);
     if(!label)return;
     if(/^закрито актами/.test(label)){kind='income';section='Закрито актами';return;}
-    if(label==='витрати'||label==='дохід'||/^загальна вартість закритих робіт/.test(label)){kind='';section='';return;}
+    if(label==='дохід'||/^дохід дц\b/.test(label)){kind='income';section='Дохід ДЦ';return;}
+    if(label==='витрати'||/^загальна вартість закритих робіт/.test(label)){kind='';section='';return;}
     const group=sections.find(item=>item.match.test(label));
     if(group){kind='expense';section=group.name;return;}
     if(stop.test(label)){kind='';section='';return;}
@@ -4086,7 +4087,7 @@ async function exportBudgetExcel(siteId){
   const rows=(state.budgets[siteId]||{rows:[]}).rows||[];
   if(!window.XLSX){alert('Бібліотека XLSX не завантажена');return;}
   try{
-    const response=await fetch('budget-template.xlsx?v=20261019');
+    const response=await fetch('budget-template.xlsx?v=20261019-2');
     if(!response.ok)throw new Error('не вдалося завантажити файл шаблону');
     const wb=XLSX.read(await response.arrayBuffer(),{type:'array',cellStyles:true});
     const ws=wb.Sheets[wb.SheetNames[0]];
