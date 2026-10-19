@@ -466,7 +466,7 @@ select.form-input option{background:var(--bg3)}
       <div class="form-group"><label class="form-label">Компанія групи *</label><select class="form-input" id="cf-company" disabled></select></div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Тип *</label>
-          <select class="form-input" id="cf-type">
+          <select class="form-input" id="cf-type" onchange="updateCFBudgetOptions()">
             <option value="income">📈 Дохід</option>
             <option value="expense">📉 Витрата</option>
           </select></div>
@@ -1492,8 +1492,8 @@ function renderBudgetList(){
   sites.forEach(s=>{
     const rows=(state.budgets[s.id]||{rows:[]}).rows||[];
     rows.forEach(r=>{
-      sumDC      += (+r.dcPrice   || 0);
-      sumPlanCost += (+r.planCost  || 0);
+      sumDC      += rowDC(r);
+      sumPlanCost += rowPC(r);
       // factCost рядка = витрати з грош.потоків цього об'єкту по цьому виду робіт
       sumFactCost += cfs
         .filter(c=>c.siteId===s.id && c.type==='expense' && cashflowMatchesBudgetRow(c,r))
@@ -1551,8 +1551,8 @@ function renderBudgetList(){
   } else {
     sites.forEach(s=>{
       const rows=(state.budgets[s.id]||{rows:[]}).rows||[];
-      const totDC=rows.reduce((a,r)=>a+(+r.dcPrice||0),0);
-      const totPlanCost=rows.reduce((a,r)=>a+(+r.planCost||0),0);
+      const totDC=rows.reduce((a,r)=>a+rowDC(r),0);
+      const totPlanCost=rows.reduce((a,r)=>a+rowPC(r),0);
       const totPlanInc=totDC-totPlanCost;
       const totFactCost=rows.reduce((a,r)=>a+(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&cashflowMatchesBudgetRow(c,r)).reduce((a2,c)=>a2+(+c.amount||0),0),0);
       const totFactInc=totDC-totFactCost;
@@ -1815,6 +1815,7 @@ function saveBudgetRow(){
   }
   previousItems.filter(i=>!['Роботи','Матеріали','Механізми'].includes(i.type)).forEach(i=>items.push({...i}));
   const data={
+    ...(previous||{}),
     id:editingBudgetRowId||uid(),
     workType,
     executor:document.getElementById('br-executor').value.trim()||'',
@@ -1843,8 +1844,8 @@ const BUDGET_COLS=[
 
 function downloadBudgetTemplate(){
   const link=document.createElement('a');
-  link.href='budget-template.xlsx';
-  link.download='шаблон бюджет.xlsx';
+  link.href='budget-template.xlsx?v=20261019';
+  link.download='Шаблон бюджета Компані.xlsx';
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -1896,6 +1897,50 @@ function _budgetType(value){
   return s?String(value).trim():'Інше';
 }
 
+function _normalBudgetLabel(value){
+  return String(value||'').toLowerCase().replace(/[ʼ’`]/g,"'").replace(/\s+/g,' ').replace(/:+$/,'').trim();
+}
+
+function _parseCompanyBudgetTemplate(raw){
+  const labels=raw.map(row=>_normalBudgetLabel(row[0]));
+  if(!labels.some(v=>v==='дохід')||!labels.some(v=>v==='витрати'))return null;
+  const sections=[
+    {match:/^прям(ые|і) переменн(ые|і) расход(ы|и)/,name:'Прямі змінні витрати'},
+    {match:/^прям(ые|і) переменно-постоянн(ые|і) расход(ы|и)/,name:'Прямі змінно-постійні витрати'},
+    {match:/^накладн(ые|і) расход(ы|и)/,name:'Накладні витрати'},
+    {match:/^непрямі витрати/,name:'Непрямі витрати'},
+  ];
+  const stop=/^(загально|прибуток по прямим витратам|рентабельність|разом собівартість|маржинальний прибуток|маржинальна рентабельність|разом повна собівартість|валовий прибуток|валова рентабельність)/;
+  const rows=[];let kind='',section='';
+  raw.forEach((source,index)=>{
+    const original=String(source[0]||'').replace(/\s+/g,' ').trim();
+    const label=_normalBudgetLabel(original);
+    if(!label)return;
+    if(/^закрито актами/.test(label)){kind='income';section='Закрито актами';return;}
+    if(label==='витрати'||label==='дохід'||/^загальна вартість закритих робіт/.test(label)){kind='';section='';return;}
+    const group=sections.find(item=>item.match.test(label));
+    if(group){kind='expense';section=group.name;return;}
+    if(stop.test(label)){kind='';section='';return;}
+    if(!kind||label==='%'||/^\d+(?:[.,]\d+)?%?$/.test(label))return;
+    const amount=_parseBudgetNumber(source[1]);
+    const isIncome=kind==='income';
+    rows.push({
+      workType:original,
+      budgetKind:kind,
+      budgetSection:section,
+      templateRow:index+1,
+      executor:'',startDate:'',endDate:'',notes:'',
+      items:[{
+        type:isIncome?'Дохід':'Витрати',
+        dcName:isIncome?original:'',dcUnit:'',dcQty:null,dcUnitPrice:null,dcPrice:isIncome?amount:0,
+        planName:isIncome?'':original,planUnit:'',planQty:null,planUnitPrice:null,planCost:isIncome?0:amount,
+        balance:isIncome?amount:-amount,pricePct:null,expenseDiff:null,extraIncome:null,
+      }],
+    });
+  });
+  return rows;
+}
+
 function importBudgetExcel(siteId, input){
   const file=input.files[0];
   input.value=''; // reset so same file can be picked again
@@ -1908,6 +1953,13 @@ function importBudgetExcel(siteId, input){
       const ws=wb.Sheets[wb.SheetNames[0]];
       const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
       if(raw.length<2){alert('Файл порожній або немає рядків даних');return;}
+
+      const companyBudgetRows=_parseCompanyBudgetTemplate(raw);
+      if(companyBudgetRows){
+        if(!companyBudgetRows.length){alert('У шаблоні не знайдено статей доходів або витрат');return;}
+        _showImportPreview(siteId,companyBudgetRows);
+        return;
+      }
 
       const headerIndex=raw.findIndex(row=>row.some(v=>String(v).toLowerCase().includes('кількість дц'))&&row.some(v=>String(v).toLowerCase().includes('сума план')));
       if(headerIndex<0){alert('Не знайдено заголовки шаблону бюджету. Завантажте актуальний шаблон із сайту та не змінюйте назви колонок.');return;}
@@ -1953,10 +2005,13 @@ function _showImportPreview(siteId, rows){
   document.getElementById('import-preview-popup')?.remove();
   const site=(state.sites||[]).find(s=>s.id===siteId);
 
-  const tableRows=rows.map(r=>{const item=r.items?.[0]||{};return`<tr>
-    <td style="font-size:11px;color:var(--text)">${esc(item.type||'Інше')}</td><td style="font-size:11px;color:var(--text)">${esc(item.dcName||r.workType)}</td><td>${esc(item.dcUnit||'—')}</td><td class="r">${item.dcQty===null?'—':fmtN(item.dcQty)}</td><td class="r">${item.dcUnitPrice===null?'—':fmtN(item.dcUnitPrice)}</td><td class="r">${fmtN(rowDC(r))}</td>
-    <td style="font-size:11px;color:var(--text)">${esc(item.planName||r.workType)}</td><td>${esc(item.planUnit||'—')}</td><td class="r">${item.planQty===null?'—':fmtN(item.planQty)}</td><td class="r">${item.planUnitPrice===null?'—':fmtN(item.planUnitPrice)}</td><td class="r">${fmtN(rowPC(r))}</td>
-  </tr>`;}).join('');
+  const tableRows=rows.map(r=>`<tr>
+    <td><span class="badge" style="${r.budgetKind==='income'?'background:rgba(74,222,128,.12);color:var(--green)':'background:rgba(248,113,113,.12);color:var(--red)'}">${r.budgetKind==='income'?'Дохід':r.budgetKind==='expense'?'Витрата':'Стаття'}</span></td>
+    <td style="font-size:11px;color:var(--text3)">${esc(r.budgetSection||'—')}</td>
+    <td style="font-size:11px;color:var(--text);font-weight:600">${esc(r.workType||'—')}</td>
+    <td class="r" style="color:var(--green)">${rowDC(r)?fmtN(rowDC(r)):'—'}</td>
+    <td class="r" style="color:var(--red)">${rowPC(r)?fmtN(rowPC(r)):'—'}</td>
+  </tr>`).join('');
 
   const p=document.createElement('div');
   p.id='import-preview-popup';
@@ -1971,10 +2026,9 @@ function _showImportPreview(siteId, rows){
         <button onclick="document.getElementById('import-preview-popup').remove()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:0 4px">&times;</button>
       </div>
       <div style="overflow:auto;flex:1;padding:0">
-        <table class="tbl" style="min-width:1050px">
+        <table class="tbl" style="min-width:760px">
           <thead><tr>
-            <th>Вид</th><th>Найменування ДЦ</th><th>Од.</th><th class="r">К-сть</th><th class="r">Ціна</th><th class="r">Сума ДЦ</th>
-            <th>Найменування план</th><th>Од.</th><th class="r">К-сть</th><th class="r">Ціна</th><th class="r">Сума план</th>
+            <th>Розділ</th><th>Група</th><th>Стаття бюджету</th><th class="r">Дохід</th><th class="r">Витрата</th>
           </tr></thead>
           <tbody>${tableRows}</tbody>
         </table>
@@ -2514,12 +2568,13 @@ function openCFModal(id,defaultType){
 function updateCFBudgetOptions(selectedRowId='',legacyName=''){
   const select=document.getElementById('cf-category');if(!select)return;
   const siteId=document.getElementById('cf-site')?.value||'';
-  const rows=siteId?((state.budgets?.[siteId]?.rows)||[]):[];
+  const flowType=document.getElementById('cf-type')?.value||'';
+  const rows=siteId?((state.budgets?.[siteId]?.rows)||[]).filter(r=>!r.budgetKind||r.budgetKind===flowType):[];
   select.disabled=!siteId||!rows.length;
   select.innerHTML=!siteId
     ?'<option value="">— Спочатку оберіть об’єкт —</option>'
     :!rows.length
-      ?'<option value="">— Бюджет об’єкта порожній —</option>'
+      ?`<option value="">— У бюджеті немає статей ${flowType==='income'?'доходу':'витрат'} —</option>`
       :'<option value="">— Оберіть статтю бюджету —</option>'+rows.map((r,index)=>`<option value="${r.id}">${index+1}. ${esc(r.workType||'Без назви')}</option>`).join('');
   let value=selectedRowId;
   if(!value&&legacyName)value=rows.find(r=>r.workType===legacyName)?.id||'';
@@ -3271,7 +3326,7 @@ function dashboardStats(companyId=''){
   const sites=(state.sites||[]).filter(s=>!companyId||s.companyId===companyId);
   const cashflows=(state.cashflows||[]).filter(c=>!companyId||c.companyId===companyId);
   const planIncome=sites.reduce((sum,s)=>sum+(+s.amountGross||0),0);
-  let planExpense=0;sites.forEach(s=>{((state.budgets||{})[s.id]?.rows||[]).forEach(r=>planExpense+=(+r.planCost||0));});
+  let planExpense=0;sites.forEach(s=>{((state.budgets||{})[s.id]?.rows||[]).forEach(r=>planExpense+=rowPC(r));});
   const operating=c=>!c.transferGroupId&&!isFinancingCategory(c.category,c.articleId);
   const factIncome=cashflows.filter(c=>c.type==='income'&&operating(c)).reduce((sum,c)=>sum+(+c.amount||0),0);
   const factExpense=cashflows.filter(c=>c.type==='expense'&&operating(c)).reduce((sum,c)=>sum+(+c.amount||0),0);
@@ -4014,21 +4069,51 @@ function exportSitesPDF(){
 }
 
 // ── Бюджет об'єкту ────────────────────────────────────────────
-function exportBudgetExcel(siteId){
+async function exportBudgetExcel(siteId){
   const s=(state.sites||[]).find(x=>x.id===siteId);if(!s)return;
   const rows=(state.budgets[siteId]||{rows:[]}).rows||[];
-  const header=['№ п/п','вид','Вид роботи/матеріали/інше ДЦ','одиниця виміру ДЦ','кількість ДЦ','Ціна ДЦ','Сума ДЦ','','Вид роботи/матеріали/інше план','одиниця виміру план','кількість план','Ціна план','Сума план','Баланс','% ціна','різниця розходу','Додатковий дохід'];
-  const data=[header];let number=1;
-  rows.forEach(r=>{
-    const items=r.items?.length?r.items:[{type:'Роботи',dcName:r.workType,dcPrice:+r.dcPrice||0,planName:r.workType,planCost:+r.planCost||0}];
-    items.forEach(item=>{
-      const dc=+item.dcPrice||0,pc=+item.planCost||0,balance=Number.isFinite(+item.balance)?+item.balance:dc-pc;
-      data.push([number++,String(item.type||'Інше').toLowerCase(),item.dcName||item.name||r.workType||'',item.dcUnit||'',item.dcQty??'',item.dcUnitPrice??'',dc,'',item.planName||item.dcName||item.name||r.workType||'',item.planUnit||'',item.planQty??'',item.planUnitPrice??'',pc,balance,item.pricePct!==null&&item.pricePct!==''&&Number.isFinite(+item.pricePct)?+item.pricePct:(dc?balance/dc:''),item.expenseDiff??'',item.extraIncome??'']);
+  if(!window.XLSX){alert('Бібліотека XLSX не завантажена');return;}
+  try{
+    const response=await fetch('budget-template.xlsx?v=20261019');
+    if(!response.ok)throw new Error('не вдалося завантажити файл шаблону');
+    const wb=XLSX.read(await response.arrayBuffer(),{type:'array',cellStyles:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const templateData=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    const labelRows=new Map();
+    templateData.forEach((row,index)=>{
+      const label=_normalBudgetLabel(row[0]);
+      if(label&&!labelRows.has(label))labelRows.set(label,index+1);
     });
-  });
-  const totDC=rows.reduce((a,r)=>a+rowDC(r),0),totPC=rows.reduce((a,r)=>a+rowPC(r),0);
-  data.push(['','','РАЗОМ','','','',totDC,'','','','','',totPC,totDC-totPC,totDC?(totDC-totPC)/totDC:0,'','']);
-  xlsxDownload(data,s.name.slice(0,30),`MACC_Бюджет_${s.name.slice(0,20)}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    const matched=new Set();
+    rows.forEach(r=>{
+      const target=Number(r.templateRow)||labelRows.get(_normalBudgetLabel(r.workType));
+      if(!target)return;
+      const value=r.budgetKind==='income'?rowDC(r):r.budgetKind==='expense'?rowPC(r):(rowPC(r)||rowDC(r));
+      const address=`B${target}`;
+      ws[address]={...(ws[address]||{}),t:'n',v:+value||0};
+      delete ws[address].f;
+      matched.add(r.id);
+    });
+    const unmatched=rows.filter(r=>!matched.has(r.id));
+    if(unmatched.length){
+      const headerRow=66;
+      ws[`A${headerRow}`]={...(ws.A49||{}),t:'s',v:'Додаткові статті бюджету'};
+      ws[`B${headerRow}`]={...(ws.B49||{}),t:'s',v:''};
+      unmatched.forEach((r,index)=>{
+        const rowNumber=headerRow+1+index;
+        ws[`A${rowNumber}`]={...(ws.A50||{}),t:'s',v:r.workType||'Без назви'};
+        ws[`B${rowNumber}`]={...(ws.B50||{}),t:'n',v:rowPC(r)||rowDC(r)||0};
+      });
+      const current=XLSX.utils.decode_range(ws['!ref']||'A1:B63');
+      current.e.r=Math.max(current.e.r,headerRow+unmatched.length-1);
+      current.e.c=Math.max(current.e.c,1);
+      ws['!ref']=XLSX.utils.encode_range(current);
+    }
+    ws.B1={...(ws.B1||{}),t:'s',v:s.name};
+    wb.Workbook=wb.Workbook||{};
+    wb.Workbook.CalcPr={...(wb.Workbook.CalcPr||{}),calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true};
+    XLSX.writeFile(wb,`MACC_Бюджет_${s.name.replace(/[^a-zA-Zа-яА-ЯіїєґІЇЄҐ0-9]/g,'_').slice(0,20)}_${new Date().toISOString().slice(0,10)}.xlsx`,{cellStyles:true,bookType:'xlsx'});
+  }catch(err){alert('Не вдалося сформувати бюджет: '+err.message);}
 }
 
 function exportBudgetPDF(siteId){
