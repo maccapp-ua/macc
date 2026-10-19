@@ -919,9 +919,15 @@ function statusBadge(s){
   return`<span class="badge" style="background:${col}22;color:${col};border:1px solid ${col}44">${lbl}</span>`;
 }
 
-// site income/expense from cashflow
-function siteIncome(siteId){return(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='income').reduce((a,c)=>a+(+c.amount||0),0)}
-function siteExpense(siteId){return(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense').reduce((a,c)=>a+(+c.amount||0),0)}
+// Internal transfers move money between accounts and never create object income/expense.
+function isInternalTransfer(c){return!!c?.transferGroupId||c?.type==='transfer-out'}
+function cashflowSignedAmount(c){
+  if(c?.type==='income')return +c.amount||0;
+  if(c?.type==='expense'||c?.type==='transfer-out')return-(+c.amount||0);
+  return 0;
+}
+function siteIncome(siteId){return(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='income'&&!isInternalTransfer(c)).reduce((a,c)=>a+(+c.amount||0),0)}
+function siteExpense(siteId){return(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense'&&!isInternalTransfer(c)).reduce((a,c)=>a+(+c.amount||0),0)}
 function siteBudgetRows(siteId){return((state.budgets||{})[siteId]?.rows||[])}
 function siteBudgetIncome(siteId){return siteBudgetRows(siteId).reduce((a,r)=>a+rowDC(r),0)}
 function siteBudgetExpense(siteId){return siteBudgetRows(siteId).reduce((a,r)=>a+rowPC(r),0)}
@@ -2392,8 +2398,13 @@ function renderCashflow(){
   const all=(state.cashflows||[]).filter(r=>r.companyId===activeCompanyId);
 
   let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
-  if(cfFilters.type)        rows=rows.filter(r=>r.type===cfFilters.type);
-  if(cfFilters.form)        rows=rows.filter(r=>r.form===cfFilters.form);
+  if(cfFilters.type==='transfer') rows=rows.filter(r=>isInternalTransfer(r));
+  else if(cfFilters.type)   rows=rows.filter(r=>r.type===cfFilters.type&&!isInternalTransfer(r));
+  if(cfFilters.form)        rows=rows.filter(r=>{
+    if(!isInternalTransfer(r))return r.form===cfFilters.form;
+    const out=all.find(x=>x.transferGroupId===r.transferGroupId&&x.transferRole==='out');
+    return out?.form===cfFilters.form||out?.transferTo===cfFilters.form;
+  });
   if(cfFilters.category)    rows=rows.filter(r=>r.category===cfFilters.category);
   if(cfFilters.site)        rows=rows.filter(r=>r.siteId===cfFilters.site);
   if(cfFilters.counterparty)rows=rows.filter(r=>r.counterparty===cfFilters.counterparty);
@@ -2401,13 +2412,16 @@ function renderCashflow(){
   if(cfFilters.month)       rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
   if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.tag||'').toLowerCase().includes(q));}
 
-  const totInc =rows.filter(r=>r.type==='income').reduce((a,r)=>a+(+r.amount||0),0);
-  const totExp =rows.filter(r=>r.type==='expense').reduce((a,r)=>a+(+r.amount||0),0);
-  const cashInc=rows.filter(r=>r.type==='income'&&r.form==='cash').reduce((a,r)=>a+(+r.amount||0),0);
-  const cashExp=rows.filter(r=>r.type==='expense'&&r.form==='cash').reduce((a,r)=>a+(+r.amount||0),0);
-  const bankInc=rows.filter(r=>r.type==='income'&&r.form==='bank').reduce((a,r)=>a+(+r.amount||0),0);
-  const bankExp=rows.filter(r=>r.type==='expense'&&r.form==='bank').reduce((a,r)=>a+(+r.amount||0),0);
-  const balance=totInc-totExp, cashBal=cashInc-cashExp, bankBal=bankInc-bankExp;
+  const operatingRows=rows.filter(r=>!isInternalTransfer(r));
+  const totInc =operatingRows.filter(r=>r.type==='income').reduce((a,r)=>a+(+r.amount||0),0);
+  const totExp =operatingRows.filter(r=>r.type==='expense').reduce((a,r)=>a+(+r.amount||0),0);
+  const cashInc=operatingRows.filter(r=>r.type==='income'&&r.form==='cash').reduce((a,r)=>a+(+r.amount||0),0);
+  const cashExp=operatingRows.filter(r=>r.type==='expense'&&r.form==='cash').reduce((a,r)=>a+(+r.amount||0),0);
+  const bankInc=operatingRows.filter(r=>r.type==='income'&&r.form==='bank').reduce((a,r)=>a+(+r.amount||0),0);
+  const bankExp=operatingRows.filter(r=>r.type==='expense'&&r.form==='bank').reduce((a,r)=>a+(+r.amount||0),0);
+  const cashBal=rows.filter(r=>r.form==='cash').reduce((a,r)=>a+cashflowSignedAmount(r),0);
+  const bankBal=rows.filter(r=>r.form==='bank').reduce((a,r)=>a+cashflowSignedAmount(r),0);
+  const balance=cashBal+bankBal;
 
   const usedCats=[...new Set(all.map(r=>r.category).filter(Boolean))];
   const sites=(state.sites||[]).filter(s=>s.companyId===activeCompanyId);
@@ -2440,6 +2454,7 @@ function renderCashflow(){
       <option value="">Всі типи</option>
       <option value="income"  ${cfFilters.type==='income' ?'selected':''}><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>Доходи</option>
       <option value="expense" ${cfFilters.type==='expense'?'selected':''}><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></span>Витрати</option>
+      <option value="transfer" ${cfFilters.type==='transfer'?'selected':''}>🔄 Перекази</option>
     </select>
     <select onchange="cfFilters.form=this.value;renderCashflow()">
       <option value="">Всі форми</option>
@@ -2505,8 +2520,8 @@ function renderCashflow(){
 
   // category summary
   const catSummary=[];
-  [...new Set(rows.map(r=>r.category).filter(Boolean))].forEach(cat=>{
-    const cr=rows.filter(r=>r.category===cat);
+  [...new Set(operatingRows.map(r=>r.category).filter(Boolean))].forEach(cat=>{
+    const cr=operatingRows.filter(r=>r.category===cat);
     const inc=cr.filter(r=>r.type==='income').reduce((a,r)=>a+(+r.amount||0),0);
     const exp=cr.filter(r=>r.type==='expense').reduce((a,r)=>a+(+r.amount||0),0);
     catSummary.push({cat,inc,exp,count:cr.length});
@@ -2537,7 +2552,7 @@ function renderCashflow(){
           <tbody>${tbody}</tbody>
         </table>
       </div>
-      ${rows.length?`<div style="padding:8px 14px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)">${rows.length} записів · Доходи: <span style="color:var(--green);font-weight:700">${fmtN(totInc)}</span> · Витрати: <span style="color:var(--red);font-weight:700">${fmtN(totExp)}</span> · Баланс: <span style="font-weight:700;color:${balance>=0?'var(--accent)':'var(--red)'}">${fmtN(balance)}</span></div>`:''}
+      ${rows.length?`<div style="padding:8px 14px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)">${rows.filter(r=>r.transferRole!=='in').length} записів · Доходи: <span style="color:var(--green);font-weight:700">${fmtN(totInc)}</span> · Витрати: <span style="color:var(--red);font-weight:700">${fmtN(totExp)}</span> · Баланс: <span style="font-weight:700;color:${balance>=0?'var(--accent)':'var(--red)'}">${fmtN(balance)}</span></div>`:''}
     </div>
     ${catSummary.length?`<div class="card">
       <div class="card-head">
@@ -4163,17 +4178,26 @@ function exportCashflowExcel(){
   const all=(state.cashflows||[]).filter(r=>r.companyId===activeCompanyId);
   let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
   // apply current filters
-  if(cfFilters.type)    rows=rows.filter(r=>r.type===cfFilters.type);
-  if(cfFilters.form)    rows=rows.filter(r=>r.form===cfFilters.form);
+  if(cfFilters.type==='transfer')rows=rows.filter(r=>isInternalTransfer(r));
+  else if(cfFilters.type)rows=rows.filter(r=>r.type===cfFilters.type&&!isInternalTransfer(r));
+  if(cfFilters.form)    rows=rows.filter(r=>{
+    if(!isInternalTransfer(r))return r.form===cfFilters.form;
+    const out=all.find(x=>x.transferGroupId===r.transferGroupId&&x.transferRole==='out');
+    return out?.form===cfFilters.form||out?.transferTo===cfFilters.form;
+  });
   if(cfFilters.category)rows=rows.filter(r=>r.category===cfFilters.category);
   if(cfFilters.site)    rows=rows.filter(r=>r.siteId===cfFilters.site);
   if(cfFilters.month)   rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
   if(cfFilters.tag)     rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
   if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q));}
+  rows=rows.filter(r=>r.transferRole!=='in');
   const header=['Дата','Тип','Форма оплати','Стаття бюджету','Об\'єкт','Контрагент','Сума','Примітки'];
   const data=[header,...rows.map(r=>{
     const site=(state.sites||[]).find(s=>s.id===r.siteId);
-    return[r.date,r.type==='income'?'Дохід':'Розхід',CF_FORM_LABEL[r.form]||r.form,r.category||'',site?.name||'',r.counterparty||'',+r.amount||0,r.notes||''];
+    const isTr=isInternalTransfer(r);
+    const form=isTr?`${CF_FORM_LABEL[r.form]||r.form} → ${CF_FORM_LABEL[r.transferTo]||r.transferTo}`:(CF_FORM_LABEL[r.form]||r.form);
+    const note=isTr?`${r.notes||''}${r.notes?' · ':''}Отримано: ${fmtN(r.transferReceived||0)}`:(r.notes||'');
+    return[r.date,isTr?'Переказ':r.type==='income'?'Дохід':'Розхід',form,r.category||'',site?.name||'',r.counterparty||'',+r.amount||0,note];
   })];
   xlsxDownload(data,'Грошові потоки',`MACC_ГрошовіПотоки_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
@@ -4181,26 +4205,35 @@ function exportCashflowExcel(){
 function exportCashflowPDF(){
   const all=(state.cashflows||[]).filter(r=>r.companyId===activeCompanyId);
   let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
-  if(cfFilters.type)    rows=rows.filter(r=>r.type===cfFilters.type);
-  if(cfFilters.form)    rows=rows.filter(r=>r.form===cfFilters.form);
+  if(cfFilters.type==='transfer')rows=rows.filter(r=>isInternalTransfer(r));
+  else if(cfFilters.type)rows=rows.filter(r=>r.type===cfFilters.type&&!isInternalTransfer(r));
+  if(cfFilters.form)    rows=rows.filter(r=>{
+    if(!isInternalTransfer(r))return r.form===cfFilters.form;
+    const out=all.find(x=>x.transferGroupId===r.transferGroupId&&x.transferRole==='out');
+    return out?.form===cfFilters.form||out?.transferTo===cfFilters.form;
+  });
   if(cfFilters.category)rows=rows.filter(r=>r.category===cfFilters.category);
   if(cfFilters.site)    rows=rows.filter(r=>r.siteId===cfFilters.site);
   if(cfFilters.month)   rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
   if(cfFilters.tag)     rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
   if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q));}
+  rows=rows.filter(r=>r.transferRole!=='in');
   let totInc=0,totExp=0;
   const trs=rows.map(r=>{
     const site=(state.sites||[]).find(s=>s.id===r.siteId);
-    const isInc=r.type==='income';
-    if(isInc)totInc+=(+r.amount||0);else totExp+=(+r.amount||0);
+    const isTr=isInternalTransfer(r),isInc=r.type==='income'&&!isTr;
+    if(isInc)totInc+=(+r.amount||0);else if(!isTr)totExp+=(+r.amount||0);
+    const form=isTr?`${CF_FORM_LABEL[r.form]||r.form} → ${CF_FORM_LABEL[r.transferTo]||r.transferTo}`:(CF_FORM_LABEL[r.form]||r.form);
+    const typeLabel=isTr?'↔ Переказ':isInc?'↑ Дохід':'↓ Розхід';
+    const amountLabel=isTr?`${fmtN(r.amount)} → ${fmtN(r.transferReceived||0)}`:`${isInc?'+':'-'}${fmtN(r.amount)}`;
     return`<tr>
       <td style="white-space:nowrap">${fmtD(r.date)}</td>
-      <td style="color:${isInc?'green':'red'};font-weight:700">${isInc?'↑ Дохід':'↓ Розхід'}</td>
-      <td>${CF_FORM_LABEL[r.form]||r.form}</td>
+      <td style="color:${isTr?'#7c3aed':isInc?'green':'red'};font-weight:700">${typeLabel}</td>
+      <td>${form}</td>
       <td>${esc(r.category||'—')}</td>
       <td>${esc(site?.name||'—')}</td>
       <td>${esc(r.counterparty||'—')}</td>
-      <td class="r" style="font-weight:700;color:${isInc?'green':'red'}">${isInc?'+':'-'}${fmtN(r.amount)}</td>
+      <td class="r" style="font-weight:700;color:${isTr?'#7c3aed':isInc?'green':'red'}">${amountLabel}</td>
       <td style="font-size:10px;color:#666">${esc(r.notes||'')}</td>
     </tr>`;
   }).join('');
