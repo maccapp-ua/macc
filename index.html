@@ -1915,7 +1915,7 @@ function _normalBudgetLabel(value){
 
 function _parseCompanyBudgetTemplate(raw){
   const labels=raw.map(row=>_normalBudgetLabel(row[0]));
-  if(!labels.some(v=>v==='дохід'||/^дохід дц\b/.test(v))||!labels.some(v=>v==='витрати'))return null;
+  if(!labels.some(v=>v==='дохід'||v.startsWith('дохід дц'))||!labels.some(v=>v==='витрати'))return null;
   const sections=[
     {match:/^прям(ые|і) переменн(ые|і) расход(ы|и)/,name:'Прямі змінні витрати'},
     {match:/^прям(ые|і) переменно-постоянн(ые|і) расход(ы|и)/,name:'Прямі змінно-постійні витрати'},
@@ -1929,7 +1929,7 @@ function _parseCompanyBudgetTemplate(raw){
     const label=_normalBudgetLabel(original);
     if(!label)return;
     if(/^закрито актами/.test(label)){kind='income';section='Закрито актами';return;}
-    if(label==='дохід'||/^дохід дц\b/.test(label)){kind='income';section='Дохід ДЦ';return;}
+    if(label==='дохід'||label.startsWith('дохід дц')){kind='income';section='Дохід ДЦ';return;}
     if(label==='витрати'||/^загальна вартість закритих робіт/.test(label)){kind='';section='';return;}
     const group=sections.find(item=>item.match.test(label));
     if(group){kind='expense';section=group.name;return;}
