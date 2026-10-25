@@ -17,15 +17,15 @@
   --bg:#162030;--bg2:#1c2b3e;--bg3:#223348;--card:#263a52;--card2:#2c4260;
   --border:#334d6e;--border2:#3f5f84;
   --text:#ffffff;--text2:#dde4ee;--text3:#a0b4c8;
-  --accent:#f0b429;--green:#4ade80;--red:#f87171;--amber:#fbbf24;
-  --blue:#38bdf8;--violet:#a974e6;--radius:8px;
+  --accent:#f0b429;--on-accent:#0f1621;--green:#4ade80;--red:#fd9595;--amber:#fbbf24;
+  --blue:#38bdf8;--violet:#c4a5f5;--radius:8px;
 }
 body.light-theme{
   --bg:#eef2f8;--bg2:#ffffff;--bg3:#f0f4fa;--card:#ffffff;--card2:#f7f9fc;
   --border:#d0daea;--border2:#b8cce0;
-  --text:#1a2a3e;--text2:#2d4057;--text3:#6b84a0;
-  --accent:#2563eb;--green:#16a34a;--red:#dc2626;--amber:#d97706;
-  --blue:#0284c7;--violet:#7c3aed;
+  --text:#1a2a3e;--text2:#2d4057;--text3:#56708c;
+  --accent:#2563eb;--on-accent:#ffffff;--green:#15763a;--red:#c41e1e;--amber:#a8500a;
+  --blue:#0369a1;--violet:#7c3aed;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
@@ -43,7 +43,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 .brand span{font-size:11px;color:var(--text3);display:block}
 .btn{background:var(--card2);border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:8px 13px;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:.15s}
 .btn:hover{background:var(--card);border-color:var(--border2)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#1a1200}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.danger{color:var(--red)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
@@ -63,7 +63,7 @@ select#currentUserSelect{min-width:140px}
 .project-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:9px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .project-pill{padding:6px 8px 6px 14px;border-radius:20px;font-size:12.5px;font-weight:700;background:var(--card2);border:1px solid var(--border);color:var(--text2);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:8px;transition:.15s}
 .project-pill:hover{border-color:var(--border2)}
-.project-pill.active{background:var(--accent);border-color:var(--accent);color:#1a1200}
+.project-pill.active{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .project-pill .gear{opacity:.55;font-size:12px;padding:2px 3px;border-radius:4px}
 .project-pill .gear:hover{opacity:1;background:rgba(0,0,0,.12)}
 .project-bar-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-right:2px}
@@ -167,7 +167,7 @@ a.badge:hover{filter:brightness(1.25)}
 .who-box p{color:var(--text3);font-size:12.5px;margin-bottom:16px}
 .who-box .field{text-align:left}
 
-.avatar{width:20px;height:20px;border-radius:50%;background:var(--accent);color:#1a1200;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.avatar{width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 </style>
 </head>
 <body>
