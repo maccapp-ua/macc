@@ -898,6 +898,10 @@ let meetingFilter={status:'',site:'',month:'',search:''};
 const MTG_STATUS={planned:'📅 Запланована',done:'✅ Проведена',cancelled:'❌ Скасована'};
 const MTG_STATUS_BADGE={planned:'blue',done:'green',cancelled:'gray'};
 let cfFilters={type:'',form:'',category:'',site:'',counterparty:'',tag:'',month:'',search:''};
+let cfPage=1;
+const CF_PAGE_SIZE=100;
+let pendingBankRegistryImport=[];
+let pendingBankRegistryMeta={};
 
 // ══════════════════════════════════════════════════════════════
 //  HELPERS
@@ -938,8 +942,9 @@ function sitePlannedIncome(site){return(+site?.amountGross||0)||siteBudgetIncome
 //  STORAGE
 // ══════════════════════════════════════════════════════════════
 function save(){
-  localStorage.setItem('macc_state',JSON.stringify(state));
-  fetch(`${FB_URL}/data.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)}).catch(()=>{});
+  const payload=JSON.stringify(state);
+  try{localStorage.setItem('macc_state',payload);}catch(error){console.warn('Локальна копія стану не вмістилася у сховище браузера',error);}
+  fetch(`${FB_URL}/data.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:payload}).catch(()=>{});
 }
 function load(){
   const savedTheme=localStorage.getItem('macc_theme')||'dark';
@@ -2406,11 +2411,13 @@ function renderCashflow(){
     return out?.form===cfFilters.form||out?.transferTo===cfFilters.form;
   });
   if(cfFilters.category)    rows=rows.filter(r=>r.category===cfFilters.category);
-  if(cfFilters.site)        rows=rows.filter(r=>r.siteId===cfFilters.site);
+  if(cfFilters.site)        rows=cfFilters.site.startsWith('legacy:')
+    ?rows.filter(r=>(r.sourceObject||'')===cfFilters.site.slice(7))
+    :rows.filter(r=>r.siteId===cfFilters.site);
   if(cfFilters.counterparty)rows=rows.filter(r=>r.counterparty===cfFilters.counterparty);
   if(cfFilters.tag)         rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
   if(cfFilters.month)       rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
-  if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.tag||'').toLowerCase().includes(q));}
+  if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.tag||'').toLowerCase().includes(q)||(r.sourceObject||'').toLowerCase().includes(q)||(r.sourceAccount||'').toLowerCase().includes(q)||(r.documentNumber||'').toLowerCase().includes(q));}
 
   const operatingRows=rows.filter(r=>!isInternalTransfer(r));
   const totInc =operatingRows.filter(r=>r.type==='income').reduce((a,r)=>a+(+r.amount||0),0);
@@ -2425,6 +2432,7 @@ function renderCashflow(){
 
   const usedCats=[...new Set(all.map(r=>r.category).filter(Boolean))];
   const sites=(state.sites||[]).filter(s=>s.companyId===activeCompanyId);
+  const legacyObjects=[...new Set(all.filter(r=>!r.siteId&&r.sourceObject).map(r=>r.sourceObject))].sort();
   const budgetCats=sites.flatMap(s=>((state.budgets?.[s.id]?.rows)||[]).map(r=>r.workType)).filter(Boolean);
   const allCats=[...new Set([...budgetCats,...usedCats])].sort();
 
@@ -2468,6 +2476,7 @@ function renderCashflow(){
     <select onchange="cfFilters.site=this.value;renderCashflow()" style="min-width:130px">
       <option value="">Всі об'єкти</option>
       ${sites.map(s=>`<option value="${s.id}"${cfFilters.site===s.id?' selected':''}>${esc(s.name)}</option>`).join('')}
+      ${legacyObjects.length?'<optgroup label="Імпортовані з реєстру">'+legacyObjects.map(name=>`<option value="legacy:${esc(name)}"${cfFilters.site===`legacy:${name}`?' selected':''}>${esc(name)}</option>`).join('')+'</optgroup>':''}
     </select>
     <select onchange="cfFilters.counterparty=this.value;renderCashflow()" style="min-width:150px">
       <option value="">Всі контрагенти</option>
@@ -2475,14 +2484,18 @@ function renderCashflow(){
     </select>
     <input type="month" value="${cfFilters.month}" onchange="cfFilters.month=this.value;renderCashflow()" title="Місяць">
     <input placeholder="🔍 Пошук..." value="${esc(cfFilters.search)}" oninput="cfFilters.search=this.value;renderCashflow()" style="min-width:120px">
-    <button class="btn sm" onclick="cfFilters={type:'',form:'',category:'',site:'',counterparty:'',tag:'',month:'',search:''};renderCashflow()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9;opacity:${Object.values(cfFilters).some(v=>v)?1:0.45};pointer-events:${Object.values(cfFilters).some(v=>v)?'auto':'none'}">✕ Очистити фільтр</button>
+    <button class="btn sm" onclick="cfFilters={type:'',form:'',category:'',site:'',counterparty:'',tag:'',month:'',search:''};cfPage=1;renderCashflow()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9;opacity:${Object.values(cfFilters).some(v=>v)?1:0.45};pointer-events:${Object.values(cfFilters).some(v=>v)?'auto':'none'}">✕ Очистити фільтр</button>
   </div>`;
 
+  const displayRows=rows.filter(r=>r.transferRole!=='in');
+  const pageCount=Math.max(1,Math.ceil(displayRows.length/CF_PAGE_SIZE));
+  cfPage=Math.min(Math.max(1,cfPage),pageCount);
+  const pageRows=displayRows.slice((cfPage-1)*CF_PAGE_SIZE,cfPage*CF_PAGE_SIZE);
   let tbody='';
-  if(!rows.length){
+  if(!displayRows.length){
     tbody=`<tr><td colspan="8"><div class="empty"><div class="empty-icon">💸</div><h3>${all.length?'Нічого не знайдено':'Транзакцій ще немає'}</h3><p>${all.length?'Спробуйте інші фільтри':'Натисніть «+ Дохід» або «+ Витрата»'}</p></div></td></tr>`;
   } else {
-    rows.forEach(r=>{
+    pageRows.forEach(r=>{
       const site=sites.find(s=>s.id===r.siteId);
       const isInc=r.type==='income';
       const isTr=r.type==='transfer-out';
@@ -2500,16 +2513,16 @@ function renderCashflow(){
         typeBadge=`<span class="badge" style="${isInc?'background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.3)':'background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)'}">${isInc?'📈 Дохід':'📉 Витрата'}</span>`;
         amtStyle=isInc?'color:var(--green)':'color:var(--red)';
         amtText=`${isInc?'+':'-'}${fmtN(r.amount)}`;
-        formLabel=CF_FORM_LABEL[r.form]||r.form;
+        formLabel=(CF_FORM_LABEL[r.form]||r.form)+(r.sourceAccount?` · ${esc(r.sourceAccount)}`:'');
         clickFn=`openCFModal('${r.id}')`;
       }
-      if(r.transferRole==='in') return; // парний запис — не показуємо окремо
+      const objectLabel=site?.name||r.sourceObject||'';
       tbody+=`<tr onclick="${clickFn}">
         <td style="color:var(--text3);white-space:nowrap">${fmtD(r.date)}</td>
         <td>${typeBadge}</td>
         <td style="font-size:11px;color:var(--text3)">${formLabel}</td>
-        <td style="font-size:11px">${esc(r.category||'—')}</td>
-        <td>${site?`<span style="font-size:10px;color:var(--accent);font-weight:600">${esc(site.name)}</span>`:'<span style="color:var(--text3);font-size:10px">—</span>'}</td>
+        <td style="font-size:11px">${esc(r.category||'—')}${r.legacyImport&&!r.budgetRowId?' <span title="Статтю ще не зіставлено з бюджетом" style="color:var(--amber)">⚠</span>':''}</td>
+        <td>${objectLabel?`<span style="font-size:10px;color:${site?'var(--accent)':'var(--amber)'};font-weight:600">${esc(objectLabel)}</span>`:'<span style="color:var(--text3);font-size:10px">—</span>'}</td>
         <td>${esc(r.counterparty||'—')}</td>
         <td class="r mono" style="font-size:13px;font-weight:700;${amtStyle}">${amtText}</td>
         <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="${isTr?`deleteTransfer('${r.id}')`:`deleteCF('${r.id}')`}">×</button></td>
@@ -2534,6 +2547,8 @@ function renderCashflow(){
         <button class="btn" onclick="openCFModal(null,'income')" style="background:#22c55e;color:#fff;border-color:#22c55e">+ 📈 Дохід</button>
         <button class="btn" onclick="openCFModal(null,'expense')" style="background:#ef4444;color:#fff;border-color:#ef4444">+ 📉 Витрата</button>
         <button class="btn" onclick="openTransferModal(null)" style="background:#8b5cf6;color:#fff;border-color:#8b5cf6">+ 🔄 Переказ</button>
+        <input type="file" id="bank-registry-import" accept=".xlsx,.xls" style="display:none" onchange="importBankRegistry(this)">
+        <button class="btn" onclick="document.getElementById('bank-registry-import').click()" style="background:#2563eb;color:#fff;border-color:#2563eb">📥 Імпорт реєстру банку</button>
         <button class="btn sm" onclick="manageCFCounterparties()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9">⚙ Контрагенти</button>
         <button class="btn sm" onclick="exportCashflowExcel()" title="Excel">📥 Excel</button>
         <button class="btn sm" onclick="exportCashflowPDF()" title="PDF">🖨 PDF</button>
@@ -2552,7 +2567,7 @@ function renderCashflow(){
           <tbody>${tbody}</tbody>
         </table>
       </div>
-      ${rows.length?`<div style="padding:8px 14px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)">${rows.filter(r=>r.transferRole!=='in').length} записів · Доходи: <span style="color:var(--green);font-weight:700">${fmtN(totInc)}</span> · Витрати: <span style="color:var(--red);font-weight:700">${fmtN(totExp)}</span> · Баланс: <span style="font-weight:700;color:${balance>=0?'var(--accent)':'var(--red)'}">${fmtN(balance)}</span></div>`:''}
+      ${displayRows.length?`<div style="padding:8px 14px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><span>${displayRows.length} записів · Доходи: <span style="color:var(--green);font-weight:700">${fmtN(totInc)}</span> · Витрати: <span style="color:var(--red);font-weight:700">${fmtN(totExp)}</span> · Баланс: <span style="font-weight:700;color:${balance>=0?'var(--accent)':'var(--red)'}">${fmtN(balance)}</span></span>${pageCount>1?`<span style="display:flex;align-items:center;gap:8px"><button class="btn sm" onclick="cfPage=Math.max(1,cfPage-1);renderCashflow()" ${cfPage===1?'disabled':''}>←</button><b>${cfPage} / ${pageCount}</b><button class="btn sm" onclick="cfPage=Math.min(${pageCount},cfPage+1);renderCashflow()" ${cfPage===pageCount?'disabled':''}>→</button></span>`:''}</div>`:''}
     </div>
     ${catSummary.length?`<div class="card">
       <div class="card-head">
@@ -2610,6 +2625,7 @@ function updateCFBudgetOptions(selectedRowId='',legacyName=''){
 }
 function saveCF(){
   if(!state.cashflows)state.cashflows=[];
+  const existingCF=editingCFId?(state.cashflows||[]).find(x=>x.id===editingCFId):null;
   const amount=+document.getElementById('cf-amount').value||0;
   const date=document.getElementById('cf-date').value;
   const budgetRowId=document.getElementById('cf-category').value;
@@ -2631,6 +2647,13 @@ function saveCF(){
     counterparty:document.getElementById('cf-counterparty').value.trim(),
     notes:document.getElementById('cf-notes').value.trim(),
     workType:budgetRow.workType||'',
+    ...(existingCF?.importKey?{
+      importKey:existingCF.importKey,importSource:existingCF.importSource,importRow:existingCF.importRow,
+      sourceObject:existingCF.sourceObject,sourceCategory:existingCF.sourceCategory,sourceAccount:existingCF.sourceAccount,
+      sourceCompany:existingCF.sourceCompany,documentNumber:existingCF.documentNumber,documentDate:existingCF.documentDate,
+      initiator:existingCF.initiator,vatExcluded:existingCF.vatExcluded,transiter:existingCF.transiter,transitAmount:existingCF.transitAmount,
+    }:{}),
+    legacyImport:false,
   };
   if(editingCFId){const i=state.cashflows.findIndex(x=>x.id===editingCFId);if(i>=0)state.cashflows[i]=data;}
   else state.cashflows.push(data);
@@ -2639,6 +2662,177 @@ function saveCF(){
 function deleteCF(id){
   if(!confirm('Видалити транзакцію?'))return;
   state.cashflows=state.cashflows.filter(x=>x.id!==id);save();renderCashflow();
+}
+
+// ── Імпорт банківського реєстру ─────────────────────────────
+function _registryNorm(value){
+  return String(value||'').toLowerCase().replace(/[ʼ’`′]/g,"'").replace(/[^\p{L}\p{N}]+/gu,' ').replace(/\s+/g,' ').trim();
+}
+function _registryHash(parts){
+  const text=parts.map(v=>_registryNorm(v)).join('|');
+  let hash=2166136261;
+  for(let i=0;i<text.length;i++){hash^=text.charCodeAt(i);hash=Math.imul(hash,16777619);}
+  return`bank-registry-${(hash>>>0).toString(36)}`;
+}
+function _registrySiteMatch(sourceObject,sites){
+  const source=_registryNorm(sourceObject);if(!source)return null;
+  const compact=source.replace(/\s/g,'');
+  const stop=new Set(['буд','будинок','обєкт','обʼєкт','жб','жбж','жк','вул','вулиця','пр','проспект']);
+  const scored=[];
+  sites.forEach(site=>{
+    [site.name,site.address].filter(Boolean).forEach(value=>{
+      const key=_registryNorm(value),keyCompact=key.replace(/\s/g,'');
+      let score=0;
+      if(key===source)score=100;
+      else if(keyCompact.length>=6&&(compact.includes(keyCompact)||keyCompact.includes(compact)))score=85;
+      else{
+        const tokens=key.split(' ').filter(t=>(t.length>=3||/^\d+$/.test(t))&&!stop.has(t));
+        if(tokens.length&&tokens.every(t=>source.split(' ').includes(t)))score=60+Math.min(tokens.length,10);
+      }
+      if(score)scored.push({site,score});
+    });
+  });
+  scored.sort((a,b)=>b.score-a.score);
+  return scored.length&&(!scored[1]||scored[0].score>scored[1].score)?scored[0].site:null;
+}
+function _registryBudgetMatch(siteId,type,sourceCategory,purpose){
+  if(!siteId)return null;
+  const rows=((state.budgets?.[siteId]?.rows)||[]).filter(r=>!r.budgetKind||r.budgetKind===type);
+  const category=_registryNorm(sourceCategory),detail=_registryNorm(purpose);
+  let match=rows.find(r=>_registryNorm(r.workType)===category);
+  if(!match&&detail)match=rows.find(r=>_registryNorm(r.workType)===detail);
+  if(!match&&category.length>=6)match=rows.find(r=>{
+    const name=_registryNorm(r.workType);return name.length>=6&&(name.includes(category)||category.includes(name));
+  });
+  return match||null;
+}
+function importBankRegistry(input){
+  const file=input.files?.[0];input.value='';if(!file)return;
+  if(!window.XLSX){alert('Бібліотека XLSX не завантажена');return;}
+  const reader=new FileReader();
+  reader.onload=event=>{
+    try{
+      const workbook=XLSX.read(event.target.result,{type:'array',cellDates:true});
+      const sheet=workbook.Sheets['Реєстр']||workbook.Sheets[workbook.SheetNames[0]];
+      const raw=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:true});
+      const headerIndex=raw.findIndex(row=>{
+        const labels=row.map(_registryNorm);
+        return labels.some(v=>v.includes('дата оплати'))&&labels.some(v=>v.includes('сума приходу'))&&labels.some(v=>v.includes('сума витрат'));
+      });
+      if(headerIndex<0){alert('Не знайдено заголовки реєстру. Потрібні колонки «Дата оплати», «Сума приходу» та «Сума витрат».');return;}
+      const headers=raw[headerIndex].map(_registryNorm);
+      const find=(...tokens)=>headers.findIndex(h=>tokens.every(token=>h.includes(token)));
+      const columns={
+        date:find('дата','оплати'),company:find('компан','платник'),account:headers.findIndex(h=>h==='рахунок'),
+        counterparty:find('контрагент'),income:find('сума','приходу'),expense:find('сума','витрат'),
+        documentNumber:find('договору','рахунку'),documentDate:find('дата','дог'),purpose:find('коротке','призначення'),
+        object:headers.findIndex(h=>h.includes('об єкт')||h.includes("об'єкт")||h.includes('обєкт')),
+        initiator:find('ініціатор'),category:find('стаття','доходу'),vat:find('без','пдв'),
+        transiter:find('транзитер'),transitAmount:find('сума','транзиту'),comment:headers.findIndex(h=>h.includes('коментар')),
+      };
+      if(columns.date<0||columns.income<0||columns.expense<0){alert('Структура файлу не відповідає банківському реєстру.');return;}
+      const value=(row,index)=>index>=0?row[index]:'';
+      const sites=(state.sites||[]).filter(s=>s.companyId===activeCompanyId);
+      const existingKeys=new Set((state.cashflows||[]).map(r=>r.importKey).filter(Boolean));
+      const operations=[];let undated=0,empty=0;
+      for(let index=headerIndex+1;index<raw.length;index++){
+        const row=raw[index];
+        const income=_parseBudgetNumber(value(row,columns.income));
+        const expense=_parseBudgetNumber(value(row,columns.expense));
+        if(!income&&!expense){empty++;continue;}
+        const date=_parseDateStr(value(row,columns.date));
+        if(!date){undated++;continue;}
+        const sourceObject=String(value(row,columns.object)||'').trim();
+        const sourceCategory=String(value(row,columns.category)||'').trim();
+        const purpose=String(value(row,columns.purpose)||'').trim();
+        const counterparty=String(value(row,columns.counterparty)||'').trim();
+        const sourceAccount=String(value(row,columns.account)||'').trim();
+        const sourceCompany=String(value(row,columns.company)||'').trim();
+        const documentNumber=String(value(row,columns.documentNumber)||'').trim();
+        const documentDate=_parseDateStr(value(row,columns.documentDate));
+        const initiator=String(value(row,columns.initiator)||'').trim();
+        const comment=String(value(row,columns.comment)||'').trim();
+        const vatExcluded=String(value(row,columns.vat)||'').trim()==='+';
+        const transiter=String(value(row,columns.transiter)||'').trim();
+        const transitAmount=_parseBudgetNumber(value(row,columns.transitAmount));
+        const site=_registrySiteMatch(sourceObject,sites);
+        [['income',income],['expense',expense]].forEach(([type,amount])=>{
+          if(!amount)return;
+          const budgetRow=_registryBudgetMatch(site?.id||'',type,sourceCategory,purpose);
+          const importKey=_registryHash([date,type,amount,counterparty,sourceObject,sourceCategory,purpose,documentNumber,sourceAccount]);
+          const noteParts=[purpose,documentNumber?`Документ: ${documentNumber}${documentDate?' від '+fmtD(documentDate):''}`:'',initiator?`Ініціатор: ${initiator}`:'',comment,vatExcluded?'Без ПДВ':'',transiter?`Транзитер: ${transiter}`:'',transitAmount?`Сума транзиту: ${fmtN(transitAmount)}`:''].filter(Boolean);
+          operations.push({
+            id:'',type,form:'bank',date,amount:+amount,companyId:activeCompanyId,
+            siteId:site?.id||'',budgetRowId:budgetRow?.id||'',workType:budgetRow?.workType||'',
+            category:budgetRow?.workType||sourceCategory||purpose||'Імпорт з банківського реєстру',
+            counterparty,notes:noteParts.join(' · '),sourceObject,sourceCategory,sourceAccount,sourceCompany,
+            documentNumber,documentDate,initiator,vatExcluded,transiter,transitAmount,
+            importSource:'bank-registry',importKey,importRow:index+1,legacyImport:true,
+            matchedSite:!!site,matchedBudget:!!budgetRow,duplicate:existingKeys.has(importKey),
+            futureDate:new Date(`${date}T00:00:00`)>new Date(),
+          });
+        });
+      }
+      if(!operations.length){alert('У файлі немає оплачених рядків із датою та сумою.');return;}
+      pendingBankRegistryImport=operations;
+      pendingBankRegistryMeta={fileName:file.name,undated,empty,sourceRows:raw.length-headerIndex-1};
+      showBankRegistryPreview();
+    }catch(error){alert('Не вдалося прочитати реєстр: '+error.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function showBankRegistryPreview(){
+  document.getElementById('bank-registry-preview')?.remove();
+  const operations=pendingBankRegistryImport;
+  const fresh=operations.filter(r=>!r.duplicate);
+  const income=fresh.filter(r=>r.type==='income').reduce((sum,r)=>sum+r.amount,0);
+  const expense=fresh.filter(r=>r.type==='expense').reduce((sum,r)=>sum+r.amount,0);
+  const unmatchedSites=[...new Set(fresh.filter(r=>!r.matchedSite&&r.sourceObject).map(r=>r.sourceObject))];
+  const future=fresh.filter(r=>r.futureDate).length;
+  const previewRows=fresh.slice(0,80).map(r=>`<tr>
+    <td style="white-space:nowrap">${fmtD(r.date)}</td>
+    <td style="color:${r.type==='income'?'var(--green)':'var(--red)'};font-weight:700">${r.type==='income'?'Дохід':'Витрата'}</td>
+    <td>${esc(r.counterparty||'—')}</td><td>${esc(r.sourceObject||'—')}</td><td>${esc(r.sourceCategory||r.category||'—')}</td>
+    <td class="r" style="font-weight:700">${fmtN(r.amount)}</td>
+    <td style="font-size:10px;color:${r.matchedBudget?'var(--green)':r.matchedSite?'var(--amber)':'var(--red)'}">${r.matchedBudget?'Об’єкт і бюджет':r.matchedSite?'Об’єкт знайдено, статтю ні':'Історичний запис без зіставлення'}</td>
+  </tr>`).join('');
+  const popup=document.createElement('div');popup.id='bank-registry-preview';popup.className='modal-overlay open';popup.style.zIndex='4100';
+  popup.innerHTML=`<div class="modal" style="width:min(1180px,96vw);max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-head"><div><div class="modal-title">Імпорт банківського реєстру</div><div style="font-size:10px;color:var(--text3);margin-top:3px">${esc(pendingBankRegistryMeta.fileName||'Excel')} → ${esc(companyName(activeCompanyId))}</div></div><button class="modal-close" onclick="document.getElementById('bank-registry-preview').remove()">×</button></div>
+    <div class="modal-body" style="overflow:auto">
+      <div class="metrics" style="margin-bottom:12px"><div class="metric" style="--mc:var(--accent)"><div class="metric-label">Нових операцій</div><div class="metric-value">${fresh.length}</div></div><div class="metric" style="--mc:var(--green)"><div class="metric-label">Доходи</div><div class="metric-value" style="color:var(--green);font-size:16px">${fmtN(income)}</div></div><div class="metric" style="--mc:var(--red)"><div class="metric-label">Витрати</div><div class="metric-value" style="color:var(--red);font-size:16px">${fmtN(expense)}</div></div><div class="metric" style="--mc:var(--text3)"><div class="metric-label">Повторів пропущено</div><div class="metric-value">${operations.filter(r=>r.duplicate).length}</div></div></div>
+      <div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.55">
+        Імпортуються лише рядки, де є <b>дата оплати</b> та сума приходу або витрат. Без дати пропущено: <b>${pendingBankRegistryMeta.undated||0}</b>. Майбутніх дат: <b>${future}</b>.<br>
+        Не зіставлено з наявними об’єктами: <b>${unmatchedSites.length}</b> назв. Такі платежі збережуть оригінальну назву об’єкта і статтю та будуть позначені ⚠; їх можна зіставити з бюджетом під час редагування.
+      </div>
+      ${future?`<label style="display:flex;align-items:center;gap:7px;margin-bottom:12px;font-size:12px;color:var(--text2)"><input type="checkbox" id="bank-import-future" checked> Імпортувати також операції з майбутньою датою (${future})</label>`:''}
+      <div style="overflow:auto;max-height:430px"><table class="tbl" style="min-width:960px"><thead><tr><th>Дата</th><th>Тип</th><th>Контрагент</th><th>Об’єкт у реєстрі</th><th>Стаття</th><th class="r">Сума</th><th>Зіставлення</th></tr></thead><tbody>${previewRows}</tbody></table></div>
+      ${fresh.length>80?`<div style="font-size:10px;color:var(--text3);padding-top:8px">Показано перші 80 із ${fresh.length} операцій.</div>`:''}
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="document.getElementById('bank-registry-preview').remove()">Скасувати</button><button class="btn primary" onclick="confirmBankRegistryImport()" ${fresh.length?'':'disabled'}>Імпортувати ${fresh.length} операцій</button></div>
+  </div>`;
+  document.body.appendChild(popup);
+}
+async function confirmBankRegistryImport(){
+  const includeFuture=document.getElementById('bank-import-future')?.checked!==false;
+  const fresh=pendingBankRegistryImport.filter(r=>!r.duplicate&&(includeFuture||!r.futureDate));
+  if(!fresh.length){alert('Нових операцій для імпорту немає.');return;}
+  if(!state.cashflows)state.cashflows=[];
+  const stamp=Date.now().toString(36);
+  const addedIds=[];
+  const previousCounterparties=[...(state.cfCounterparties||[])];
+  fresh.forEach((row,index)=>{
+    const {matchedSite,matchedBudget,duplicate,futureDate,...data}=row;
+    const id=`reg-${stamp}-${index.toString(36)}`;addedIds.push(id);state.cashflows.push({...data,id});
+  });
+  const counterparties=fresh.map(r=>r.counterparty).filter(Boolean);
+  state.cfCounterparties=[...new Set([...(state.cfCounterparties||[]),...counterparties])].sort();
+  const saved=await Promise.resolve(save());
+  if(saved===false){state.cashflows=state.cashflows.filter(r=>!addedIds.includes(r.id));state.cfCounterparties=previousCounterparties;alert('Сервер не підтвердив збереження. Дані не додано; перевірте повідомлення про помилку та спробуйте ще раз.');return;}
+  document.getElementById('bank-registry-preview')?.remove();
+  pendingBankRegistryImport=[];pendingBankRegistryMeta={};cfPage=1;
+  renderCashflow();
+  alert(`Імпортовано ${fresh.length} банківських операцій. Повторне завантаження цього реєстру не створить дублікати.`);
 }
 function manageCFCategories(){
   const cats=(state.cfCategories||[]).slice().sort();
@@ -4195,9 +4389,9 @@ function exportCashflowExcel(){
   const data=[header,...rows.map(r=>{
     const site=(state.sites||[]).find(s=>s.id===r.siteId);
     const isTr=isInternalTransfer(r);
-    const form=isTr?`${CF_FORM_LABEL[r.form]||r.form} → ${CF_FORM_LABEL[r.transferTo]||r.transferTo}`:(CF_FORM_LABEL[r.form]||r.form);
+    const form=isTr?`${CF_FORM_LABEL[r.form]||r.form} → ${CF_FORM_LABEL[r.transferTo]||r.transferTo}`:(CF_FORM_LABEL[r.form]||r.form)+(r.sourceAccount?` · ${r.sourceAccount}`:'');
     const note=isTr?`${r.notes||''}${r.notes?' · ':''}Отримано: ${fmtN(r.transferReceived||0)}`:(r.notes||'');
-    return[r.date,isTr?'Переказ':r.type==='income'?'Дохід':'Розхід',form,r.category||'',site?.name||'',r.counterparty||'',+r.amount||0,note];
+    return[r.date,isTr?'Переказ':r.type==='income'?'Дохід':'Розхід',form,r.category||'',site?.name||r.sourceObject||'',r.counterparty||'',+r.amount||0,note];
   })];
   xlsxDownload(data,'Грошові потоки',`MACC_ГрошовіПотоки_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
@@ -4223,7 +4417,7 @@ function exportCashflowPDF(){
     const site=(state.sites||[]).find(s=>s.id===r.siteId);
     const isTr=isInternalTransfer(r),isInc=r.type==='income'&&!isTr;
     if(isInc)totInc+=(+r.amount||0);else if(!isTr)totExp+=(+r.amount||0);
-    const form=isTr?`${CF_FORM_LABEL[r.form]||r.form} → ${CF_FORM_LABEL[r.transferTo]||r.transferTo}`:(CF_FORM_LABEL[r.form]||r.form);
+    const form=isTr?`${CF_FORM_LABEL[r.form]||r.form} → ${CF_FORM_LABEL[r.transferTo]||r.transferTo}`:(CF_FORM_LABEL[r.form]||r.form)+(r.sourceAccount?` · ${esc(r.sourceAccount)}`:'');
     const typeLabel=isTr?'↔ Переказ':isInc?'↑ Дохід':'↓ Розхід';
     const amountLabel=isTr?`${fmtN(r.amount)} → ${fmtN(r.transferReceived||0)}`:`${isInc?'+':'-'}${fmtN(r.amount)}`;
     return`<tr>
@@ -4231,7 +4425,7 @@ function exportCashflowPDF(){
       <td style="color:${isTr?'#7c3aed':isInc?'green':'red'};font-weight:700">${typeLabel}</td>
       <td>${form}</td>
       <td>${esc(r.category||'—')}</td>
-      <td>${esc(site?.name||'—')}</td>
+      <td>${esc(site?.name||r.sourceObject||'—')}</td>
       <td>${esc(r.counterparty||'—')}</td>
       <td class="r" style="font-weight:700;color:${isTr?'#7c3aed':isInc?'green':'red'}">${amountLabel}</td>
       <td style="font-size:10px;color:#666">${esc(r.notes||'')}</td>

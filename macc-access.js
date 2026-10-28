@@ -371,19 +371,20 @@
     if(profile.role==='project_manager'){if(!projectManagerMaySave(previous,next)){alert('Керівник проєкту може додавати та редагувати дані лише у своїх об’єктах. Видалення даних і зміни чужих об’єктів недоступні.');window.applyState(scopedState(previous));window.render();return;}next=mergeProjectManagerChanges(previous,next);}
     if(!isAdmin()&&profile.role!=='accountant'&&profile.role!=='project_manager'){alert('У вас немає права вносити зміни.');return;}
     const payload=JSON.stringify(next);
-    localStorage.setItem(companyStateKey(),payload);
-    if(payload===latestData)return;
+    try{localStorage.setItem(companyStateKey(),payload);}catch(error){console.warn('Локальна копія стану не вмістилася у сховище браузера',error);}
+    if(payload===latestData)return true;
+    const {error}=await db.from('macc_company_state').upsert({company_id:profile.company_id,data:next,updated_at:new Date().toISOString(),updated_by:session.user.id},{onConflict:'company_id'});
+    if(error){console.error(error); alert('Зміни не вдалося синхронізувати: '+error.message);return false;}
     latestData=payload;
     fullState=next;
-    const {error}=await db.from('macc_company_state').upsert({company_id:profile.company_id,data:next,updated_at:new Date().toISOString(),updated_by:session.user.id},{onConflict:'company_id'});
-    if(error){console.error(error); alert('Зміни не вдалося синхронізувати: '+error.message);return;}
     const changes=auditChanges(previous,next);await db.from('macc_audit_log').insert({company_id:profile.company_id,user_id:session.user.id,action:changes.length?changes.join('; '):'Зміна даних сайту',details:{sections:topLevelChanges(previous,next)}});
+    return true;
   }
   async function secureLoad(){
     const savedTheme=localStorage.getItem('macc_theme')||'dark';document.body.classList.toggle('light-theme',savedTheme==='light');
     const {data,error}=await db.from('macc_company_state').select('data,updated_at').eq('company_id',profile.company_id).maybeSingle();
     if(error)throw error;
-    if(data?.data){fullState=data.data;fullState.financeArticles=(Array.isArray(fullState.financeArticles)?fullState.financeArticles:[]).map(a=>({...a,type:a.type==='investment'||a.type==='loan'?'transfer':a.type,account:a.account||'bank'}));window.applyState(scopedState(fullState));latestData=JSON.stringify(fullState);localStorage.setItem(companyStateKey(),JSON.stringify(state));}
+    if(data?.data){fullState=data.data;fullState.financeArticles=(Array.isArray(fullState.financeArticles)?fullState.financeArticles:[]).map(a=>({...a,type:a.type==='investment'||a.type==='loan'?'transfer':a.type,account:a.account||'bank'}));window.applyState(scopedState(fullState));latestData=JSON.stringify(fullState);try{localStorage.setItem(companyStateKey(),JSON.stringify(state));}catch(error){console.warn('Локальна копія стану не вмістилася у сховище браузера',error);}}
     else {fullState={companies:[],sites:[],contractors:[],executors:[],cashflows:[],financeArticles:[],cfCategories:[],cfCounterparties:[],budgets:{},meetings:[],tasks:[],tenders:[]};window.applyState(fullState);latestData=JSON.stringify(fullState);}
     window.render();applyReadOnly();
   }
