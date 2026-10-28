@@ -2604,6 +2604,7 @@ function renderCashflow(){
         <button class="btn sm" onclick="manageCFCounterparties()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9">⚙ Контрагенти</button>
         <button class="btn sm" onclick="exportCashflowExcel()" title="Excel">📥 Excel</button>
         <button class="btn sm" onclick="exportCashflowPDF()" title="PDF">🖨 PDF</button>
+        ${(!window.MACC_SECURE_BOOT||window.maccCanManageProjects?.()===true)?`<button class="btn sm danger" onclick="deleteAllCashflows()" title="Видалити всі платежі поточної компанії" ${all.length?'':'disabled'}>🗑 Видалити всі платежі</button>`:''}
       </div>
     </div>
     ${metrics}
@@ -2729,6 +2730,23 @@ function saveCF(){
 function deleteCF(id){
   if(!confirm('Видалити транзакцію?'))return;
   state.cashflows=state.cashflows.filter(x=>x.id!==id);save();renderCashflow();
+}
+async function deleteAllCashflows(){
+  if(window.MACC_SECURE_BOOT&&window.maccCanManageProjects?.()!==true){alert('Видалити всі платежі може лише адміністратор.');return;}
+  const companyId=activeCompanyId;
+  const companyRows=(state.cashflows||[]).filter(row=>row.companyId===companyId);
+  if(!companyRows.length){alert('У цієї компанії немає платежів для видалення.');return;}
+  const company=companyName(companyId);
+  if(!confirm(`Видалити всі платежі компанії «${company}»?\n\nБуде видалено записів: ${companyRows.length}. Платежі інших компаній, об’єкти та бюджети залишаться без змін.`))return;
+  const verification=prompt(`Для підтвердження введіть слово ВИДАЛИТИ.\n\nКомпанія: ${company}\nПлатежів: ${companyRows.length}`);
+  if((verification||'').trim().toUpperCase()!=='ВИДАЛИТИ'){alert('Видалення скасовано: підтвердження не збігається.');return;}
+  const previousCashflows=[...(state.cashflows||[])];
+  state.cashflows=previousCashflows.filter(row=>row.companyId!==companyId);
+  const saved=await Promise.resolve(save());
+  if(saved===false){state.cashflows=previousCashflows;alert('Сервер не підтвердив видалення. Платежі відновлено, спробуйте ще раз.');return;}
+  cfFilters={type:'',form:'',status:'',category:'',site:'',counterparty:'',tag:'',month:'',search:''};
+  cfPage=1;renderCashflow();
+  alert(`Видалено всі платежі компанії «${company}»: ${companyRows.length}.`);
 }
 
 // ── Імпорт банківського реєстру ─────────────────────────────
