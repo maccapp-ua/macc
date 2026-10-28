@@ -1230,6 +1230,15 @@ function renderSiteDetail(){
   const dlColor=!s.deadline||s.status==='done'?'var(--text3)':dl<0?'var(--red)':dl<=30?'var(--amber)':'var(--green)';
   const inc=siteIncome(s.id), exp=siteExpense(s.id);
   const planIncome=sitePlannedIncome(s), planExpense=siteBudgetExpense(s.id);
+  const objectCashflows=(state.cashflows||[]).filter(c=>c.siteId===s.id&&isActualCashflow(c)&&!isInternalTransfer(c));
+  const incomeBank=objectCashflows.filter(c=>c.type==='income'&&c.form==='bank').reduce((sum,c)=>sum+(+c.amount||0),0);
+  const incomeCash=objectCashflows.filter(c=>c.type==='income'&&c.form==='cash').reduce((sum,c)=>sum+(+c.amount||0),0);
+  const expenseBank=objectCashflows.filter(c=>c.type==='expense'&&c.form==='bank').reduce((sum,c)=>sum+(+c.amount||0),0);
+  const expenseCash=objectCashflows.filter(c=>c.type==='expense'&&c.form==='cash').reduce((sum,c)=>sum+(+c.amount||0),0);
+  const planProfit=planIncome-planExpense,factProfit=inc-exp;
+  const planProfitability=planIncome?planProfit/planIncome*100:0;
+  const factProfitability=inc?factProfit/inc*100:0;
+  const objectMetric=(label,value,details,color)=>`<div class="metric" style="--mc:${color}"><div class="metric-label">${label}</div><div class="metric-value" style="font-size:18px;color:${color}">${value}</div><div style="font-size:10px;color:var(--text3);margin-top:7px;line-height:1.55">${details}</div></div>`;
 
   // info rows helper
   const infoRow=(label,val)=>`<div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--text3);min-width:180px">${label}</span><span style="font-size:12px;color:var(--text);font-weight:500">${val}</span></div>`;
@@ -1319,6 +1328,14 @@ function renderSiteDetail(){
       ${(canEditSite||canManageProjects)?`<div style="display:flex;gap:8px">${canEditSite?`<button class="btn sm" onclick="openSiteModal('${s.id}')">✏ Редагувати</button>`:''}${canManageProjects?`<button class="btn sm danger" onclick="deleteSite('${s.id}')">🗑 Видалити</button>`:''}</div>`:''}
     </div>
 
+    <!-- Фінансові показники об'єкта -->
+    <div class="metrics" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:14px">
+      ${objectMetric('Загальний дохід',fmtN(inc),`План: ${fmtN(planIncome)} · Факт: ${fmtN(inc)}<br>Банк: ${fmtN(incomeBank)} · Каса: ${fmtN(incomeCash)}`,'var(--green)')}
+      ${objectMetric('Загальний розхід',fmtN(exp),`План: ${fmtN(planExpense)} · Факт: ${fmtN(exp)}<br>Банк: ${fmtN(expenseBank)} · Каса: ${fmtN(expenseCash)}`,'var(--red)')}
+      ${objectMetric('Загальний прибуток',fmtN(factProfit),`План: ${fmtN(planProfit)} · Факт: ${fmtN(factProfit)}`,factProfit>=0?'var(--green)':'var(--red)')}
+      ${objectMetric('Прибутковість',`${factProfitability.toFixed(1)}%`,`План: ${planProfitability.toFixed(1)}% · Факт: ${factProfitability.toFixed(1)}%`,'var(--violet)')}
+    </div>
+
     <!-- Загальна інформація -->
     <div class="card" style="margin-bottom:14px">
       <div class="card-head"><span class="card-title">📋 Загальна інформація</span></div>
@@ -1328,13 +1345,10 @@ function renderSiteDetail(){
             ${infoRow('Замовник', esc(s.client||'—'))}
             ${infoRow('Керівник проєкту', esc(projectManagerName(s)))}
             ${infoRow('Адреса', esc(s.address||'—'))}
-            ${infoRow('Договір / дохід (план)', `<b style="color:var(--accent)">${fmtN(planIncome)}</b> грн`)}
-            ${infoRow('Витрати за бюджетом (план)', `<b style="color:#38bdf8">${fmtN(planExpense)}</b> грн`)}
           </div>
           <div>
             ${infoRow('Дата підписання', fmtD(s.signDate))}
             ${infoRow('Дата виконання', `<span style="color:${dlColor};font-weight:600">${fmtD(s.deadline)}</span>`)}
-            ${infoRow('Отримано / Витрачено (факт)', `<span style="color:var(--green)">${fmtN(inc)}</span> / <span style="color:var(--red)">${fmtN(exp)}</span>`)}
           </div>
         </div>
         ${s.notes?`<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--text2)">${esc(s.notes)}</div>`:''}
