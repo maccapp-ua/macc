@@ -457,7 +457,7 @@ select.form-input option{background:var(--bg3)}
 
 <!-- Транзакція -->
 <div class="modal-overlay" id="modal-cf">
-  <div class="modal">
+  <div class="modal" style="width:min(900px,96vw)">
     <div class="modal-head">
       <span class="modal-title" id="modal-cf-title">Нова транзакція</span>
       <button class="modal-close" onclick="closeModal('cf')">×</button>
@@ -477,7 +477,7 @@ select.form-input option{background:var(--bg3)}
           </select></div>
       </div>
       <div class="form-row2">
-        <div class="form-group"><label class="form-label">Дата *</label>
+        <div class="form-group"><label class="form-label">Дата оплати</label>
           <input class="form-input" type="date" id="cf-date"></div>
         <div class="form-group"><label class="form-label">Сума, грн *</label>
           <input class="form-input" type="number" id="cf-amount" placeholder="0" min="0" step="0.01"></div>
@@ -493,7 +493,28 @@ select.form-input option{background:var(--bg3)}
       </div>
       <div class="form-group"><label class="form-label">Контрагент</label>
         <input class="form-input" id="cf-counterparty" list="cf-cp-list" placeholder="введіть або оберіть..."></div>
-      <div class="form-group"><label class="form-label">Примітки</label>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">Рахунок</label>
+          <input class="form-input" id="cf-account" placeholder="напр. Правексбанк"></div>
+        <div class="form-group"><label class="form-label">Ініціатор</label>
+          <input class="form-input" id="cf-initiator" placeholder="хто подав платіж"></div>
+      </div>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">№ договору / рахунку</label>
+          <input class="form-input" id="cf-document-number"></div>
+        <div class="form-group"><label class="form-label">Дата договору</label>
+          <input class="form-input" type="date" id="cf-document-date"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Коротке призначення платежу</label>
+        <textarea class="form-input" id="cf-purpose" rows="2"></textarea></div>
+      <div class="form-row2">
+        <div class="form-group"><label class="form-label">Транзитер</label>
+          <input class="form-input" id="cf-transiter"></div>
+        <div class="form-group"><label class="form-label">Сума транзиту, грн</label>
+          <input class="form-input" type="number" id="cf-transit-amount" min="0" step="0.01" placeholder="0"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin:2px 0 14px;font-size:12px;color:var(--text2)"><input type="checkbox" id="cf-vat-excluded"> Без ПДВ</label>
+      <div class="form-group"><label class="form-label">Коментар</label>
         <textarea class="form-input" id="cf-notes" rows="2"></textarea></div>
     </div>
     <div class="modal-footer">
@@ -897,7 +918,7 @@ let taskSort='site'; // 'site' | 'deadline'
 let meetingFilter={status:'',site:'',month:'',search:''};
 const MTG_STATUS={planned:'📅 Запланована',done:'✅ Проведена',cancelled:'❌ Скасована'};
 const MTG_STATUS_BADGE={planned:'blue',done:'green',cancelled:'gray'};
-let cfFilters={type:'',form:'',category:'',site:'',counterparty:'',tag:'',month:'',search:''};
+let cfFilters={type:'',form:'',status:'',category:'',site:'',counterparty:'',tag:'',month:'',search:''};
 let cfPage=1;
 const CF_PAGE_SIZE=100;
 let pendingBankRegistryImport=[];
@@ -925,13 +946,16 @@ function statusBadge(s){
 
 // Internal transfers move money between accounts and never create object income/expense.
 function isInternalTransfer(c){return!!c?.transferGroupId||c?.type==='transfer-out'}
+// A register row without a payment date is a pending payment, not an accounting fact.
+function isActualCashflow(c){return!!c?.date}
 function cashflowSignedAmount(c){
+  if(!isActualCashflow(c))return 0;
   if(c?.type==='income')return +c.amount||0;
   if(c?.type==='expense'||c?.type==='transfer-out')return-(+c.amount||0);
   return 0;
 }
-function siteIncome(siteId){return(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='income'&&!isInternalTransfer(c)).reduce((a,c)=>a+(+c.amount||0),0)}
-function siteExpense(siteId){return(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense'&&!isInternalTransfer(c)).reduce((a,c)=>a+(+c.amount||0),0)}
+function siteIncome(siteId){return(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='income'&&!isInternalTransfer(c)&&isActualCashflow(c)).reduce((a,c)=>a+(+c.amount||0),0)}
+function siteExpense(siteId){return(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense'&&!isInternalTransfer(c)&&isActualCashflow(c)).reduce((a,c)=>a+(+c.amount||0),0)}
 function siteBudgetRows(siteId){return((state.budgets||{})[siteId]?.rows||[])}
 function siteBudgetIncome(siteId){return siteBudgetRows(siteId).reduce((a,r)=>a+rowDC(r),0)}
 function siteBudgetExpense(siteId){return siteBudgetRows(siteId).reduce((a,r)=>a+rowPC(r),0)}
@@ -1212,7 +1236,7 @@ function renderSiteDetail(){
 
   // subcontractors table
   const subs=s.subContracts||[];
-  const siteCFs=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense');
+  const siteCFs=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&isActualCashflow(c));
   function cfSum(name,kw){
     const n=(name||'').toLowerCase();
     return siteCFs.filter(c=>{
@@ -1519,7 +1543,7 @@ function renderBudgetList(){
       sumPlanCost += rowPC(r);
       // factCost рядка = витрати з грош.потоків цього об'єкту по цьому виду робіт
       sumFactCost += cfs
-        .filter(c=>c.siteId===s.id && c.type==='expense' && cashflowMatchesBudgetRow(c,r))
+        .filter(c=>c.siteId===s.id && c.type==='expense' && isActualCashflow(c) && cashflowMatchesBudgetRow(c,r))
         .reduce((a,c)=>a+(+c.amount||0),0);
     });
   });
@@ -1577,7 +1601,7 @@ function renderBudgetList(){
       const totDC=rows.reduce((a,r)=>a+rowDC(r),0);
       const totPlanCost=rows.reduce((a,r)=>a+rowPC(r),0);
       const totPlanInc=totDC-totPlanCost;
-      const totFactCost=rows.reduce((a,r)=>a+(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&cashflowMatchesBudgetRow(c,r)).reduce((a2,c)=>a2+(+c.amount||0),0),0);
+      const totFactCost=rows.reduce((a,r)=>a+(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&isActualCashflow(c)&&cashflowMatchesBudgetRow(c,r)).reduce((a2,c)=>a2+(+c.amount||0),0),0);
       const totFactInc=totDC-totFactCost;
       tbody+=`<tr onclick="openBudget('${s.id}')">
         <td style="color:var(--text);font-weight:600">${esc(s.name)}</td>
@@ -1624,7 +1648,7 @@ function renderBudgetDetail(){
   let totDC=0,totPC=0,totFC=0;
   rows.forEach(r=>{
     totDC+=rowDC(r);totPC+=rowPC(r);
-    totFC+=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&cashflowMatchesBudgetRow(c,r)).reduce((a,c)=>a+(+c.amount||0),0);
+    totFC+=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&isActualCashflow(c)&&cashflowMatchesBudgetRow(c,r)).reduce((a,c)=>a+(+c.amount||0),0);
   });
   const totPI=totDC-totPC, totFI=totDC-totFC;
   const totPIPct=totDC?totPI/totDC*100:0;
@@ -1642,7 +1666,7 @@ function renderBudgetDetail(){
   } else {
     rows.forEach((r,i)=>{
       const dc=rowDC(r), pc=rowPC(r);
-      const fc=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&cashflowMatchesBudgetRow(c,r)).reduce((a,c)=>a+(+c.amount||0),0);
+      const fc=(state.cashflows||[]).filter(c=>c.siteId===s.id&&c.type==='expense'&&isActualCashflow(c)&&cashflowMatchesBudgetRow(c,r)).reduce((a,c)=>a+(+c.amount||0),0);
       const pi=dc-pc, fi=dc-fc, diff=pc-fc;
       const execLabel=r.executor||'—';
       const execColor=r.executor==='СС'?'var(--green)':r.executor?'var(--blue)':'var(--text3)';
@@ -2165,7 +2189,7 @@ function renderContractorDetail(){
   (state.sites||[]).forEach(s=>{
     (s.subContracts||[]).forEach(sc=>{
       if(sc.contractorId!==c.id)return;
-      const siteCFs=(state.cashflows||[]).filter(cf=>cf.siteId===s.id&&cf.type==='expense');
+      const siteCFs=(state.cashflows||[]).filter(cf=>cf.siteId===s.id&&cf.type==='expense'&&isActualCashflow(cf));
       const nm=c.name.toLowerCase();
       function cfSum(kw){
         return siteCFs.filter(cf=>{
@@ -2405,6 +2429,8 @@ function renderCashflow(){
   let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
   if(cfFilters.type==='transfer') rows=rows.filter(r=>isInternalTransfer(r));
   else if(cfFilters.type)   rows=rows.filter(r=>r.type===cfFilters.type&&!isInternalTransfer(r));
+  if(cfFilters.status==='pending')rows=rows.filter(r=>!r.date&&!isInternalTransfer(r));
+  if(cfFilters.status==='paid')rows=rows.filter(r=>!!r.date);
   if(cfFilters.form)        rows=rows.filter(r=>{
     if(!isInternalTransfer(r))return r.form===cfFilters.form;
     const out=all.find(x=>x.transferGroupId===r.transferGroupId&&x.transferRole==='out');
@@ -2417,9 +2443,10 @@ function renderCashflow(){
   if(cfFilters.counterparty)rows=rows.filter(r=>r.counterparty===cfFilters.counterparty);
   if(cfFilters.tag)         rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
   if(cfFilters.month)       rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
-  if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.tag||'').toLowerCase().includes(q)||(r.sourceObject||'').toLowerCase().includes(q)||(r.sourceAccount||'').toLowerCase().includes(q)||(r.documentNumber||'').toLowerCase().includes(q));}
+  if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q)||(r.purpose||'').toLowerCase().includes(q)||(r.initiator||'').toLowerCase().includes(q)||(r.transiter||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.tag||'').toLowerCase().includes(q)||(r.sourceObject||'').toLowerCase().includes(q)||(r.sourceAccount||'').toLowerCase().includes(q)||(r.documentNumber||'').toLowerCase().includes(q));}
 
-  const operatingRows=rows.filter(r=>!isInternalTransfer(r));
+  const pendingRows=rows.filter(r=>!isInternalTransfer(r)&&!isActualCashflow(r));
+  const operatingRows=rows.filter(r=>!isInternalTransfer(r)&&isActualCashflow(r));
   const totInc =operatingRows.filter(r=>r.type==='income').reduce((a,r)=>a+(+r.amount||0),0);
   const totExp =operatingRows.filter(r=>r.type==='expense').reduce((a,r)=>a+(+r.amount||0),0);
   const cashInc=operatingRows.filter(r=>r.type==='income'&&r.form==='cash').reduce((a,r)=>a+(+r.amount||0),0);
@@ -2438,7 +2465,7 @@ function renderCashflow(){
 
   const sub=(label,val)=>`<div style="display:flex;justify-content:space-between;margin-top:5px;padding-top:4px;border-top:1px solid var(--border)"><span style="font-size:9px;color:var(--text3)">${label}</span><span style="font-size:11px;font-weight:600;color:var(--text2)">${fmtN(val)}</span></div>`;
 
-  const metrics=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+  const metrics=`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px">
     <div class="metric" style="--mc:${balance>=0?'var(--accent)':'var(--red)'}">
       <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>Баланс</div>
       <div class="metric-value" style="color:${balance>=0?'var(--accent)':'var(--red)'}">${fmtN(balance)}</div>
@@ -2453,6 +2480,11 @@ function renderCashflow(){
       <div class="metric-label"><span class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></span>Витрати</div>
       <div class="metric-value" style="color:var(--red)">${fmtN(totExp)}</div>
       ${sub('🏦 Рахунок',bankExp)}${sub('💵 Готівка',cashExp)}
+    </div>
+    <div class="metric" style="--mc:var(--amber)">
+      <div class="metric-label">Очікують дати оплати</div>
+      <div class="metric-value" style="color:var(--amber)">${pendingRows.length}</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:8px">Не включені до фактичних сум</div>
     </div>
   </div>`;
 
@@ -2469,6 +2501,11 @@ function renderCashflow(){
       <option value="cash" ${cfFilters.form==='cash'?'selected':''}>💵 Готівка</option>
       <option value="bank" ${cfFilters.form==='bank'?'selected':''}>🏦 Рахунок</option>
     </select>
+    <select onchange="cfFilters.status=this.value;cfPage=1;renderCashflow()">
+      <option value="">Всі статуси</option>
+      <option value="paid" ${cfFilters.status==='paid'?'selected':''}>Оплачені</option>
+      <option value="pending" ${cfFilters.status==='pending'?'selected':''}>Без дати оплати</option>
+    </select>
     <select onchange="cfFilters.category=this.value;renderCashflow()" style="min-width:150px">
       <option value="">Всі статті бюджету</option>
       ${allCats.map(c=>`<option value="${esc(c)}"${cfFilters.category===c?' selected':''}>${esc(c)}</option>`).join('')}
@@ -2484,7 +2521,7 @@ function renderCashflow(){
     </select>
     <input type="month" value="${cfFilters.month}" onchange="cfFilters.month=this.value;renderCashflow()" title="Місяць">
     <input placeholder="🔍 Пошук..." value="${esc(cfFilters.search)}" oninput="cfFilters.search=this.value;renderCashflow()" style="min-width:120px">
-    <button class="btn sm" onclick="cfFilters={type:'',form:'',category:'',site:'',counterparty:'',tag:'',month:'',search:''};cfPage=1;renderCashflow()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9;opacity:${Object.values(cfFilters).some(v=>v)?1:0.45};pointer-events:${Object.values(cfFilters).some(v=>v)?'auto':'none'}">✕ Очистити фільтр</button>
+    <button class="btn sm" onclick="cfFilters={type:'',form:'',status:'',category:'',site:'',counterparty:'',tag:'',month:'',search:''};cfPage=1;renderCashflow()" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9;opacity:${Object.values(cfFilters).some(v=>v)?1:0.45};pointer-events:${Object.values(cfFilters).some(v=>v)?'auto':'none'}">✕ Очистити фільтр</button>
   </div>`;
 
   const displayRows=rows.filter(r=>r.transferRole!=='in');
@@ -2518,7 +2555,7 @@ function renderCashflow(){
       }
       const objectLabel=site?.name||r.sourceObject||'';
       tbody+=`<tr onclick="${clickFn}">
-        <td style="color:var(--text3);white-space:nowrap">${fmtD(r.date)}</td>
+        <td style="color:${r.date?'var(--text3)':'var(--amber)'};white-space:nowrap">${r.date?fmtD(r.date):'Без дати'}</td>
         <td>${typeBadge}</td>
         <td style="font-size:11px;color:var(--text3)">${formLabel}</td>
         <td style="font-size:11px">${esc(r.category||'—')}${r.legacyImport&&!r.budgetRowId?' <span title="Статтю ще не зіставлено з бюджетом" style="color:var(--amber)">⚠</span>':''}</td>
@@ -2527,7 +2564,8 @@ function renderCashflow(){
         <td class="r mono" style="font-size:13px;font-weight:700;${amtStyle}">${amtText}</td>
         <td onclick="event.stopPropagation()"><button class="btn sm danger" onclick="${isTr?`deleteTransfer('${r.id}')`:`deleteCF('${r.id}')`}">×</button></td>
       </tr>`;
-      if(r.notes)tbody+=`<tr><td colspan="8" style="padding:2px 10px 8px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border)">💬 ${esc(r.notes)}</td></tr>`;
+      const details=[r.purpose&&`Призначення: ${r.purpose}`,r.documentNumber&&`Документ: ${r.documentNumber}${r.documentDate?' від '+fmtD(r.documentDate):''}`,r.initiator&&`Ініціатор: ${r.initiator}`,r.vatExcluded&&'Без ПДВ',r.transiter&&`Транзитер: ${r.transiter}`,r.transitAmount&&`Сума транзиту: ${fmtN(r.transitAmount)}`,r.notes&&`Коментар: ${r.notes}`].filter(Boolean);
+      if(details.length)tbody+=`<tr><td colspan="8" style="padding:2px 10px 8px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border)">💬 ${esc(details.join(' · '))}</td></tr>`;
     });
   }
 
@@ -2535,8 +2573,8 @@ function renderCashflow(){
   const catSummary=[];
   [...new Set(operatingRows.map(r=>r.category).filter(Boolean))].forEach(cat=>{
     const cr=operatingRows.filter(r=>r.category===cat);
-    const inc=cr.filter(r=>r.type==='income').reduce((a,r)=>a+(+r.amount||0),0);
-    const exp=cr.filter(r=>r.type==='expense').reduce((a,r)=>a+(+r.amount||0),0);
+    const inc=cr.filter(r=>r.type==='income'&&isActualCashflow(r)).reduce((a,r)=>a+(+r.amount||0),0);
+    const exp=cr.filter(r=>r.type==='expense'&&isActualCashflow(r)).reduce((a,r)=>a+(+r.amount||0),0);
     catSummary.push({cat,inc,exp,count:cr.length});
   });
 
@@ -2594,9 +2632,17 @@ function openCFModal(id,defaultType){
   document.getElementById('cf-type').value=r?.type||defaultType||'income';
   document.getElementById('cf-form').value=r?.form||'bank';
   document.getElementById('cf-company').innerHTML=companyOptions(r?.companyId||activeCompanyId);
-  document.getElementById('cf-date').value=r?.date||new Date().toISOString().slice(0,10);
+  document.getElementById('cf-date').value=r?(r.date||''):new Date().toISOString().slice(0,10);
   document.getElementById('cf-amount').value=r?.amount||'';
   document.getElementById('cf-notes').value=r?.notes||'';
+  document.getElementById('cf-account').value=r?.sourceAccount||'';
+  document.getElementById('cf-initiator').value=r?.initiator||'';
+  document.getElementById('cf-document-number').value=r?.documentNumber||'';
+  document.getElementById('cf-document-date').value=r?.documentDate||'';
+  document.getElementById('cf-purpose').value=r?.purpose||'';
+  document.getElementById('cf-transiter').value=r?.transiter||'';
+  document.getElementById('cf-transit-amount').value=r?.transitAmount||'';
+  document.getElementById('cf-vat-excluded').checked=!!r?.vatExcluded;
   const siteSel=document.getElementById('cf-site');
   siteSel.innerHTML='<option value="">— Оберіть об\'єкт —</option>'+(state.sites||[]).filter(s=>s.companyId===activeCompanyId).map(s=>`<option value="${s.id}"${r?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
   updateCFBudgetOptions(r?.budgetRowId||'',r?.workType||r?.category||'');
@@ -2632,7 +2678,6 @@ function saveCF(){
   const companyId=document.getElementById('cf-company').value;
   const siteId=document.getElementById('cf-site').value;
   const budgetRow=((state.budgets?.[siteId]?.rows)||[]).find(r=>r.id===budgetRowId);
-  if(!date){alert('Введіть дату');return;}
   if(!amount){alert('Введіть суму');return;}
   if(!companyId){alert('Оберіть компанію');return;}
   if(!siteId){alert('Оберіть об’єкт. Кожна фінансова операція має бути прив’язана до об’єкта.');return;}
@@ -2646,12 +2691,20 @@ function saveCF(){
     siteId,
     counterparty:document.getElementById('cf-counterparty').value.trim(),
     notes:document.getElementById('cf-notes').value.trim(),
+    purpose:document.getElementById('cf-purpose').value.trim(),
+    sourceAccount:document.getElementById('cf-account').value.trim(),
+    sourceCompany:companyName(companyId),
+    documentNumber:document.getElementById('cf-document-number').value.trim(),
+    documentDate:document.getElementById('cf-document-date').value,
+    initiator:document.getElementById('cf-initiator').value.trim(),
+    vatExcluded:document.getElementById('cf-vat-excluded').checked,
+    transiter:document.getElementById('cf-transiter').value.trim(),
+    transitAmount:+document.getElementById('cf-transit-amount').value||0,
+    pendingPayment:!date,
     workType:budgetRow.workType||'',
     ...(existingCF?.importKey?{
       importKey:existingCF.importKey,importSource:existingCF.importSource,importRow:existingCF.importRow,
-      sourceObject:existingCF.sourceObject,sourceCategory:existingCF.sourceCategory,sourceAccount:existingCF.sourceAccount,
-      sourceCompany:existingCF.sourceCompany,documentNumber:existingCF.documentNumber,documentDate:existingCF.documentDate,
-      initiator:existingCF.initiator,vatExcluded:existingCF.vatExcluded,transiter:existingCF.transiter,transitAmount:existingCF.transitAmount,
+      sourceObject:existingCF.sourceObject,sourceCategory:existingCF.sourceCategory,
     }:{}),
     legacyImport:false,
   };
@@ -2741,7 +2794,7 @@ function importBankRegistry(input){
         const expense=_parseBudgetNumber(value(row,columns.expense));
         if(!income&&!expense){empty++;continue;}
         const date=_parseDateStr(value(row,columns.date));
-        if(!date){undated++;continue;}
+        if(!date)undated++;
         const sourceObject=String(value(row,columns.object)||'').trim();
         const sourceCategory=String(value(row,columns.category)||'').trim();
         const purpose=String(value(row,columns.purpose)||'').trim();
@@ -2759,21 +2812,20 @@ function importBankRegistry(input){
         [['income',income],['expense',expense]].forEach(([type,amount])=>{
           if(!amount)return;
           const budgetRow=_registryBudgetMatch(site?.id||'',type,sourceCategory,purpose);
-          const importKey=_registryHash([date,type,amount,counterparty,sourceObject,sourceCategory,purpose,documentNumber,sourceAccount]);
-          const noteParts=[purpose,documentNumber?`Документ: ${documentNumber}${documentDate?' від '+fmtD(documentDate):''}`:'',initiator?`Ініціатор: ${initiator}`:'',comment,vatExcluded?'Без ПДВ':'',transiter?`Транзитер: ${transiter}`:'',transitAmount?`Сума транзиту: ${fmtN(transitAmount)}`:''].filter(Boolean);
+          const importKey=_registryHash([date||'без-дати',type,amount,counterparty,sourceObject,sourceCategory,purpose,documentNumber,sourceAccount]);
           operations.push({
             id:'',type,form:'bank',date,amount:+amount,companyId:activeCompanyId,
             siteId:site?.id||'',budgetRowId:budgetRow?.id||'',workType:budgetRow?.workType||'',
             category:budgetRow?.workType||sourceCategory||purpose||'Імпорт з банківського реєстру',
-            counterparty,notes:noteParts.join(' · '),sourceObject,sourceCategory,sourceAccount,sourceCompany,
+            counterparty,notes:comment,purpose,sourceObject,sourceCategory,sourceAccount,sourceCompany,
             documentNumber,documentDate,initiator,vatExcluded,transiter,transitAmount,
-            importSource:'bank-registry',importKey,importRow:index+1,legacyImport:true,
+            importSource:'bank-registry',importKey,importRow:index+1,legacyImport:true,pendingPayment:!date,
             matchedSite:!!site,matchedBudget:!!budgetRow,duplicate:existingKeys.has(importKey),
-            futureDate:new Date(`${date}T00:00:00`)>new Date(),
+            futureDate:!!date&&new Date(`${date}T00:00:00`)>new Date(),
           });
         });
       }
-      if(!operations.length){alert('У файлі немає оплачених рядків із датою та сумою.');return;}
+      if(!operations.length){alert('У файлі немає рядків із сумою приходу або витрат.');return;}
       pendingBankRegistryImport=operations;
       pendingBankRegistryMeta={fileName:file.name,undated,empty,sourceRows:raw.length-headerIndex-1};
       showBankRegistryPreview();
@@ -2790,7 +2842,7 @@ function showBankRegistryPreview(){
   const unmatchedSites=[...new Set(fresh.filter(r=>!r.matchedSite&&r.sourceObject).map(r=>r.sourceObject))];
   const future=fresh.filter(r=>r.futureDate).length;
   const previewRows=fresh.slice(0,80).map(r=>`<tr>
-    <td style="white-space:nowrap">${fmtD(r.date)}</td>
+    <td style="white-space:nowrap;color:${r.date?'var(--text2)':'var(--amber)'}">${r.date?fmtD(r.date):'Без дати'}</td>
     <td style="color:${r.type==='income'?'var(--green)':'var(--red)'};font-weight:700">${r.type==='income'?'Дохід':'Витрата'}</td>
     <td>${esc(r.counterparty||'—')}</td><td>${esc(r.sourceObject||'—')}</td><td>${esc(r.sourceCategory||r.category||'—')}</td>
     <td class="r" style="font-weight:700">${fmtN(r.amount)}</td>
@@ -2802,7 +2854,7 @@ function showBankRegistryPreview(){
     <div class="modal-body" style="overflow:auto">
       <div class="metrics" style="margin-bottom:12px"><div class="metric" style="--mc:var(--accent)"><div class="metric-label">Нових операцій</div><div class="metric-value">${fresh.length}</div></div><div class="metric" style="--mc:var(--green)"><div class="metric-label">Доходи</div><div class="metric-value" style="color:var(--green);font-size:16px">${fmtN(income)}</div></div><div class="metric" style="--mc:var(--red)"><div class="metric-label">Витрати</div><div class="metric-value" style="color:var(--red);font-size:16px">${fmtN(expense)}</div></div><div class="metric" style="--mc:var(--text3)"><div class="metric-label">Повторів пропущено</div><div class="metric-value">${operations.filter(r=>r.duplicate).length}</div></div></div>
       <div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.55">
-        Імпортуються лише рядки, де є <b>дата оплати</b> та сума приходу або витрат. Без дати пропущено: <b>${pendingBankRegistryMeta.undated||0}</b>. Майбутніх дат: <b>${future}</b>.<br>
+        Імпортуються всі рядки, де є сума приходу або витрат. Без дати: <b>${pendingBankRegistryMeta.undated||0}</b> — вони будуть збережені як очікувані платежі та не потраплять у фактичні залишки й виконання бюджету, доки не буде внесено дату оплати. Майбутніх дат: <b>${future}</b>.<br>
         Не зіставлено з наявними об’єктами: <b>${unmatchedSites.length}</b> назв. Такі платежі збережуть оригінальну назву об’єкта і статтю та будуть позначені ⚠; їх можна зіставити з бюджетом під час редагування.
       </div>
       ${future?`<label style="display:flex;align-items:center;gap:7px;margin-bottom:12px;font-size:12px;color:var(--text2)"><input type="checkbox" id="bank-import-future" checked> Імпортувати також операції з майбутньою датою (${future})</label>`:''}
@@ -3550,11 +3602,11 @@ function dashboardStats(companyId=''){
   const planIncome=sites.reduce((sum,s)=>sum+sitePlannedIncome(s),0);
   let planExpense=0;sites.forEach(s=>{((state.budgets||{})[s.id]?.rows||[]).forEach(r=>planExpense+=rowPC(r));});
   const operating=c=>!c.transferGroupId&&!isFinancingCategory(c.category,c.articleId);
-  const factIncome=cashflows.filter(c=>c.type==='income'&&operating(c)).reduce((sum,c)=>sum+(+c.amount||0),0);
-  const factExpense=cashflows.filter(c=>c.type==='expense'&&operating(c)).reduce((sum,c)=>sum+(+c.amount||0),0);
-  const investmentsIn=cashflows.filter(c=>c.type==='income'&&!c.transferGroupId&&isInvestmentCategory(c.category,c.articleId)).reduce((sum,c)=>sum+(+c.amount||0),0);
-  const investmentsOut=cashflows.filter(c=>c.type==='expense'&&isInvestmentCategory(c.category,c.articleId)).reduce((sum,c)=>sum+(+c.amount||0),0);
-  const balance=form=>cashflows.filter(c=>c.form===form).reduce((sum,c)=>sum+(c.type==='income'?+c.amount||0:c.type==='expense'||c.type==='transfer-out'?-(+c.amount||0):0),0);
+  const factIncome=cashflows.filter(c=>c.type==='income'&&operating(c)&&isActualCashflow(c)).reduce((sum,c)=>sum+(+c.amount||0),0);
+  const factExpense=cashflows.filter(c=>c.type==='expense'&&operating(c)&&isActualCashflow(c)).reduce((sum,c)=>sum+(+c.amount||0),0);
+  const investmentsIn=cashflows.filter(c=>c.type==='income'&&!c.transferGroupId&&isActualCashflow(c)&&isInvestmentCategory(c.category,c.articleId)).reduce((sum,c)=>sum+(+c.amount||0),0);
+  const investmentsOut=cashflows.filter(c=>c.type==='expense'&&isActualCashflow(c)&&isInvestmentCategory(c.category,c.articleId)).reduce((sum,c)=>sum+(+c.amount||0),0);
+  const balance=form=>cashflows.filter(c=>c.form===form).reduce((sum,c)=>sum+cashflowSignedAmount(c),0);
   const factProfit=factIncome-factExpense,planProfit=planIncome-planExpense;
   return{sites,planIncome,planExpense,factIncome,factExpense,planProfit,factProfit,profitability:factIncome?factProfit/factIncome*100:0,planProfitability:planIncome?planProfit/planIncome*100:0,bank:balance('bank'),cash:balance('cash'),investments:investmentsIn-investmentsOut};
 }
@@ -4344,7 +4396,7 @@ function exportBudgetPDF(siteId){
   let totDC=0,totPC=0,totFC=0;
   const trs=rows.map((r,i)=>{
     const dc=rowDC(r),pc=rowPC(r);
-    const fc=(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense'&&cashflowMatchesBudgetRow(c,r)).reduce((a,c)=>a+(+c.amount||0),0);
+    const fc=(state.cashflows||[]).filter(c=>c.siteId===siteId&&c.type==='expense'&&isActualCashflow(c)&&cashflowMatchesBudgetRow(c,r)).reduce((a,c)=>a+(+c.amount||0),0);
     totDC+=dc;totPC+=pc;totFC+=fc;
     const pi=dc-pc,fi=dc-fc,diff=pc-fc;
     const p=(n,d)=>d?(n/d*100).toFixed(1)+'%':'—';
@@ -4374,6 +4426,8 @@ function exportCashflowExcel(){
   // apply current filters
   if(cfFilters.type==='transfer')rows=rows.filter(r=>isInternalTransfer(r));
   else if(cfFilters.type)rows=rows.filter(r=>r.type===cfFilters.type&&!isInternalTransfer(r));
+  if(cfFilters.status==='pending')rows=rows.filter(r=>!r.date&&!isInternalTransfer(r));
+  if(cfFilters.status==='paid')rows=rows.filter(r=>!!r.date);
   if(cfFilters.form)    rows=rows.filter(r=>{
     if(!isInternalTransfer(r))return r.form===cfFilters.form;
     const out=all.find(x=>x.transferGroupId===r.transferGroupId&&x.transferRole==='out');
@@ -4383,17 +4437,20 @@ function exportCashflowExcel(){
   if(cfFilters.site)    rows=rows.filter(r=>r.siteId===cfFilters.site);
   if(cfFilters.month)   rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
   if(cfFilters.tag)     rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
-  if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q));}
+  if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q)||(r.purpose||'').toLowerCase().includes(q)||(r.sourceAccount||'').toLowerCase().includes(q)||(r.documentNumber||'').toLowerCase().includes(q));}
   rows=rows.filter(r=>r.transferRole!=='in');
-  const header=['Дата','Тип','Форма оплати','Стаття бюджету','Об\'єкт','Контрагент','Сума','Примітки'];
+  const header=['Дата оплати','Компанія платник / отримувач','Рахунок','Контрагент','Сума приходу','Сума витрат','№ договору / рахунку','Дата договору','Коротке призначення платежу','Об\'єкт','Ініціатор','Стаття доходу / витрат','','Без ПДВ (+)','Транзитер','Сума транзиту','Коментар'];
   const data=[header,...rows.map(r=>{
     const site=(state.sites||[]).find(s=>s.id===r.siteId);
     const isTr=isInternalTransfer(r);
-    const form=isTr?`${CF_FORM_LABEL[r.form]||r.form} → ${CF_FORM_LABEL[r.transferTo]||r.transferTo}`:(CF_FORM_LABEL[r.form]||r.form)+(r.sourceAccount?` · ${r.sourceAccount}`:'');
-    const note=isTr?`${r.notes||''}${r.notes?' · ':''}Отримано: ${fmtN(r.transferReceived||0)}`:(r.notes||'');
-    return[r.date,isTr?'Переказ':r.type==='income'?'Дохід':'Розхід',form,r.category||'',site?.name||r.sourceObject||'',r.counterparty||'',+r.amount||0,note];
+    const company=r.sourceCompany||companyName(r.companyId);
+    const account=r.sourceAccount||(isTr?`${CF_FORM_LABEL[r.form]||r.form} → ${CF_FORM_LABEL[r.transferTo]||r.transferTo}`:(CF_FORM_LABEL[r.form]||r.form));
+    const income=!isTr&&r.type==='income'?(+r.amount||0):'';
+    const expense=isTr||r.type==='expense'?(+r.amount||0):'';
+    const purpose=isTr?(r.purpose||`Переказ між рахунками; отримано ${fmtN(r.transferReceived||0)}`):(r.purpose||'');
+    return[r.date||'',company,account,r.counterparty||'',income,expense,r.documentNumber||'',r.documentDate||'',purpose,site?.name||r.sourceObject||'',r.initiator||'',r.category||r.sourceCategory||'','',r.vatExcluded?'+':'',r.transiter||'',+r.transitAmount||'',r.notes||''];
   })];
-  xlsxDownload(data,'Грошові потоки',`MACC_ГрошовіПотоки_${new Date().toISOString().slice(0,10)}.xlsx`);
+  xlsxDownload(data,'Реєстр',`MACC_РеєстрПлатежів_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 function exportCashflowPDF(){
@@ -4401,6 +4458,8 @@ function exportCashflowPDF(){
   let rows=[...all].sort((a,b)=>b.date.localeCompare(a.date));
   if(cfFilters.type==='transfer')rows=rows.filter(r=>isInternalTransfer(r));
   else if(cfFilters.type)rows=rows.filter(r=>r.type===cfFilters.type&&!isInternalTransfer(r));
+  if(cfFilters.status==='pending')rows=rows.filter(r=>!r.date&&!isInternalTransfer(r));
+  if(cfFilters.status==='paid')rows=rows.filter(r=>!!r.date);
   if(cfFilters.form)    rows=rows.filter(r=>{
     if(!isInternalTransfer(r))return r.form===cfFilters.form;
     const out=all.find(x=>x.transferGroupId===r.transferGroupId&&x.transferRole==='out');
@@ -4410,18 +4469,18 @@ function exportCashflowPDF(){
   if(cfFilters.site)    rows=rows.filter(r=>r.siteId===cfFilters.site);
   if(cfFilters.month)   rows=rows.filter(r=>r.date.slice(0,7)===cfFilters.month);
   if(cfFilters.tag)     rows=rows.filter(r=>(r.tag||'').toLowerCase().includes(cfFilters.tag.toLowerCase()));
-  if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q));}
+  if(cfFilters.search){const q=cfFilters.search.toLowerCase();rows=rows.filter(r=>(r.counterparty||'').toLowerCase().includes(q)||(r.category||'').toLowerCase().includes(q)||(r.notes||'').toLowerCase().includes(q)||(r.purpose||'').toLowerCase().includes(q)||(r.sourceAccount||'').toLowerCase().includes(q)||(r.documentNumber||'').toLowerCase().includes(q));}
   rows=rows.filter(r=>r.transferRole!=='in');
   let totInc=0,totExp=0;
   const trs=rows.map(r=>{
     const site=(state.sites||[]).find(s=>s.id===r.siteId);
     const isTr=isInternalTransfer(r),isInc=r.type==='income'&&!isTr;
-    if(isInc)totInc+=(+r.amount||0);else if(!isTr)totExp+=(+r.amount||0);
+    if(isActualCashflow(r)){if(isInc)totInc+=(+r.amount||0);else if(!isTr)totExp+=(+r.amount||0);}
     const form=isTr?`${CF_FORM_LABEL[r.form]||r.form} → ${CF_FORM_LABEL[r.transferTo]||r.transferTo}`:(CF_FORM_LABEL[r.form]||r.form)+(r.sourceAccount?` · ${esc(r.sourceAccount)}`:'');
     const typeLabel=isTr?'↔ Переказ':isInc?'↑ Дохід':'↓ Розхід';
     const amountLabel=isTr?`${fmtN(r.amount)} → ${fmtN(r.transferReceived||0)}`:`${isInc?'+':'-'}${fmtN(r.amount)}`;
     return`<tr>
-      <td style="white-space:nowrap">${fmtD(r.date)}</td>
+      <td style="white-space:nowrap;color:${r.date?'inherit':'#b7791f'}">${r.date?fmtD(r.date):'Без дати'}</td>
       <td style="color:${isTr?'#7c3aed':isInc?'green':'red'};font-weight:700">${typeLabel}</td>
       <td>${form}</td>
       <td>${esc(r.category||'—')}</td>
