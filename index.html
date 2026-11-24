@@ -466,7 +466,7 @@ select.form-input option{background:var(--bg3)}
       <div class="form-group"><label class="form-label">Компанія групи *</label><select class="form-input" id="cf-company" disabled></select></div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Тип *</label>
-          <select class="form-input" id="cf-type" onchange="updateCFBudgetOptions()">
+          <select class="form-input" id="cf-type" onchange="updateCFBudgetOptions('','',true)">
             <option value="income">📈 Дохід</option>
             <option value="expense">📉 Витрата</option>
           </select></div>
@@ -485,12 +485,15 @@ select.form-input option{background:var(--bg3)}
       <datalist id="cf-cp-list"></datalist>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Об'єкт *</label>
-          <select class="form-input" id="cf-site" onchange="updateCFBudgetOptions()">
+          <select class="form-input" id="cf-site" onchange="updateCFBudgetOptions('','',true)">
             <option value="">— Оберіть об'єкт —</option>
           </select></div>
-        <div class="form-group"><label class="form-label">Стаття бюджету *</label>
-          <select class="form-input" id="cf-category" disabled><option value="">— Спочатку оберіть об'єкт —</option></select></div>
+        <div class="form-group"><label class="form-label">Стаття бюджету (необов’язково)</label>
+          <select class="form-input" id="cf-category" disabled onchange="syncCFCategoryFromBudget()"><option value="">— Спочатку оберіть об'єкт —</option></select></div>
       </div>
+      <div class="form-group"><label class="form-label">Стаття доходу / витрат *</label>
+        <input class="form-input" id="cf-category-name" placeholder="Введіть назву статті або оберіть її з бюджету вище">
+        <div style="font-size:10px;color:var(--text3);margin-top:5px">Можна ввести будь-яку статтю, навіть якщо її немає в бюджеті об’єкта.</div></div>
       <div class="form-group"><label class="form-label">Контрагент</label>
         <input class="form-input" id="cf-counterparty" list="cf-cp-list" placeholder="введіть або оберіть..."></div>
       <div class="form-row2">
@@ -2660,7 +2663,8 @@ function openCFModal(id,defaultType){
   document.getElementById('cf-vat-excluded').checked=!!r?.vatExcluded;
   const siteSel=document.getElementById('cf-site');
   siteSel.innerHTML='<option value="">— Оберіть об\'єкт —</option>'+(state.sites||[]).filter(s=>s.companyId===activeCompanyId).map(s=>`<option value="${s.id}"${r?.siteId===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
-  updateCFBudgetOptions(r?.budgetRowId||'',r?.workType||r?.category||'');
+  document.getElementById('cf-category-name').value=r?.category||r?.sourceCategory||'';
+  updateCFBudgetOptions(r?.budgetRowId||'');
   const contractorNames=(state.contractors||[]).map(c=>c.name).filter(Boolean);
   const clientNames=(state.sites||[]).map(s=>s.client).filter(Boolean);
   const usedCP=[...new Set((state.cashflows||[]).map(x=>x.counterparty).filter(Boolean))];
@@ -2669,20 +2673,28 @@ function openCFModal(id,defaultType){
   document.getElementById('cf-counterparty').value=r?.counterparty||'';
   document.getElementById('modal-cf').classList.add('open');
 }
-function updateCFBudgetOptions(selectedRowId='',legacyName=''){
+function updateCFBudgetOptions(selectedRowId='',legacyName='',resetCategory=false){
   const select=document.getElementById('cf-category');if(!select)return;
+  const categoryInput=document.getElementById('cf-category-name');
   const siteId=document.getElementById('cf-site')?.value||'';
   const flowType=document.getElementById('cf-type')?.value||'';
   const rows=siteId?((state.budgets?.[siteId]?.rows)||[]).filter(r=>!r.budgetKind||r.budgetKind===flowType):[];
+  if(resetCategory&&categoryInput)categoryInput.value='';
   select.disabled=!siteId||!rows.length;
   select.innerHTML=!siteId
     ?'<option value="">— Спочатку оберіть об’єкт —</option>'
     :!rows.length
-      ?`<option value="">— У бюджеті немає статей ${flowType==='income'?'доходу':'витрат'} —</option>`
-      :'<option value="">— Оберіть статтю бюджету —</option>'+rows.map((r,index)=>`<option value="${r.id}">${index+1}. ${esc(r.workType||'Без назви')}</option>`).join('');
+      ?`<option value="">— У бюджеті немає статей ${flowType==='income'?'доходу':'витрат'}; введіть статтю нижче —</option>`
+      :'<option value="">— Без прив’язки до бюджету —</option>'+rows.map((r,index)=>`<option value="${r.id}">${index+1}. ${esc(r.workType||'Без назви')}</option>`).join('');
   let value=selectedRowId;
   if(!value&&legacyName)value=rows.find(r=>r.workType===legacyName)?.id||'';
   if(value&&[...select.options].some(o=>o.value===value))select.value=value;
+}
+function syncCFCategoryFromBudget(){
+  const siteId=document.getElementById('cf-site')?.value||'';
+  const budgetRowId=document.getElementById('cf-category')?.value||'';
+  const budgetRow=((state.budgets?.[siteId]?.rows)||[]).find(r=>r.id===budgetRowId);
+  if(budgetRow)document.getElementById('cf-category-name').value=budgetRow.workType||'';
 }
 function saveCF(){
   if(!state.cashflows)state.cashflows=[];
@@ -2693,16 +2705,17 @@ function saveCF(){
   const companyId=document.getElementById('cf-company').value;
   const siteId=document.getElementById('cf-site').value;
   const budgetRow=((state.budgets?.[siteId]?.rows)||[]).find(r=>r.id===budgetRowId);
+  const categoryName=document.getElementById('cf-category-name').value.trim()||budgetRow?.workType||'';
   if(!amount){alert('Введіть суму');return;}
   if(!companyId){alert('Оберіть компанію');return;}
   if(!siteId){alert('Оберіть об’єкт. Кожна фінансова операція має бути прив’язана до об’єкта.');return;}
-  if(!budgetRow){alert('Оберіть статтю з бюджету цього об’єкта.');return;}
+  if(!categoryName){alert('Введіть статтю доходу або витрат. Вона не обов’язково має бути в бюджеті.');return;}
   const data={
     id:editingCFId||uid(),
     type:document.getElementById('cf-type').value,
     form:document.getElementById('cf-form').value,
-    date,amount,category:budgetRow.workType||'Без назви',companyId,
-    budgetRowId:budgetRow.id,
+    date,amount,category:categoryName,companyId,
+    budgetRowId:budgetRow?.id||'',
     siteId,
     counterparty:document.getElementById('cf-counterparty').value.trim(),
     notes:document.getElementById('cf-notes').value.trim(),
@@ -2716,7 +2729,7 @@ function saveCF(){
     transiter:document.getElementById('cf-transiter').value.trim(),
     transitAmount:+document.getElementById('cf-transit-amount').value||0,
     pendingPayment:!date,
-    workType:budgetRow.workType||'',
+    workType:budgetRow?.workType||'',
     ...(existingCF?.importKey?{
       importKey:existingCF.importKey,importSource:existingCF.importSource,importRow:existingCF.importRow,
       sourceObject:existingCF.sourceObject,sourceCategory:existingCF.sourceCategory,
